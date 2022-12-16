@@ -1,3 +1,3 @@
-module github.com/obalunenko/common-go-projects-scripts
+module github.com/obalunenko/go-tools
 
 go 1.19
