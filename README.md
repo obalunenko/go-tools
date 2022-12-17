@@ -6,15 +6,15 @@ docker image could be pulled with command: `docker pull olegbalunenko/go-tools`
 
 ## Installed tools
 
-	- github.com/axw/gocov/gocov
-	- github.com/golangci/golangci-lint/cmd/golangci-lint
-	- github.com/matm/gocov-html/cmd/gocov-html
-	- github.com/mattn/goveralls
-	- github.com/obalunenko/coverbadger/cmd/coverbadger
-	- golang.org/x/tools/cmd/cover
-	- golang.org/x/tools/cmd/goimports
-	- golang.org/x/tools/cmd/stringer
-	- gotest.tools/gotestsum
+	- github.com/axw/gocov/gocov v1.1.0
+	- github.com/golangci/golangci-lint/cmd/golangci-lint v1.50.1
+	- github.com/matm/gocov-html/cmd/gocov-html v1.2.0
+	- github.com/mattn/goveralls 0.0.11
+	- github.com/obalunenko/coverbadger/cmd/coverbadger v1.3.1
+	- golang.org/x/tools/cmd/cover v0.4.0
+	- golang.org/x/tools/cmd/goimports v0.4.0
+	- golang.org/x/tools/cmd/stringer v0.4.0
+	- gotest.tools/gotestsum v1.8.2
   
  ## Usage
  
