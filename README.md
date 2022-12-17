@@ -2,7 +2,7 @@
 
 This repository contains common scripts that I used over all projects.
 
-docker image could be pulled with command: `docker pull olegbalunenko/go-tools`
+docker image could be pulled with command: ` docker pull ghcr.io/obalunenko/go-tools:latest`
 
 ## Installed tools
 
