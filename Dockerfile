@@ -61,7 +61,7 @@ ARG TARGETARCH
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
 
 
-FROM alpine
+FROM golang:1.19-alpine
 
 RUN apk add --no-cache bash
 
