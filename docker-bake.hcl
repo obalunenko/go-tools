@@ -16,7 +16,10 @@ variable "IMAGE_WITH_REGISTRY" {
     default = notequal("",REGISTRY) ? "${REGISTRY}/${IMAGE_NAME}": "${IMAGE_NAME}"
 }
 
+target "docker-metadata-action" {}
+
 target "gotools-latest" {
+    inherits = ["docker-metadata-action"]
     dockerfile = "Dockerfile"
     context= "."
     platforms = ["linux/amd64", "linux/arm64"]
