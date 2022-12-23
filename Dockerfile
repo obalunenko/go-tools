@@ -63,6 +63,8 @@ RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
 
 FROM alpine
 
+RUN apk add --no-cache bash
+
 ENV GOROOT /usr/local/go
 
 # don't place it into $GOPATH/bin because Drone mounts $GOPATH as volume
