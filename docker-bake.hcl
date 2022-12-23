@@ -23,5 +23,4 @@ target "gotools-latest" {
     dockerfile = "Dockerfile"
     context= "."
     platforms = ["linux/amd64", "linux/arm64"]
-    output = ["type=registry"]
 }

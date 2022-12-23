@@ -1,4 +1,25 @@
-FROM --platform=$BUILDPLATFORM golang:1.19-alpine as base
+FROM --platform=$BUILDPLATFORM golang:1.19 as builder
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+
+ENV PROJECT_DIR="/src/github.com/obalunenko/common-go-projects-scripts"
+ENV GOBIN=${PROJECT_DIR}/bin
+
+RUN mkdir -p "${PROJECT_DIR}"
+
+WORKDIR "${PROJECT_DIR}"
+
+RUN echo "I am running on ${BUILDPLATFORM}, building for ${TARGETPLATFORM}" > ./log_build.txt
+
+COPY ./.git ./.git
+COPY ./scripts ./scripts
+COPY ./tools ./tools
+COPY Makefile Makefile
+ARG TARGETOS
+ARG TARGETARCH
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
+
+FROM golang:1.19-alpine as base
 ARG APK_GIT_VERSION=~2
 ARG APK_NCURSES_VERSION=~6
 ARG APK_MAKE_VERSION=~4
@@ -38,30 +59,7 @@ RUN apk --no-cache add "${APK_GLIBC_BIN_FILE}"
 RUN apk fix --force-overwrite alpine-baselayout-data
 RUN rm glibc-*
 
-
-FROM base as builder
-ARG TARGETPLATFORM
-ARG BUILDPLATFORM
-
-ENV PROJECT_DIR="/src/github.com/obalunenko/common-go-projects-scripts"
-ENV GOBIN=${PROJECT_DIR}/bin
-
-RUN mkdir -p "${PROJECT_DIR}"
-
-WORKDIR "${PROJECT_DIR}"
-
-RUN echo "I am running on ${BUILDPLATFORM}, building for ${TARGETPLATFORM}" > ./log_build.txt
-
-COPY ./.git ./.git
-COPY ./scripts ./scripts
-COPY ./tools ./tools
-COPY Makefile Makefile
-ARG TARGETOS
-ARG TARGETARCH
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
-
-
-FROM golang:1.19-alpine
+FROM base
 
 RUN apk add --no-cache bash
 
