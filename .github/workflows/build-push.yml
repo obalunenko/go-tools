@@ -62,3 +62,5 @@ jobs:
             ${{ steps.meta.outputs.bake-file }}
           push: ${{ github.event_name != 'pull_request' }}
           pull: true
+          flavor: |
+              latest=auto
