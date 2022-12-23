@@ -52,11 +52,11 @@ jobs:
             type=sha
 
       - name: Build and push Docker images
-        uses: docker/build-push-action@v3.2.0
+        uses: docker/bake-action@v2.3.0
+        env: 
+          TAGS: ${{ steps.meta.outputs.tags }}
+          LABELS: ${{ steps.meta.outputs.labels }}
         with:
-          context: .
-          file: Dockerfile
-          push: true
-          platforms: 'linux/arm64,linux/amd64'
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          push: ${{ github.event_name != 'pull_request' }}
+          pull: true
+          files: 'docker-bake.hcl'
