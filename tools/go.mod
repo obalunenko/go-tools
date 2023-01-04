@@ -8,7 +8,7 @@ require (
 	github.com/matm/gocov-html v1.2.0
 	github.com/mattn/goveralls v0.0.11
 	github.com/obalunenko/coverbadger v1.3.1
-	golang.org/x/tools v0.4.0
+	golang.org/x/tools v0.5.0
 	gotest.tools/gotestsum v1.8.2
 )
 
@@ -179,7 +179,7 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20220827204233-334a2380cb91 // indirect
 	golang.org/x/mod v0.7.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.3.0 // indirect
+	golang.org/x/sys v0.4.0 // indirect
 	golang.org/x/term v0.3.0 // indirect
 	golang.org/x/text v0.5.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
