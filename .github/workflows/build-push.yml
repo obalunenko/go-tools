@@ -44,7 +44,6 @@ jobs:
           tags: |
             type=schedule
             type=ref,event=branch
-            type=ref,event=pr
             type=semver,pattern={{raw}}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -62,5 +61,3 @@ jobs:
             ${{ steps.meta.outputs.bake-file }}
           push: ${{ github.event_name != 'pull_request' }}
           pull: true
-          flavor: |
-            latest=auto

@@ -39,7 +39,6 @@ jobs:
           tags: |
             type=schedule
             type=ref,event=branch
-            type=ref,event=pr
             type=semver,pattern={{raw}}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -57,8 +56,7 @@ jobs:
             ${{ steps.meta.outputs.bake-file }}
           push: false
           pull: true
-          flavor: |
-            latest=auto
+
   lint-dockerfiles:
     strategy:
       fail-fast: false
