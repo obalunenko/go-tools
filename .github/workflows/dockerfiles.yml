@@ -12,7 +12,7 @@ on:
       - "!**"
       - "Dockerfile"
       - "docker-bake.hcl"
-      - ".github/**"
+      - ".github/**/**"
 
 jobs:
   build:
