@@ -37,13 +37,10 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           # Docker tags based on the following events/attributes
           tags: |
-            type=schedule
-            type=ref,event=branch
             type=semver,pattern={{raw}}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=sha
 
       - name: Build and push Docker images
         uses: docker/bake-action@v2.3.0
