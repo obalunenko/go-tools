@@ -1,6 +1,6 @@
 module github.com/obalunenko/go-tools/tools
 
-go 1.19
+go 1.20
 
 require (
 	github.com/axw/gocov v1.1.0
