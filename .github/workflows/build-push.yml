@@ -3,7 +3,7 @@ name: Build Docker multiarch image on release
 on:
   workflow_dispatch:
   push:
-    tags: ['v*']
+    tags: [ 'v*' ]
 
 env:
   REGISTRY: ghcr.io
@@ -53,7 +53,7 @@ jobs:
 
       - name: Build and push Docker images
         uses: docker/bake-action@v2.3.0
-        env: 
+        env:
           TAGS: ${{ steps.meta.outputs.tags }}
           LABELS: ${{ steps.meta.outputs.labels }}
         with:
@@ -63,4 +63,4 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           pull: true
           flavor: |
-              latest=auto
+            latest=auto
