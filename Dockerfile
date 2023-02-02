@@ -45,20 +45,18 @@ RUN apk update && \
         "binutils-gold=${APK_BINUTILS_VERSION}" && \
     rm -rf /var/cache/apk/*
 
-# Get and install glibc for alpine
-ARG APK_GLIBC_VERSION=2.35-r0
-ARG APK_GLIBC_FILE="glibc-${APK_GLIBC_VERSION}.apk"
-ARG APK_GLIBC_BIN_FILE="glibc-bin-${APK_GLIBC_VERSION}.apk"
-ARG APK_GLIBC_BASE_URL="https://github.com/sgerrand/alpine-pkg-glibc/releases/download/${APK_GLIBC_VERSION}"
-# hadolint ignore=DL3018
-# hadolint ignore=DL3018,DL3019
-RUN wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub && \
-    wget -nv "${APK_GLIBC_BASE_URL}/${APK_GLIBC_FILE}" && \
-    apk add --force-overwrite "${APK_GLIBC_FILE}" && \
-    wget -nv "${APK_GLIBC_BASE_URL}/${APK_GLIBC_BIN_FILE}" && \
-    apk --no-cache add "${APK_GLIBC_BIN_FILE}" && \
-    apk fix --force-overwrite alpine-baselayout-data && \
-    rm glibc-*
+ENV GLIBC_VERSION 2.35-r0
+
+# Download and install glibc
+RUN apk add --update curl && \
+  curl -Lo /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub && \
+  curl -Lo glibc.apk "https://github.com/sgerrand/alpine-pkg-glibc/releases/download/${GLIBC_VERSION}/glibc-${GLIBC_VERSION}.apk" && \
+  curl -Lo glibc-bin.apk "https://github.com/sgerrand/alpine-pkg-glibc/releases/download/${GLIBC_VERSION}/glibc-bin-${GLIBC_VERSION}.apk" && \
+  apk add --force-overwrite glibc-bin.apk glibc.apk && \
+  /usr/glibc-compat/sbin/ldconfig /lib /usr/glibc-compat/lib && \
+  echo 'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4' >> /etc/nsswitch.conf && \
+  apk del curl && \
+  rm -rf glibc.apk glibc-bin.apk /var/cache/apk/*
 
 FROM base
 
