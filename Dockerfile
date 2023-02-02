@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.19 as builder
+FROM --platform=$BUILDPLATFORM golang:1.20 as builder
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 
@@ -19,7 +19,7 @@ ARG TARGETOS
 ARG TARGETARCH
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
 
-FROM golang:1.19-alpine as base
+FROM golang:1.20-alpine as base
 ARG APK_GIT_VERSION=~2
 ARG APK_NCURSES_VERSION=~6
 ARG APK_MAKE_VERSION=~4
@@ -28,7 +28,7 @@ ARG APK_BASH_VERSION=~5
 ARG APK_CURL_VERSION=~7
 ARG APK_MUSL_DEV_VERSION=~1
 ARG APK_UNZIP_VERSION=~6
-ARG APK_CA_CERTIFICATES_VERSION=20220614-r2
+ARG APK_CA_CERTIFICATES_VERSION=~20220614
 ARG APK_LIBSTDC_VERSION=~12
 ARG APK_BINUTILS_VERSION=~2
 RUN apk update && \
@@ -51,17 +51,16 @@ ARG APK_GLIBC_FILE="glibc-${APK_GLIBC_VERSION}.apk"
 ARG APK_GLIBC_BIN_FILE="glibc-bin-${APK_GLIBC_VERSION}.apk"
 ARG APK_GLIBC_BASE_URL="https://github.com/sgerrand/alpine-pkg-glibc/releases/download/${APK_GLIBC_VERSION}"
 # hadolint ignore=DL3018
-RUN wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub
-RUN wget -nv "${APK_GLIBC_BASE_URL}/${APK_GLIBC_FILE}" 
-RUN apk add --force-overwrite "${APK_GLIBC_FILE}" 
-RUN wget -nv "${APK_GLIBC_BASE_URL}/${APK_GLIBC_BIN_FILE}"
-RUN apk --no-cache add "${APK_GLIBC_BIN_FILE}"
-RUN apk fix --force-overwrite alpine-baselayout-data
-RUN rm glibc-*
+# hadolint ignore=DL3018,DL3019
+RUN wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub && \
+    wget -nv "${APK_GLIBC_BASE_URL}/${APK_GLIBC_FILE}" && \
+    apk add --force-overwrite "${APK_GLIBC_FILE}" && \
+    wget -nv "${APK_GLIBC_BASE_URL}/${APK_GLIBC_BIN_FILE}" && \
+    apk --no-cache add "${APK_GLIBC_BIN_FILE}" && \
+    apk fix --force-overwrite alpine-baselayout-data && \
+    rm glibc-*
 
 FROM base
-
-RUN apk add --no-cache bash
 
 ENV GOROOT /usr/local/go
 
