@@ -51,17 +51,16 @@ ARG APK_GLIBC_FILE="glibc-${APK_GLIBC_VERSION}.apk"
 ARG APK_GLIBC_BIN_FILE="glibc-bin-${APK_GLIBC_VERSION}.apk"
 ARG APK_GLIBC_BASE_URL="https://github.com/sgerrand/alpine-pkg-glibc/releases/download/${APK_GLIBC_VERSION}"
 # hadolint ignore=DL3018
-RUN wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub
-RUN wget -nv "${APK_GLIBC_BASE_URL}/${APK_GLIBC_FILE}" 
-RUN apk add --force-overwrite "${APK_GLIBC_FILE}" 
-RUN wget -nv "${APK_GLIBC_BASE_URL}/${APK_GLIBC_BIN_FILE}"
-RUN apk --no-cache add "${APK_GLIBC_BIN_FILE}"
-RUN apk fix --force-overwrite alpine-baselayout-data
-RUN rm glibc-*
+# hadolint ignore=DL3018,DL3019
+RUN wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub && \
+    wget -nv "${APK_GLIBC_BASE_URL}/${APK_GLIBC_FILE}" && \
+    apk add --force-overwrite "${APK_GLIBC_FILE}" && \
+    wget -nv "${APK_GLIBC_BASE_URL}/${APK_GLIBC_BIN_FILE}" && \
+    apk --no-cache add "${APK_GLIBC_BIN_FILE}" && \
+    apk fix --force-overwrite alpine-baselayout-data && \
+    rm glibc-*
 
 FROM base
-
-RUN apk add --no-cache bash
 
 ENV GOROOT /usr/local/go
 
