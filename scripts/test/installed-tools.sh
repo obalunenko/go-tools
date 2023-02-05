@@ -26,4 +26,6 @@ echo "fiximports check: $(fiximports --help)"
 
 echo "gotestsum check: $(gotestsum --help)"
 
+echo "goreadme check: $(goreadme -h)"
+
 echo "${SCRIPT_NAME} done "

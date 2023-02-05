@@ -16,12 +16,13 @@ docker image could be pulled with command: ` docker pull ghcr.io/obalunenko/go-t
 	- golang.org/x/tools/cmd/stringer v0.5.0
 	_ golang.org/x/tools/cmd/fiximports v0.5.0
 	- gotest.tools/gotestsum v1.9.0
-  
- ## Usage
- 
- Pull image and run it with mounted volune with your code, then just execute needed command.
- 
- https://github.com/obalunenko/go-tools/pkgs/container/go-tools
+    - github.com/posener/goreadme/cmd/goreadme v1.4.2
+
+## Usage
+
+Pull image and run it with mounted volune with your code, then just execute needed command.
+
+https://github.com/obalunenko/go-tools/pkgs/container/go-tools
  
  
  
