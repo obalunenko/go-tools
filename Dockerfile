@@ -46,6 +46,11 @@ RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
 
 FROM golang:1.20.0-alpine3.17 as releaser
 
+ARG APK_BASH_VERSION=~5
+
+RUN apk add --no-cache \
+      "bash=${APK_BASH_VERSION}"
+
 ENV GOROOT /usr/local/go
 
 # don't place it into $GOPATH/bin because Drone mounts $GOPATH as volume
@@ -53,12 +58,10 @@ COPY --from=builder /src/github.com/obalunenko/common-go-projects-scripts/bin/. 
 
 FROM releaser as tester
 
-ENV GOROOT /usr/local/go
-
 COPY --from=builder /src/github.com/obalunenko/common-go-projects-scripts/scripts/test/installed-tools.sh /usr/bin/installed-tools.sh
 
 RUN /usr/bin/installed-tools.sh
 
 FROM releaser
 
-ENV GOROOT /usr/local/go
+
