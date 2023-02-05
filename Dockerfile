@@ -13,8 +13,12 @@ RUN echo "I am running on ${BUILDPLATFORM}, building for ${TARGETPLATFORM}" > ./
 
 COPY ./.git ./.git
 COPY ./scripts ./scripts
-COPY ./tools ./tools
+COPY tools.go tools.go
+COPY vendor vendor
+COPY go.mod go.mod
+COPY go.sum go.sum
 COPY Makefile Makefile
+
 ARG TARGETOS
 ARG TARGETARCH
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
