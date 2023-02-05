@@ -1,4 +1,4 @@
-name: Dockerfiles [lint]
+name: build-lint
 
 on:
   push:

@@ -61,3 +61,35 @@ jobs:
             ${{ steps.meta.outputs.bake-file }}
           push: ${{ github.event_name != 'pull_request' }}
           pull: true
+
+  release:
+    needs: [ build-and-push-image-multiarch ]
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        os: [ 'ubuntu-22.04' ]
+        go: [ '1.20' ]
+    runs-on: ${{ matrix.os }}
+    name: Release
+    steps:
+      - name: Set up go
+        uses: actions/setup-go@v3.5.0
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          install-only: true
+
+      - name: Run GoReleaser
+        if: success()
+        run: |
+          make release
+        env:
