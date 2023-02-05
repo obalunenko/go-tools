@@ -12,6 +12,11 @@ on:
       - "!**"
       - "Dockerfile"
       - "docker-bake.hcl"
+      - "tools.go"
+      - "go.mod"
+      - "go.sum"
+      - "vendor/**"
+      - "scripts"
       - ".github/**/**"
 
 jobs:
