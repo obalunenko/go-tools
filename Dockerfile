@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.20.0-alpine3.17 as builder
+FROM golang:1.20.0-alpine3.17 as base
 
 ARG APK_BASH_VERSION=~5
 ARG APK_GIT_VERSION=~2
@@ -19,6 +19,7 @@ RUN apk add --no-cache \
     "ca-certificates=${APK_CA_CERTIFICATES_VERSION}" \
     "binutils-gold=${APK_BINUTILS_VERSION}"
 
+FROM --platform=$BUILDPLATFORM base as builder
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 
@@ -44,12 +45,7 @@ ARG TARGETARCH
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
 
 
-FROM golang:1.20.0-alpine3.17 as releaser
-
-ARG APK_BASH_VERSION=~5
-
-RUN apk add --no-cache \
-      "bash=${APK_BASH_VERSION}"
+FROM base as releaser
 
 ENV GOROOT /usr/local/go
 
