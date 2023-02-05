@@ -87,4 +87,3 @@ jobs:
         if: success()
         run: |
           make release
-        env:
