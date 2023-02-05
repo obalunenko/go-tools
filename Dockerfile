@@ -37,7 +37,7 @@ COPY --from=builder /src/github.com/obalunenko/common-go-projects-scripts/script
 
 RUN /usr/bin/installed-tools.sh
 
-FROM base
+FROM base as release
 
 ENV GOROOT /usr/local/go
 
