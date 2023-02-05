@@ -33,5 +33,10 @@ install-tools:
 	./scripts/install/vendored-tools.sh
 .PHONY: install-tools
 
+## Issue new release.
+new-version: sync-vendor
+	./scripts/release/new-version.sh
+.PHONY: new-release
+
 .DEFAULT_GOAL := help
 
