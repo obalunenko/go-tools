@@ -1,4 +1,4 @@
-name: Dockerfiles [lint]
+name: build-lint
 
 on:
   push:
@@ -20,7 +20,56 @@ on:
       - ".github/**/**"
 
 jobs:
+  lint-dockerfiles:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        dockerfile:
+          [
+            "Dockerfile",
+          ]
+    runs-on: "ubuntu-22.04"
+    name: Lint ${{ matrix.dockerfile }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Lint
+        uses: jbergstroem/hadolint-gh-action@v1
+        with:
+          dockerfile: ${{ matrix.dockerfile }}
+          annotate: true
+          error_level: 2
+
+  check-release-config:
+    runs-on: 'ubuntu-22.04'
+    name: Check releaser configs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up go
+        uses: actions/setup-go@v3.5.0
+        with:
+          go-version: '1.20'
+
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          install-only: true
+
+      - name: Check release
+        run: |
+          make check-releaser
+        shell: bash
+
   build:
+    needs: [ lint-dockerfiles, check-release-config ]
     name: Build
     runs-on: "ubuntu-22.04"
     steps:
@@ -59,26 +108,3 @@ jobs:
           push: false
           pull: true
 
-  lint-dockerfiles:
-    strategy:
-      fail-fast: false
-      max-parallel: 4
-      matrix:
-        dockerfile:
-          [
-            "Dockerfile",
-          ]
-    runs-on: "ubuntu-22.04"
-    name: Lint ${{ matrix.dockerfile }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Lint
-        uses: jbergstroem/hadolint-gh-action@v1
-        with:
-          dockerfile: ${{ matrix.dockerfile }}
-          annotate: true
-          error_level: 2

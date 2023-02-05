@@ -1,3 +1,9 @@
+SHELL := env VERSION=$(VERSION) $(SHELL)
+VERSION ?= $(shell git describe --tags $(git rev-list --tags --max-count=1))
+
+APP_NAME?=go-tools
+SHELL := env APP_NAME=$(APP_NAME) $(SHELL)
+
 TARGET_MAX_CHAR_NUM=20
 
 ## Show help
@@ -37,6 +43,16 @@ install-tools:
 new-version: sync-vendor
 	./scripts/release/new-version.sh
 .PHONY: new-release
+
+## Release
+release:
+	./scripts/release/release.sh
+.PHONY: release
+
+## Check goreleaser config.
+check-releaser:
+	./scripts/release/check.sh
+.PHONY: check-releaser
 
 .DEFAULT_GOAL := help
 

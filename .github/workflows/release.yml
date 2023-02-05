@@ -10,8 +10,9 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push-image-multiarch:
-    runs-on: ubuntu-22.04
+  bake-images:
+    name: Build and push
+    runs-on: 'ubuntu-22.04'
     permissions:
       contents: read
       packages: write
@@ -61,3 +62,29 @@ jobs:
             ${{ steps.meta.outputs.bake-file }}
           push: ${{ github.event_name != 'pull_request' }}
           pull: true
+
+  release-notes:
+    needs: [ build-and-push-image-multiarch ]
+    runs-on: 'ubuntu-22.04'
+    name: Release notes
+    steps:
+      - name: Set up go
+        uses: actions/setup-go@v3.5.0
+        with:
+          go-version: '1.20'
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          install-only: true
+
+      - name: Run GoReleaser
+        if: success()
+        run: |
+          make release
+        env:
