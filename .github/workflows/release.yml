@@ -11,6 +11,7 @@ env:
 
 jobs:
   build-and-push-image-multiarch:
+    name: Build and push {{ env.DOCKER_IMAGE }}
     runs-on: ubuntu-22.04
     permissions:
       contents: read
@@ -71,7 +72,7 @@ jobs:
         os: [ 'ubuntu-22.04' ]
         go: [ '1.20' ]
     runs-on: ${{ matrix.os }}
-    name: Release
+    name: Release {{ env.DOCKER_IMAGE }}
     steps:
       - name: Set up go
         uses: actions/setup-go@v3.5.0
