@@ -1,6 +1,16 @@
-FROM golang:1.20.0 as base
+FROM golang:1.20.0-alpine3.17 as base
 
 FROM --platform=$BUILDPLATFORM base as builder
+
+RUN apk add --no-cache bash \
+	git \
+	make \
+	openssh-client \
+	build-base \
+	tini \
+    gcc \
+    binutils-gold
+
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 
@@ -24,7 +34,6 @@ COPY Makefile Makefile
 ARG TARGETOS
 ARG TARGETARCH
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
-
 
 FROM base as tester
 
