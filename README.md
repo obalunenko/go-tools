@@ -1,6 +1,6 @@
-# common-go-projects-scripts
+# go-tools
 
-This repository contains common scripts that I used over all projects.
+This repository contains common tools that I used over all projects.
 
 docker image could be pulled with command: ` docker pull ghcr.io/obalunenko/go-tools:latest`
 
@@ -20,7 +20,7 @@ docker image could be pulled with command: ` docker pull ghcr.io/obalunenko/go-t
 
 ## Usage
 
-Pull image and run it with mounted volune with your code, then just execute needed command.
+Pull image and run it with mounted volume with your code, then just execute needed command.
 
 https://github.com/obalunenko/go-tools/pkgs/container/go-tools
  
