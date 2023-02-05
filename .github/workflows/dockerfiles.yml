@@ -47,7 +47,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
 
-      - name: Build and push Docker images
+      - name: Build Docker image
         uses: docker/bake-action@v2.3.0
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
