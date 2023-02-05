@@ -21,7 +21,7 @@ on:
 
 jobs:
   build:
-    name: Build ${{ env.IMAGE_NAME }}
+    name: Build
     runs-on: "ubuntu-22.04"
     steps:
       - name: Checkout repository
