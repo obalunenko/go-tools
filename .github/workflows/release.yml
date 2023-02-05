@@ -64,7 +64,7 @@ jobs:
           pull: true
 
   release-notes:
-    needs: [ build-and-push-image-multiarch ]
+    needs: [ bake-images ]
     runs-on: 'ubuntu-22.04'
     name: Release notes
     steps:
