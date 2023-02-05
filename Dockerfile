@@ -1,4 +1,6 @@
-FROM --platform=$BUILDPLATFORM golang:1.20 as builder
+FROM golang:1.20.0 as base
+
+FROM --platform=$BUILDPLATFORM base as builder
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 
@@ -13,14 +15,18 @@ RUN echo "I am running on ${BUILDPLATFORM}, building for ${TARGETPLATFORM}" > ./
 
 COPY ./.git ./.git
 COPY ./scripts ./scripts
-COPY ./tools ./tools
+COPY tools.go tools.go
+COPY vendor vendor
+COPY go.mod go.mod
+COPY go.sum go.sum
 COPY Makefile Makefile
+
 ARG TARGETOS
 ARG TARGETARCH
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
 
 
-FROM golang:1.20
+FROM base as tester
 
 ENV GOROOT /usr/local/go
 
@@ -30,3 +36,10 @@ COPY --from=builder /src/github.com/obalunenko/common-go-projects-scripts/log_bu
 COPY --from=builder /src/github.com/obalunenko/common-go-projects-scripts/scripts/test/installed-tools.sh /usr/bin/installed-tools.sh
 
 RUN /usr/bin/installed-tools.sh
+
+FROM base as release
+
+ENV GOROOT /usr/local/go
+
+# don't place it into $GOPATH/bin because Drone mounts $GOPATH as volume
+COPY --from=builder /src/github.com/obalunenko/common-go-projects-scripts/bin/. /usr/bin/
