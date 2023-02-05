@@ -42,4 +42,4 @@ FROM base
 ENV GOROOT /usr/local/go
 
 # don't place it into $GOPATH/bin because Drone mounts $GOPATH as volume
-COPY --from=tester /usr/bin/. /usr/bin/
+COPY --from=builder /src/github.com/obalunenko/common-go-projects-scripts/bin/. /usr/bin/
