@@ -1,15 +1,27 @@
 FROM golang:1.20.0-alpine3.17 as base
 
-FROM --platform=$BUILDPLATFORM base as builder
+FROM --platform=$BUILDPLATFORM base as builder-base
 
-RUN apk add --no-cache bash \
-	git \
-	make \
-	openssh-client \
-	build-base \
-	tini \
-    gcc \
-    binutils-gold
+ARG APK_BASH_VERSION=~5
+ARG APK_GIT_VERSION=~2
+ARG APK_MAKE_VERSION=~4
+ARG APK_OPENSSH_VERSION=~9
+ARG APK_GCC_VERSION=~12
+ARG APK_BUILDBASE_VERSION=~0
+ARG APK_CA_CERTIFICATES_VERSION=20220614-r4
+ARG APK_BINUTILS_VERSION=~2
+
+RUN apk add --no-cache \
+    "bash=${APK_BASH_VERSION}" \
+	"git=${APK_GIT_VERSION}" \
+	"make=${APK_MAKE_VERSION}" \
+	"openssh-client=${APK_OPENSSH_VERSION}" \
+	"build-base=${APK_BUILDBASE_VERSION}" \
+    "gcc=${APK_GCC_VERSION}" \
+    "ca-certificates=${APK_CA_CERTIFICATES_VERSION}" \
+    "binutils-gold=${APK_BINUTILS_VERSION}"
+
+FROM --platform=$BUILDPLATFORM builder-base as builder
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
