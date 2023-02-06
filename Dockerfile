@@ -47,9 +47,11 @@ RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
 FROM golang:1.20.0-alpine3.17 as releaser
 
 ARG APK_BASH_VERSION=~5
+ARG APK_BUILDBASE_VERSION=~0
 
 RUN apk add --no-cache \
-      "bash=${APK_BASH_VERSION}"
+    "bash=${APK_BASH_VERSION}" \
+	"build-base=${APK_BUILDBASE_VERSION}"
 
 ENV GOROOT /usr/local/go
 
