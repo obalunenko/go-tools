@@ -48,9 +48,11 @@ FROM golang:1.20.0-alpine3.17 as releaser
 
 ARG APK_BASH_VERSION=~5
 ARG APK_BUILDBASE_VERSION=~0
+ARG APK_GIT_VERSION=~2
 
 RUN apk add --no-cache \
     "bash=${APK_BASH_VERSION}" \
+    "git=${APK_GIT_VERSION}" \
 	"build-base=${APK_BUILDBASE_VERSION}"
 
 ENV GOROOT /usr/local/go
