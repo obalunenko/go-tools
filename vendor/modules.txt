@@ -373,7 +373,7 @@ github.com/maratori/testableexamples/pkg/testableexamples
 # github.com/maratori/testpackage v1.1.0
 ## explicit; go 1.18
 github.com/maratori/testpackage/pkg/testpackage
-# github.com/matm/gocov-html v1.2.0
+# github.com/matm/gocov-html v1.3.1
 ## explicit; go 1.11
 github.com/matm/gocov-html/cmd/gocov-html
 github.com/matm/gocov-html/pkg/config
