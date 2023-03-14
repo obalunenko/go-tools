@@ -435,8 +435,8 @@ github.com/nishanths/predeclared v0.2.2 h1:V2EPdZPliZymNAn79T8RkNApBjMmVKh5XRpLm
 github.com/nishanths/predeclared v0.2.2/go.mod h1:RROzoN6TnGQupbC+lqggsOlcgysk3LMK/HI84Mp280c=
 github.com/nunnatsa/ginkgolinter v0.8.1 h1:/y4o/0hV+ruUHj4xXh89xlFjoaitnI4LnkpuYs02q1c=
 github.com/nunnatsa/ginkgolinter v0.8.1/go.mod h1:FYYLtszIdmzCH8XMaMPyxPVXZ7VCaIm55bA+gugx+14=
-github.com/obalunenko/coverbadger v1.3.1 h1:Uj5L3Qz2S3ZOmuNQCRdnym81IhYV3rK9AIHPufKLGpQ=
-github.com/obalunenko/coverbadger v1.3.1/go.mod h1:DJlFMmzYuIvl7U0OTkTirrqltfNPzdE8de0o8MOulsg=
+github.com/obalunenko/coverbadger v1.4.0 h1:+7U6R/UfoEidlZqP/xFxXbAtxY8SfyQcwy1A1vXYlQc=
+github.com/obalunenko/coverbadger v1.4.0/go.mod h1:5WS+KbEu+9VaLGnm0H+BqjSCEBNQzaiulglmubtU86M=
 github.com/obalunenko/logger v0.5.1 h1:49DIEwy4sBvRzM/OtD/m7zITi5L3S5DtSYZ/WoUrnno=
 github.com/obalunenko/logger v0.5.1/go.mod h1:/GnmNcmEV7tAL9StHrs3nDkXAK+TEvChoNY+YYRZww4=
 github.com/obalunenko/version v1.1.0 h1:yVua7OHnK3+MJpendeMmAlfzVmq7R1h8MO3Ufz7HEec=
@@ -572,8 +572,9 @@ github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
-github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKsk=
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
+github.com/stretchr/testify v1.8.2 h1:+h33VjcLVPDHtOdpUCuF+7gSuG3yGIftsP1YvFihtJ8=
+github.com/stretchr/testify v1.8.2/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/subosito/gotenv v1.4.1 h1:jyEFiXpy21Wm81FBN71l9VoMMV8H8jG+qIK3GCpY6Qs=
 github.com/subosito/gotenv v1.4.1/go.mod h1:ayKnFf/c6rvx/2iiLrJUk1e6plDbT3edrFNGqEflhK0=
 github.com/t-yuki/gocover-cobertura v0.0.0-20180217150009-aaee18c8195c h1:+aPplBwWcHBo6q9xrfWdMrT9o4kltkmmvpemgIjep/8=

@@ -7,7 +7,7 @@ require (
 	github.com/golangci/golangci-lint v1.51.2
 	github.com/matm/gocov-html v1.3.1
 	github.com/mattn/goveralls v0.0.11
-	github.com/obalunenko/coverbadger v1.3.1
+	github.com/obalunenko/coverbadger v1.4.0
 	github.com/posener/goreadme v1.4.2
 	golang.org/x/tools v0.7.0
 	golang.org/x/tools/cmd/cover v0.1.0-deprecated
@@ -165,7 +165,7 @@ require (
 	github.com/ssgreg/nlreturn/v2 v2.2.1 // indirect
 	github.com/stbenjam/no-sprintf-host-port v0.1.1 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
-	github.com/stretchr/testify v1.8.1 // indirect
+	github.com/stretchr/testify v1.8.2 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/t-yuki/gocover-cobertura v0.0.0-20180217150009-aaee18c8195c // indirect
 	github.com/tdakkota/asciicheck v0.1.1 // indirect
