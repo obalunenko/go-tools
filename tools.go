@@ -5,6 +5,7 @@ package go_tools
 import (
 	_ "github.com/axw/gocov/gocov"
 	_ "github.com/golangci/golangci-lint/cmd/golangci-lint"
+	_ "github.com/goreleaser/goreleaser"
 	_ "github.com/matm/gocov-html/cmd/gocov-html"
 	_ "github.com/mattn/goveralls"
 	_ "github.com/obalunenko/coverbadger/cmd/coverbadger"
@@ -13,5 +14,6 @@ import (
 	_ "golang.org/x/tools/cmd/fiximports"
 	_ "golang.org/x/tools/cmd/goimports"
 	_ "golang.org/x/tools/cmd/stringer"
+	_ "golang.org/x/vuln/cmd/govulncheck"
 	_ "gotest.tools/gotestsum"
 )
