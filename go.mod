@@ -11,7 +11,6 @@ require (
 	github.com/obalunenko/coverbadger v1.4.0
 	github.com/posener/goreadme v1.4.2
 	golang.org/x/tools v0.7.0
-	golang.org/x/tools/cmd/cover v0.1.0-deprecated
 	golang.org/x/vuln v0.0.0-20230323195654-ae615d898076
 	gotest.tools/gotestsum v1.9.0
 )

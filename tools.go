@@ -10,7 +10,6 @@ import (
 	_ "github.com/mattn/goveralls"
 	_ "github.com/obalunenko/coverbadger/cmd/coverbadger"
 	_ "github.com/posener/goreadme/cmd/goreadme"
-	_ "golang.org/x/tools/cmd/cover"
 	_ "golang.org/x/tools/cmd/fiximports"
 	_ "golang.org/x/tools/cmd/goimports"
 	_ "golang.org/x/tools/cmd/stringer"
