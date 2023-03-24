@@ -17,6 +17,8 @@ docker image could be pulled with command: ` docker pull ghcr.io/obalunenko/go-t
 	_ golang.org/x/tools/cmd/fiximports v0.5.0
 	- gotest.tools/gotestsum v1.9.0
     - github.com/posener/goreadme/cmd/goreadme v1.4.2
+	- github.com/goreleaser/goreleaser v1.16.2
+	- govulncheck v0.0.0-20230323195654-ae615d898076
 
 ## Usage
 
