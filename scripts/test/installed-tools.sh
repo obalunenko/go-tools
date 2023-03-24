@@ -28,4 +28,8 @@ echo "gotestsum check: $(gotestsum --help)"
 
 echo "goreadme check: $(goreadme -h)"
 
+echo "goreleaser check: $(goreleaser -v)"
+
+echo "govulncheck check: $(govulncheck -h)
+
 echo "${SCRIPT_NAME} done "
