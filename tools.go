@@ -8,6 +8,7 @@ import (
 	_ "github.com/goreleaser/goreleaser"
 	_ "github.com/matm/gocov-html/cmd/gocov-html"
 	_ "github.com/mattn/goveralls"
+	_ "github.com/mfridman/tparse"
 	_ "github.com/obalunenko/coverbadger/cmd/coverbadger"
 	_ "github.com/posener/goreadme/cmd/goreadme"
 	_ "golang.org/x/tools/cmd/fiximports"
