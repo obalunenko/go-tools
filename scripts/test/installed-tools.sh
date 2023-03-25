@@ -30,6 +30,8 @@ echo "goreadme check: $(goreadme -h)"
 
 echo "goreleaser check: $(goreleaser -v)"
 
-echo "govulncheck check: $(govulncheck -h)
+echo "govulncheck check: $(govulncheck -h)"
+
+echo "tparse check: $(tparse -v)"
 
 echo "${SCRIPT_NAME} done "
