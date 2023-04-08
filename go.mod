@@ -13,7 +13,7 @@ require (
 	github.com/posener/goreadme v1.4.2
 	golang.org/x/tools v0.7.0
 	golang.org/x/vuln v0.0.0-20230323195654-ae615d898076
-	gotest.tools/gotestsum v1.9.0
+	gotest.tools/gotestsum v1.10.0
 )
 
 require (
