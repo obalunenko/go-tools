@@ -12,6 +12,7 @@ import (
 	"github.com/caarlos0/log"
 	"github.com/goreleaser/goreleaser/internal/artifact"
 	"github.com/goreleaser/goreleaser/internal/gio"
+	"github.com/goreleaser/goreleaser/internal/git"
 	"github.com/goreleaser/goreleaser/internal/ids"
 	"github.com/goreleaser/goreleaser/internal/logext"
 	"github.com/goreleaser/goreleaser/internal/pipe"
@@ -35,13 +36,21 @@ func (Pipe) Dependencies(ctx *context.Context) []string {
 	return cmds
 }
 
+const defaultGpg = "gpg"
+
 // Default sets the Pipes defaults.
 func (Pipe) Default(ctx *context.Context) error {
+	gpgPath, _ := git.Clean(git.Run(ctx, "config", "gpg.program"))
+	if gpgPath == "" {
+		gpgPath = defaultGpg
+	}
+
 	ids := ids.New("signs")
 	for i := range ctx.Config.Signs {
 		cfg := &ctx.Config.Signs[i]
 		if cfg.Cmd == "" {
-			cfg.Cmd = "gpg"
+			// gpgPath is either "gpg" (default) or the user's git config gpg.program value
+			cfg.Cmd = gpgPath
 		}
 		if cfg.Signature == "" {
 			cfg.Signature = "${artifact}.sig"
