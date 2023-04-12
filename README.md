@@ -19,6 +19,7 @@ docker image could be pulled with command: ` docker pull ghcr.io/obalunenko/go-t
 	- github.com/goreleaser/goreleaser v1.16.2
 	- golang.org/x/vuln/cmd/govulncheck v0.0.0-20230323195654-ae615d898076
 	- github.com/mfridman/tparse v0.12.1
+	- mvdan.cc/gofumpt v0.5.0
 
 ## Usage
 

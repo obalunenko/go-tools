@@ -14,6 +14,7 @@ require (
 	golang.org/x/tools v0.8.0
 	golang.org/x/vuln v0.0.0-20230323195654-ae615d898076
 	gotest.tools/gotestsum v1.10.0
+	mvdan.cc/gofumpt v0.5.0
 )
 
 require (
@@ -377,7 +378,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	honnef.co/go/tools v0.4.3 // indirect
-	mvdan.cc/gofumpt v0.4.0 // indirect
 	mvdan.cc/interfacer v0.0.0-20180901003855-c20040233aed // indirect
 	mvdan.cc/lint v0.0.0-20170908181259-adc824a0674b // indirect
 	mvdan.cc/unparam v0.0.0-20230312165513-e84e2d14e3b8 // indirect
