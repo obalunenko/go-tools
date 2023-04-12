@@ -30,4 +30,4 @@ if [ -z "${VERSION}" ] || [ "${VERSION}" = "${SHORTCOMMIT}" ]; then
   VERSION="v0.0.0"
 fi
 
-goreleaser release --rm-dist
+goreleaser release --clean
