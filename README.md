@@ -13,7 +13,7 @@ docker image could be pulled with command: ` docker pull ghcr.io/obalunenko/go-t
 	- github.com/obalunenko/coverbadger/cmd/coverbadger v1.4.0
 	- golang.org/x/tools/cmd/goimports v0.7.0
 	- golang.org/x/tools/cmd/stringer v0.7.0
-	_ golang.org/x/tools/cmd/fiximports v0.7.0
+	- golang.org/x/tools/cmd/fiximports v0.7.0
 	- gotest.tools/gotestsum v1.9.0
     - github.com/posener/goreadme/cmd/goreadme v1.4.2
 	- github.com/goreleaser/goreleaser v1.16.2
