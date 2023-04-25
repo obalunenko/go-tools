@@ -14,9 +14,8 @@ import (
 	"golang.org/x/tools/go/callgraph"
 	"golang.org/x/tools/go/ssa"
 	"golang.org/x/vuln/internal"
-	"golang.org/x/vuln/internal/derrors"
+	"golang.org/x/vuln/internal/osv"
 	"golang.org/x/vuln/internal/semver"
-	"golang.org/x/vuln/osv"
 )
 
 // Source detects vulnerabilities in packages. The result will contain:
@@ -29,11 +28,9 @@ import (
 //
 // 3) A CallGraph leading to the use of a known vulnerable function or method.
 func Source(ctx context.Context, pkgs []*Package, cfg *Config) (_ *Result, err error) {
-	defer derrors.Wrap(&err, "vulncheck.Source")
-
 	// buildSSA builds a whole program that assumes all packages use the same FileSet.
 	// Check all packages in pkgs are using the same FileSet.
-	// TODO(hyangah): Alternative is to take FileSet out of Package and
+	// TODO(https://go.dev/issue/59729): take FileSet out of Package and
 	// let Source take a single FileSet. That will make the enforcement
 	// clearer from the API level.
 	var fset *token.FileSet
@@ -48,7 +45,7 @@ func Source(ctx context.Context, pkgs []*Package, cfg *Config) (_ *Result, err e
 	}
 
 	// set the stdlib version for detection of vulns in the standard library
-	// TODO(#53740): what if Go version is not in semver format?
+	// TODO(https://go.dev/issue/53740): what if Go version is not in semver format?
 	if cfg.SourceGoVersion != "" {
 		stdlibModule.Version = semver.GoTagToSemver(cfg.SourceGoVersion)
 	} else {
@@ -82,10 +79,11 @@ func Source(ctx context.Context, pkgs []*Package, cfg *Config) (_ *Result, err e
 	}
 
 	mods := extractModules(pkgs)
-	modVulns, err := fetchVulnerabilities(ctx, cfg.Client, mods)
+	mv, err := FetchVulnerabilities(ctx, cfg.Client, mods)
 	if err != nil {
 		return nil, err
 	}
+	modVulns := moduleVulnerabilities(mv)
 	modVulns = modVulns.filter(cfg.GOOS, cfg.GOARCH)
 	result := &Result{
 		Imports:  &ImportGraph{Packages: make(map[int]*PkgNode)},
@@ -207,7 +205,7 @@ func vulnImportSlice(pkg *Package, modVulns moduleVulnerabilities, result *Resul
 	// Create Vuln entry for each symbol of known OSV entries for pkg.
 	for _, osv := range vulns {
 		for _, affected := range osv.Affected {
-			for _, p := range affected.EcosystemSpecific.Imports {
+			for _, p := range affected.EcosystemSpecific.Packages {
 				if p.Path != pkgNode.Path {
 					continue
 				}
@@ -546,4 +544,56 @@ func addCallSinkForVuln(callID int, osv *osv.Entry, symbol, pkg string, result *
 			return
 		}
 	}
+}
+
+var stdlibModule = &Module{
+	Path: internal.GoStdModulePath,
+	// Version is populated by Source and Binary based on user input
+}
+
+// modKey creates a unique string identifier for mod.
+func modKey(mod *Module) string {
+	if mod == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s@%s", mod.Path, mod.Version)
+}
+
+// extractModules collects modules in `pkgs` up to uniqueness of
+// module path and version.
+func extractModules(pkgs []*Package) []*Module {
+	modMap := map[string]*Module{}
+
+	// Add "stdlib" module. Even if stdlib is not used, which
+	// is unlikely, it won't appear in vulncheck.Modules nor
+	// other results.
+	modMap[stdlibModule.Path] = stdlibModule
+
+	seen := map[*Package]bool{}
+	var extract func(*Package, map[string]*Module)
+	extract = func(pkg *Package, modMap map[string]*Module) {
+		if pkg == nil || seen[pkg] {
+			return
+		}
+		if pkg.Module != nil {
+			if pkg.Module.Replace != nil {
+				modMap[modKey(pkg.Module.Replace)] = pkg.Module
+			} else {
+				modMap[modKey(pkg.Module)] = pkg.Module
+			}
+		}
+		seen[pkg] = true
+		for _, imp := range pkg.Imports {
+			extract(imp, modMap)
+		}
+	}
+	for _, pkg := range pkgs {
+		extract(pkg, modMap)
+	}
+
+	modules := []*Module{}
+	for _, mod := range modMap {
+		modules = append(modules, mod)
+	}
+	return modules
 }

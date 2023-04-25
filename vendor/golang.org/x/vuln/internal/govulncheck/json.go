@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 
 	"io"
-
-	"golang.org/x/vuln/internal/result"
 )
 
 type jsonHandler struct {
@@ -23,51 +21,17 @@ func NewJSONHandler(w io.Writer) Handler {
 	return &jsonHandler{enc: enc}
 }
 
-// HandleJSON reads the json from the supplied stream and hands the decoded
-// output to the handler.
-func HandleJSON(from io.Reader, to Handler) error {
-	dec := json.NewDecoder(from)
-	for dec.More() {
-		msg := result.Message{}
-		// decode the next message in the stream
-		if err := dec.Decode(&msg); err != nil {
-			return err
-		}
-		// dispatch the message
-		//TODO: should we verify only one field was set?
-		var err error
-		if msg.Preamble != nil {
-			err = to.Preamble(msg.Preamble)
-		}
-		if msg.Vulnerability != nil {
-			err = to.Vulnerability(msg.Vulnerability)
-		}
-		if msg.Progress != "" {
-			err = to.Progress(msg.Progress)
-		}
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Flush writes all vulnerabilities in JSON format.
-func (o *jsonHandler) Flush() error {
-	return nil
-}
-
-// Vulnerability gathers vulnerabilities to be written.
-func (o *jsonHandler) Vulnerability(vuln *result.Vuln) error {
-	return o.enc.Encode(result.Message{Vulnerability: vuln})
-}
-
-// Preamble does not do anything in JSON mode.
-func (o *jsonHandler) Preamble(preamble *result.Preamble) error {
-	return o.enc.Encode(result.Message{Preamble: preamble})
+// Config does not do anything in JSON mode.
+func (h *jsonHandler) Config(config *Config) error {
+	return h.enc.Encode(Message{Config: config})
 }
 
 // Progress does not do anything in JSON mode.
-func (o *jsonHandler) Progress(msg string) error {
-	return o.enc.Encode(result.Message{Progress: msg})
+func (h *jsonHandler) Progress(progress *Progress) error {
+	return h.enc.Encode(Message{Progress: progress})
+}
+
+// Vulnerability gathers vulnerabilities to be written.
+func (h *jsonHandler) Vulnerability(vuln *Vuln) error {
+	return h.enc.Encode(Message{Vulnerability: vuln})
 }

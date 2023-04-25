@@ -11,8 +11,8 @@ require (
 	github.com/mfridman/tparse v0.12.1
 	github.com/obalunenko/coverbadger v1.4.0
 	github.com/posener/goreadme v1.4.2
-	golang.org/x/tools v0.8.0
-	golang.org/x/vuln v0.0.0-20230323195654-ae615d898076
+	golang.org/x/tools v0.8.1-0.20230421161920-b9619ee54b47
+	golang.org/x/vuln v0.1.0
 	gotest.tools/gotestsum v1.10.0
 	mvdan.cc/gofumpt v0.5.0
 )
