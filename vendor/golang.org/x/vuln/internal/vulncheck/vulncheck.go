@@ -14,7 +14,8 @@ import (
 
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/vuln/internal/client"
-	"golang.org/x/vuln/osv"
+	"golang.org/x/vuln/internal/osv"
+	"golang.org/x/vuln/internal/semver"
 )
 
 // Config is used for configuring vulncheck algorithms.
@@ -210,6 +211,12 @@ func (fn *FuncNode) String() string {
 	return fmt.Sprintf("%s.%s", fn.RecvType, fn.Name)
 }
 
+// Receiver returns the FuncNode's receiver, with package path removed.
+// Pointers are preserved if present.
+func (fn *FuncNode) Receiver() string {
+	return strings.Replace(fn.RecvType, fmt.Sprintf("%s.", fn.PkgPath), "", 1)
+}
+
 // A CallSite describes a function call.
 type CallSite struct {
 	// Parent is ID of the enclosing function where the call is made.
@@ -301,26 +308,26 @@ type PkgNode struct {
 // moduleVulnerabilities is an internal structure for
 // holding and querying vulnerabilities provided by a
 // vulnerability database client.
-type moduleVulnerabilities []modVulns
+type moduleVulnerabilities []*ModVulns
 
-// modVulns groups vulnerabilities per module.
-type modVulns struct {
-	mod   *Module
-	vulns []*osv.Entry
+// ModVulns groups vulnerabilities per module.
+type ModVulns struct {
+	Module *Module
+	Vulns  []*osv.Entry
 }
 
 func (mv moduleVulnerabilities) filter(os, arch string) moduleVulnerabilities {
 	now := time.Now()
 	var filteredMod moduleVulnerabilities
 	for _, mod := range mv {
-		module := mod.mod
+		module := mod.Module
 		modVersion := module.Version
 		if module.Replace != nil {
 			modVersion = module.Replace.Version
 		}
 		// TODO(https://golang.org/issues/49264): if modVersion == "", try vcs?
 		var filteredVulns []*osv.Entry
-		for _, v := range mod.vulns {
+		for _, v := range mod.Vulns {
 			// Ignore vulnerabilities that have been withdrawn
 			if v.Withdrawn != nil && v.Withdrawn.Before(now) {
 				continue
@@ -334,7 +341,7 @@ func (mv moduleVulnerabilities) filter(os, arch string) moduleVulnerabilities {
 				// information out as it might lead to incorrect results:
 				// Computing a latest fix could consider versions of these
 				// different packages.
-				if a.Package.Name != module.Path {
+				if a.Module.Path != module.Path {
 					continue
 				}
 
@@ -344,22 +351,21 @@ func (mv moduleVulnerabilities) filter(os, arch string) moduleVulnerabilities {
 				if modVersion == "" {
 					// Module version of "" means the module version is not available,
 					// and so we don't want to spam users with potential false alarms.
-					// TODO: issue warning for "" cases above?
 					continue
 				}
-				if !affectsSemver(a.Ranges, modVersion) {
+				if !semver.Affects(a.Ranges, modVersion) {
 					continue
 				}
-				var filteredImports []osv.EcosystemSpecificImport
-				for _, p := range a.EcosystemSpecific.Imports {
+				var filteredImports []osv.Package
+				for _, p := range a.EcosystemSpecific.Packages {
 					if matchesPlatform(os, arch, p) {
 						filteredImports = append(filteredImports, p)
 					}
 				}
-				if len(a.EcosystemSpecific.Imports) != 0 && len(filteredImports) == 0 {
+				if len(a.EcosystemSpecific.Packages) != 0 && len(filteredImports) == 0 {
 					continue
 				}
-				a.EcosystemSpecific.Imports = filteredImports
+				a.EcosystemSpecific.Packages = filteredImports
 				filteredAffected = append(filteredAffected, a)
 			}
 			if len(filteredAffected) == 0 {
@@ -371,15 +377,15 @@ func (mv moduleVulnerabilities) filter(os, arch string) moduleVulnerabilities {
 			newV.Affected = filteredAffected
 			filteredVulns = append(filteredVulns, &newV)
 		}
-		filteredMod = append(filteredMod, modVulns{
-			mod:   module,
-			vulns: filteredVulns,
+		filteredMod = append(filteredMod, &ModVulns{
+			Module: module,
+			Vulns:  filteredVulns,
 		})
 	}
 	return filteredMod
 }
 
-func matchesPlatform(os, arch string, e osv.EcosystemSpecificImport) bool {
+func matchesPlatform(os, arch string, e osv.Package) bool {
 	return matchesPlatformComponent(os, e.GOOS) &&
 		matchesPlatformComponent(arch, e.GOARCH)
 }
@@ -404,16 +410,16 @@ func matchesPlatformComponent(s string, ps []string) bool {
 // vulnerabilities.
 func (mv moduleVulnerabilities) vulnsForPackage(importPath string) []*osv.Entry {
 	isStd := isStdPackage(importPath)
-	var mostSpecificMod *modVulns
+	var mostSpecificMod *ModVulns
 	for _, mod := range mv {
 		md := mod
-		if isStd && mod.mod == stdlibModule {
+		if isStd && mod.Module == stdlibModule {
 			// standard library packages do not have an associated module,
 			// so we relate them to the artificial stdlib module.
-			mostSpecificMod = &md
-		} else if strings.HasPrefix(importPath, md.mod.Path) {
-			if mostSpecificMod == nil || len(mostSpecificMod.mod.Path) < len(md.mod.Path) {
-				mostSpecificMod = &md
+			mostSpecificMod = md
+		} else if strings.HasPrefix(importPath, md.Module.Path) {
+			if mostSpecificMod == nil || len(mostSpecificMod.Module.Path) < len(md.Module.Path) {
+				mostSpecificMod = md
 			}
 		}
 	}
@@ -421,16 +427,16 @@ func (mv moduleVulnerabilities) vulnsForPackage(importPath string) []*osv.Entry 
 		return nil
 	}
 
-	if mostSpecificMod.mod.Replace != nil {
+	if mostSpecificMod.Module.Replace != nil {
 		// standard libraries do not have a module nor replace module
-		importPath = fmt.Sprintf("%s%s", mostSpecificMod.mod.Replace.Path, strings.TrimPrefix(importPath, mostSpecificMod.mod.Path))
+		importPath = fmt.Sprintf("%s%s", mostSpecificMod.Module.Replace.Path, strings.TrimPrefix(importPath, mostSpecificMod.Module.Path))
 	}
-	vulns := mostSpecificMod.vulns
+	vulns := mostSpecificMod.Vulns
 	packageVulns := []*osv.Entry{}
 Vuln:
 	for _, v := range vulns {
 		for _, a := range v.Affected {
-			for _, p := range a.EcosystemSpecific.Imports {
+			for _, p := range a.EcosystemSpecific.Packages {
 				if p.Path == importPath {
 					packageVulns = append(packageVulns, v)
 					continue Vuln
@@ -452,7 +458,7 @@ func (mv moduleVulnerabilities) vulnsForSymbol(importPath, symbol string) []*osv
 vulnLoop:
 	for _, v := range vulns {
 		for _, a := range v.Affected {
-			for _, p := range a.EcosystemSpecific.Imports {
+			for _, p := range a.EcosystemSpecific.Packages {
 				if p.Path != importPath {
 					continue
 				}

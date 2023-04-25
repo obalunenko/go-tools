@@ -2,24 +2,22 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package vulncheck
+package semver
 
 import (
 	"sort"
 
-	"golang.org/x/mod/semver"
-	isem "golang.org/x/vuln/internal/semver"
-	"golang.org/x/vuln/osv"
+	"golang.org/x/vuln/internal/osv"
 )
 
-func affectsSemver(a osv.Affects, v string) bool {
+func Affects(a []osv.Range, v string) bool {
 	if len(a) == 0 {
 		// No ranges implies all versions are affected
 		return true
 	}
 	var semverRangePresent bool
 	for _, r := range a {
-		if r.Type != osv.TypeSemver {
+		if r.Type != osv.RangeTypeSemver {
 			continue
 		}
 		semverRangePresent = true
@@ -44,8 +42,8 @@ func affectsSemver(a osv.Affects, v string) bool {
 //   - beginning of time is encoded with .Introduced="0"
 //   - no-fix is not an event, as opposed to being an
 //     event where Introduced="" and Fixed=""
-func containsSemver(ar osv.AffectsRange, v string) bool {
-	if ar.Type != osv.TypeSemver {
+func containsSemver(ar osv.Range, v string) bool {
+	if ar.Type != osv.RangeTypeSemver {
 		return false
 	}
 	if len(ar.Events) == 0 {
@@ -54,7 +52,7 @@ func containsSemver(ar osv.AffectsRange, v string) bool {
 
 	// Strip and then add the semver prefix so we can support bare versions,
 	// versions prefixed with 'v', and versions prefixed with 'go'.
-	v = isem.CanonicalizeSemverPrefix(v)
+	v = canonicalizeSemverPrefix(v)
 
 	// Sort events by semver versions. Event for beginning
 	// of time, if present, always comes first.
@@ -79,15 +77,15 @@ func containsSemver(ar osv.AffectsRange, v string) bool {
 			v2 = e2.Fixed
 		}
 
-		return semver.Compare(isem.CanonicalizeSemverPrefix(v1), isem.CanonicalizeSemverPrefix(v2)) < 0
+		return Less(v1, v2)
 	})
 
 	var affected bool
 	for _, e := range ar.Events {
 		if !affected && e.Introduced != "" {
-			affected = e.Introduced == "0" || semver.Compare(v, isem.CanonicalizeSemverPrefix(e.Introduced)) >= 0
+			affected = e.Introduced == "0" || !Less(v, e.Introduced)
 		} else if affected && e.Fixed != "" {
-			affected = semver.Compare(v, isem.CanonicalizeSemverPrefix(e.Fixed)) < 0
+			affected = Less(v, e.Fixed)
 		}
 	}
 
