@@ -3,6 +3,8 @@
 package go_tools
 
 import (
+	_ "github.com/abice/go-enum"
+	_ "github.com/alvaroloes/enumer"
 	_ "github.com/axw/gocov/gocov"
 	_ "github.com/golangci/golangci-lint/cmd/golangci-lint"
 	_ "github.com/goreleaser/goreleaser"
@@ -11,6 +13,7 @@ import (
 	_ "github.com/mfridman/tparse"
 	_ "github.com/obalunenko/coverbadger/cmd/coverbadger"
 	_ "github.com/posener/goreadme/cmd/goreadme"
+	_ "github.com/pressly/goose/v3/cmd/goose"
 	_ "golang.org/x/tools/cmd/fiximports"
 	_ "golang.org/x/tools/cmd/goimports"
 	_ "golang.org/x/tools/cmd/stringer"
