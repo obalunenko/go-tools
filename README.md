@@ -23,6 +23,7 @@ docker image could be pulled with command: ` docker pull ghcr.io/obalunenko/go-t
 	- github.com/pressly/goose/v3/cmd/goose v3.10.0
 	- github.com/abice/go-enum v0.5.6
 	- github.com/alvaroloes/enumer v1.1.2
+	- golang.org/x/pkgsite/cmd/pkgsite v0.0.0-20230427194420-bb799e479030
 
 ## Usage
 
