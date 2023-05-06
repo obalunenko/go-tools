@@ -85,7 +85,14 @@ type RepoRef struct {
 	Token  string `yaml:"token,omitempty" json:"token,omitempty"`
 	Branch string `yaml:"branch,omitempty" json:"branch,omitempty"`
 
+	Git         GitRepoRef  `yaml:"git,omitempty" json:"git,omitempty"`
 	PullRequest PullRequest `yaml:"pull_request,omitempty" json:"pull_request,omitempty"`
+}
+
+type GitRepoRef struct {
+	URL        string `yaml:"url,omitempty" json:"url,omitempty"`
+	SSHCommand string `yaml:"ssh_command,omitempty" json:"ssh_command,omitempty"`
+	PrivateKey string `yaml:"private_key,omitempty" json:"private_key,omitempty"`
 }
 
 type PullRequest struct {
@@ -232,6 +239,7 @@ type Ko struct {
 // Scoop contains the scoop.sh section.
 type Scoop struct {
 	Name                  string       `yaml:"name,omitempty" json:"name,omitempty"`
+	IDs                   []string     `yaml:"ids,omitempty" json:"ids,omitempty"`
 	Bucket                RepoRef      `yaml:"bucket,omitempty" json:"bucket,omitempty"`
 	Folder                string       `yaml:"folder,omitempty" json:"folder,omitempty"`
 	CommitAuthor          CommitAuthor `yaml:"commit_author,omitempty" json:"commit_author,omitempty"`
@@ -507,6 +515,16 @@ type UniversalBinary struct {
 	NameTemplate string          `yaml:"name_template,omitempty" json:"name_template,omitempty"`
 	Replace      bool            `yaml:"replace,omitempty" json:"replace,omitempty"`
 	Hooks        BuildHookConfig `yaml:"hooks,omitempty" json:"hooks,omitempty"`
+}
+
+// UPX allows to compress binaries with `upx`.
+type UPX struct {
+	Enabled  bool     `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	IDs      []string `yaml:"ids,omitempty" json:"ids,omitempty"`
+	Binary   string   `yaml:"binary,omitempty" json:"binary,omitempty"`
+	Compress string   `yaml:"compress,omitempty" json:"compress,omitempty" jsonschema:"enum=1,enum=2,enum=3,enum=4,enum=5,enum=6,enum=7,enum=8,enum=9,enum=best,enum=,default="`
+	LZMA     bool     `yaml:"lzma,omitempty" json:"lzma,omitempty"`
+	Brute    bool     `yaml:"brute,omitempty" json:"brute,omitempty"`
 }
 
 // Archive config used for the archive.
@@ -950,7 +968,8 @@ type Project struct {
 	AURs            []AUR            `yaml:"aurs,omitempty" json:"aurs,omitempty"`
 	Krews           []Krew           `yaml:"krews,omitempty" json:"krews,omitempty"`
 	Kos             []Ko             `yaml:"kos,omitempty" json:"kos,omitempty"`
-	Scoop           Scoop            `yaml:"scoop,omitempty" json:"scoop,omitempty"`
+	Scoop           Scoop            `yaml:"scoop,omitempty" json:"scoop,omitempty"` // deprecated
+	Scoops          []Scoop          `yaml:"scoops,omitempty" json:"scoops,omitempty"`
 	Builds          []Build          `yaml:"builds,omitempty" json:"builds,omitempty"`
 	Archives        []Archive        `yaml:"archives,omitempty" json:"archives,omitempty"`
 	NFPMs           []NFPM           `yaml:"nfpms,omitempty" json:"nfpms,omitempty"`
@@ -975,11 +994,16 @@ type Project struct {
 	SBOMs           []SBOM           `yaml:"sboms,omitempty" json:"sboms,omitempty"`
 	Chocolateys     []Chocolatey     `yaml:"chocolateys,omitempty" json:"chocolateys,omitempty"`
 	Git             Git              `yaml:"git,omitempty" json:"git,omitempty"`
+	ReportSizes     bool             `yaml:"report_sizes,omitempty" json:"report_sizes,omitempty"`
 
 	UniversalBinaries []UniversalBinary `yaml:"universal_binaries,omitempty" json:"universal_binaries,omitempty"`
+	UPXs              []UPX             `yaml:"upx,omitempty" json:"upx,omitempty"`
 
 	// this is a hack ¯\_(ツ)_/¯
 	SingleBuild Build `yaml:"build,omitempty" json:"build,omitempty" jsonschema_description:"deprecated: use builds instead"` // deprecated
+
+	// force the SCM token to use when multiple are set
+	ForceToken string `yaml:"force_token,omitempty" json:"force_token,omitempty" jsonschema:"enum=github,enum=gitlab,enum=gitea,enum=,default="`
 
 	// should be set if using github enterprise
 	GitHubURLs GitHubURLs `yaml:"github_urls,omitempty" json:"github_urls,omitempty"`

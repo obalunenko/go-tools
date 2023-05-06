@@ -13,6 +13,8 @@ snapshot:
 gomod:
   proxy: true
 
+report_sizes: true
+
 builds:
 - env:
     - CGO_ENABLED=0
@@ -35,10 +37,14 @@ builds:
   flags:
     - -trimpath
   ldflags:
-    - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }} -X main.builtBy=goreleaser
+    - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }} -X main.builtBy=goreleaser -X main.treeState={{ .IsGitDirty }}
 
 universal_binaries:
 - replace: false
+
+# temporarely disables until we add better filters for platforms et al, and test more.
+# upx:
+#   - enabled: true
 
 checksum:
   name_template: 'checksums.txt'
@@ -186,6 +192,7 @@ brews:
 aurs:
   - homepage:  https://goreleaser.com
     description: Deliver Go binaries as fast and easily as possible
+    skip_upload: true # temporary, can't clone any of my aur packages for some reason
     maintainers:
       - 'Fernandez Ludovic <lfernandez dot dev at gmail dot com>'
       - 'Carlos Alexandro Becker <carlos at becker dot software>'
@@ -210,14 +217,14 @@ aurs:
       # man pages
       install -Dm644 "./manpages/goreleaser.1.gz" "${pkgdir}/usr/share/man/man1/goreleaser.1.gz"
 
-scoop:
-  bucket:
-    owner: goreleaser
-    name: scoop-bucket
-  folder: bucket
-  homepage:  https://goreleaser.com
-  description: Deliver Go binaries as fast and easily as possible
-  license: MIT
+scoops:
+  - bucket:
+      owner: goreleaser
+      name: scoop-bucket
+    folder: bucket
+    homepage:  https://goreleaser.com
+    description: Deliver Go binaries as fast and easily as possible
+    license: MIT
 
 nfpms:
   - file_name_template: '{{ .ConventionalFileName }}'
