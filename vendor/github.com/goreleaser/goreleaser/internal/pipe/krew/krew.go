@@ -77,7 +77,7 @@ func runAll(ctx *context.Context, cli client.Client) error {
 	return nil
 }
 
-func doRun(ctx *context.Context, krew config.Krew, cl client.Client) error {
+func doRun(ctx *context.Context, krew config.Krew, cl client.ReleaserURLTemplater) error {
 	if krew.Name == "" {
 		return pipe.Skip("krew: manifest name is not set")
 	}
@@ -177,7 +177,12 @@ func templateFields(ctx *context.Context, krew config.Krew) (config.Krew, error)
 	return krew, nil
 }
 
-func buildmanifest(ctx *context.Context, krew config.Krew, client client.Client, artifacts []*artifact.Artifact) (string, error) {
+func buildmanifest(
+	ctx *context.Context,
+	krew config.Krew,
+	client client.ReleaserURLTemplater,
+	artifacts []*artifact.Artifact,
+) (string, error) {
 	data, err := manifestFor(ctx, krew, client, artifacts)
 	if err != nil {
 		return "", err
@@ -193,7 +198,12 @@ func doBuildManifest(data Manifest) (string, error) {
 	return string(out), nil
 }
 
-func manifestFor(ctx *context.Context, cfg config.Krew, cl client.Client, artifacts []*artifact.Artifact) (Manifest, error) {
+func manifestFor(
+	ctx *context.Context,
+	cfg config.Krew,
+	cl client.ReleaserURLTemplater,
+	artifacts []*artifact.Artifact,
+) (Manifest, error) {
 	result := Manifest{
 		APIVersion: apiVersion,
 		Kind:       kind,
@@ -288,11 +298,6 @@ func doPublish(ctx *context.Context, manifest *artifact.Artifact, cl client.Clie
 		return err
 	}
 
-	cl, err = client.NewIfToken(ctx, cl, cfg.Index.Token)
-	if err != nil {
-		return err
-	}
-
 	if strings.TrimSpace(cfg.SkipUpload) == "true" {
 		return pipe.Skip("krews.skip_upload is set")
 	}
@@ -324,6 +329,16 @@ func doPublish(ctx *context.Context, manifest *artifact.Artifact, cl client.Clie
 	}
 
 	content, err := os.ReadFile(manifest.Path)
+	if err != nil {
+		return err
+	}
+
+	if cfg.Index.Git.URL != "" {
+		return client.NewGitUploadClient(repo.Branch).
+			CreateFile(ctx, author, repo, content, gpath, msg)
+	}
+
+	cl, err = client.NewIfToken(ctx, cl, cfg.Index.Token)
 	if err != nil {
 		return err
 	}
