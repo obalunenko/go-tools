@@ -3,7 +3,6 @@ package log
 import (
 	"fmt"
 	"io"
-	"sort"
 	"sync"
 
 	"github.com/charmbracelet/lipgloss"
@@ -32,34 +31,6 @@ const defaultPadding = 2
 // assert interface compliance.
 var _ Interface = (*Logger)(nil)
 
-// Fielder is an interface for providing fields to custom types.
-type Fielder interface {
-	Fields() Fields
-}
-
-// Fields represents a map of entry level data used for structured logging.
-type Fields map[string]interface{}
-
-// Fields implements Fielder.
-func (f Fields) Fields() Fields {
-	return f
-}
-
-// Get field value by name.
-func (f Fields) Get(name string) interface{} {
-	return f[name]
-}
-
-// Names returns field names sorted.
-func (f Fields) Names() (v []string) {
-	for k := range f {
-		v = append(v, k)
-	}
-
-	sort.Strings(v)
-	return
-}
-
 // Logger represents a logger with configurable Level and Handler.
 type Logger struct {
 	mu      sync.Mutex
@@ -86,7 +57,6 @@ func (l *Logger) DecreasePadding() {
 func (l *Logger) handleLog(e *Entry) {
 	style := Styles[e.Level]
 	level := Strings[e.Level]
-	names := e.Fields.Names()
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -95,12 +65,12 @@ func (l *Logger) handleLog(e *Entry) {
 		l.Writer,
 		"%s %-*s",
 		style.Render(fmt.Sprintf("%*s", 1+e.Padding, level)),
-		l.rightPadding(names, e.Padding),
+		l.rightPadding(e.Fields.Keys(), e.Padding),
 		e.Message,
 	)
 
-	for _, name := range names {
-		fmt.Fprintf(l.Writer, " %s=%v", style.Render(name), e.Fields.Get(name))
+	for it := e.Fields.Front(); it != nil; it = it.Next() {
+		fmt.Fprintf(l.Writer, " %s=%v", style.Render(it.Key), it.Value)
 	}
 
 	fmt.Fprintln(l.Writer)
@@ -111,11 +81,6 @@ func (l *Logger) rightPadding(names []string, padding int) int {
 		return 0
 	}
 	return 50 - padding
-}
-
-// WithFields returns a new entry with `fields` set.
-func (l *Logger) WithFields(fields Fielder) *Entry {
-	return NewEntry(l).WithFields(fields.Fields())
 }
 
 // WithField returns a new entry with the `key` and `value` set.
