@@ -139,6 +139,10 @@ func (h *host) Memory() (*types.HostMemoryInfo, error) {
 	return &mem, nil
 }
 
+func (h *host) FQDN() (string, error) {
+	return shared.FQDN()
+}
+
 func (h *host) LoadAverage() (*types.LoadAverageInfo, error) {
 	load, err := getLoadAverage()
 	if err != nil {

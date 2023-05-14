@@ -207,11 +207,11 @@ github.com/AzureAD/microsoft-authentication-library-for-go/apps/public
 ## explicit; go 1.16
 github.com/BurntSushi/toml
 github.com/BurntSushi/toml/internal
-# github.com/ClickHouse/ch-go v0.53.0
+# github.com/ClickHouse/ch-go v0.55.0
 ## explicit; go 1.18
 github.com/ClickHouse/ch-go/compress
 github.com/ClickHouse/ch-go/proto
-# github.com/ClickHouse/clickhouse-go/v2 v2.7.0
+# github.com/ClickHouse/clickhouse-go/v2 v2.9.1
 ## explicit; go 1.18
 github.com/ClickHouse/clickhouse-go/v2
 github.com/ClickHouse/clickhouse-go/v2/contributors
@@ -246,10 +246,12 @@ github.com/Masterminds/sprig/v3
 # github.com/Masterminds/squirrel v1.5.2
 ## explicit; go 1.14
 github.com/Masterminds/squirrel
-# github.com/Microsoft/go-winio v0.6.0
+# github.com/Microsoft/go-winio v0.6.1
 ## explicit; go 1.17
 github.com/Microsoft/go-winio
+github.com/Microsoft/go-winio/internal/fs
 github.com/Microsoft/go-winio/internal/socket
+github.com/Microsoft/go-winio/internal/stringbuffer
 github.com/Microsoft/go-winio/pkg/guid
 # github.com/OpenPeeDeeP/depguard v1.1.1
 ## explicit; go 1.13
@@ -561,7 +563,7 @@ github.com/caarlos0/log
 # github.com/cavaliergopher/cpio v1.0.1
 ## explicit; go 1.17
 github.com/cavaliergopher/cpio
-# github.com/cenkalti/backoff/v4 v4.2.0
+# github.com/cenkalti/backoff/v4 v4.2.1
 ## explicit; go 1.18
 github.com/cenkalti/backoff/v4
 # github.com/census-instrumentation/opencensus-proto v0.4.1
@@ -617,13 +619,6 @@ github.com/davecgh/go-spew/spew
 # github.com/denis-tingaikin/go-header v0.4.3
 ## explicit; go 1.17
 github.com/denis-tingaikin/go-header
-# github.com/denisenkom/go-mssqldb v0.12.3
-## explicit; go 1.13
-github.com/denisenkom/go-mssqldb
-github.com/denisenkom/go-mssqldb/internal/cp
-github.com/denisenkom/go-mssqldb/internal/decimal
-github.com/denisenkom/go-mssqldb/internal/querytext
-github.com/denisenkom/go-mssqldb/msdsn
 # github.com/dghubble/go-twitter v0.0.0-20211115160449-93a8679adecb
 ## explicit; go 1.16
 github.com/dghubble/go-twitter/twitter
@@ -657,7 +652,7 @@ github.com/disgoorg/snowflake/v2
 # github.com/dnephin/pflag v1.0.7
 ## explicit; go 1.12
 github.com/dnephin/pflag
-# github.com/docker/cli v23.0.1+incompatible
+# github.com/docker/cli v23.0.6+incompatible
 ## explicit
 github.com/docker/cli/cli/config
 github.com/docker/cli/cli/config/configfile
@@ -668,7 +663,7 @@ github.com/docker/cli/cli/config/types
 github.com/docker/distribution/digestset
 github.com/docker/distribution/reference
 github.com/docker/distribution/registry/client/auth/challenge
-# github.com/docker/docker v23.0.3+incompatible
+# github.com/docker/docker v23.0.6+incompatible
 ## explicit
 github.com/docker/docker/api
 github.com/docker/docker/api/types
@@ -704,8 +699,8 @@ github.com/docker/go-units
 # github.com/dustin/go-humanize v1.0.1
 ## explicit; go 1.16
 github.com/dustin/go-humanize
-# github.com/elastic/go-sysinfo v1.9.0
-## explicit; go 1.17
+# github.com/elastic/go-sysinfo v1.10.1
+## explicit; go 1.18
 github.com/elastic/go-sysinfo
 github.com/elastic/go-sysinfo/internal/registry
 github.com/elastic/go-sysinfo/providers/aix
@@ -909,7 +904,7 @@ github.com/go-redis/redis/v8/internal/util
 # github.com/go-redis/redis_rate/v9 v9.1.2
 ## explicit; go 1.17
 github.com/go-redis/redis_rate/v9
-# github.com/go-sql-driver/mysql v1.7.0
+# github.com/go-sql-driver/mysql v1.7.1
 ## explicit; go 1.13
 github.com/go-sql-driver/mysql
 # github.com/go-telegram-bot-api/telegram-bot-api v4.6.4+incompatible
@@ -1381,6 +1376,20 @@ github.com/jackc/pgtype
 github.com/jackc/pgx/v4
 github.com/jackc/pgx/v4/internal/sanitize
 github.com/jackc/pgx/v4/stdlib
+# github.com/jackc/pgx/v5 v5.3.1
+## explicit; go 1.19
+github.com/jackc/pgx/v5
+github.com/jackc/pgx/v5/internal/anynil
+github.com/jackc/pgx/v5/internal/iobufpool
+github.com/jackc/pgx/v5/internal/nbconn
+github.com/jackc/pgx/v5/internal/pgio
+github.com/jackc/pgx/v5/internal/sanitize
+github.com/jackc/pgx/v5/internal/stmtcache
+github.com/jackc/pgx/v5/pgconn
+github.com/jackc/pgx/v5/pgconn/internal/ctxwatch
+github.com/jackc/pgx/v5/pgproto3
+github.com/jackc/pgx/v5/pgtype
+github.com/jackc/pgx/v5/stdlib
 # github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99
 ## explicit
 github.com/jbenet/go-context/io
@@ -1424,7 +1433,7 @@ github.com/kisielk/gotool/internal/load
 # github.com/kkHAIKE/contextcheck v1.1.4
 ## explicit; go 1.20
 github.com/kkHAIKE/contextcheck
-# github.com/klauspost/compress v1.16.3
+# github.com/klauspost/compress v1.16.5
 ## explicit; go 1.18
 github.com/klauspost/compress
 github.com/klauspost/compress/flate
@@ -1484,7 +1493,7 @@ github.com/letsencrypt/boulder/identifier
 github.com/letsencrypt/boulder/probs
 github.com/letsencrypt/boulder/revocation
 github.com/letsencrypt/boulder/sa/proto
-# github.com/lib/pq v1.10.7
+# github.com/lib/pq v1.10.9
 ## explicit; go 1.13
 github.com/lib/pq
 github.com/lib/pq/oid
@@ -1522,7 +1531,7 @@ github.com/matoous/godox
 # github.com/mattn/go-colorable v0.1.13
 ## explicit; go 1.15
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.17
+# github.com/mattn/go-isatty v0.0.18
 ## explicit; go 1.15
 github.com/mattn/go-isatty
 # github.com/mattn/go-mastodon v0.0.6
@@ -1556,6 +1565,16 @@ github.com/mgechev/revive/rule
 ## explicit; go 1.16
 github.com/microcosm-cc/bluemonday
 github.com/microcosm-cc/bluemonday/css
+# github.com/microsoft/go-mssqldb v0.21.0
+## explicit; go 1.13
+github.com/microsoft/go-mssqldb
+github.com/microsoft/go-mssqldb/integratedauth
+github.com/microsoft/go-mssqldb/integratedauth/ntlm
+github.com/microsoft/go-mssqldb/integratedauth/winsspi
+github.com/microsoft/go-mssqldb/internal/cp
+github.com/microsoft/go-mssqldb/internal/decimal
+github.com/microsoft/go-mssqldb/internal/querytext
+github.com/microsoft/go-mssqldb/msdsn
 # github.com/mitchellh/copystructure v1.2.0
 ## explicit; go 1.15
 github.com/mitchellh/copystructure
@@ -1639,14 +1658,14 @@ github.com/olekukonko/tablewriter
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
-# github.com/opencontainers/image-spec v1.1.0-rc2
-## explicit; go 1.17
+# github.com/opencontainers/image-spec v1.1.0-rc3
+## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
 # github.com/pascaldekloe/name v1.0.1
 ## explicit; go 1.10
 github.com/pascaldekloe/name
-# github.com/paulmach/orb v0.9.0
+# github.com/paulmach/orb v0.9.2
 ## explicit; go 1.15
 github.com/paulmach/orb
 # github.com/pelletier/go-toml v1.9.5
@@ -1692,11 +1711,13 @@ github.com/posener/goreadme/internal/template
 # github.com/posener/script v1.1.5
 ## explicit; go 1.13
 github.com/posener/script
-# github.com/pressly/goose/v3 v3.10.0
+# github.com/pressly/goose/v3 v3.11.2
 ## explicit; go 1.18
 github.com/pressly/goose/v3
 github.com/pressly/goose/v3/cmd/goose
 github.com/pressly/goose/v3/internal/cfg
+github.com/pressly/goose/v3/internal/dialect
+github.com/pressly/goose/v3/internal/dialect/dialectquery
 github.com/pressly/goose/v3/internal/migrationstats
 github.com/pressly/goose/v3/internal/migrationstats/migrationstatsos
 github.com/pressly/goose/v3/internal/sqlparser
@@ -1957,7 +1978,7 @@ github.com/uudashr/gocognit
 # github.com/vbatts/tar-split v0.11.2
 ## explicit; go 1.15
 github.com/vbatts/tar-split/archive/tar
-# github.com/vertica/vertica-sql-go v1.3.1
+# github.com/vertica/vertica-sql-go v1.3.2
 ## explicit; go 1.13
 github.com/vertica/vertica-sql-go
 github.com/vertica/vertica-sql-go/common
@@ -2012,7 +2033,7 @@ gitlab.com/bosi/decorder
 # gitlab.com/digitalxero/go-conventional-commit v1.0.7
 ## explicit; go 1.13
 gitlab.com/digitalxero/go-conventional-commit
-# go.mongodb.org/mongo-driver v1.11.3
+# go.mongodb.org/mongo-driver v1.11.4
 ## explicit; go 1.13
 go.mongodb.org/mongo-driver/bson
 go.mongodb.org/mongo-driver/bson/bsoncodec
@@ -2044,14 +2065,14 @@ go.opencensus.io/trace/propagation
 go.opencensus.io/trace/tracestate
 go.opencensus.io/zpages
 go.opencensus.io/zpages/internal
-# go.opentelemetry.io/otel v1.14.0
-## explicit; go 1.18
+# go.opentelemetry.io/otel v1.15.1
+## explicit; go 1.19
 go.opentelemetry.io/otel/attribute
 go.opentelemetry.io/otel/codes
 go.opentelemetry.io/otel/internal
 go.opentelemetry.io/otel/internal/attribute
-# go.opentelemetry.io/otel/trace v1.14.0
-## explicit; go 1.18
+# go.opentelemetry.io/otel/trace v1.15.1
+## explicit; go 1.19
 go.opentelemetry.io/otel/trace
 # go.uber.org/atomic v1.10.0
 ## explicit; go 1.18
@@ -2061,7 +2082,7 @@ go.uber.org/atomic
 go.uber.org/automaxprocs/internal/cgroups
 go.uber.org/automaxprocs/internal/runtime
 go.uber.org/automaxprocs/maxprocs
-# go.uber.org/multierr v1.9.0
+# go.uber.org/multierr v1.11.0
 ## explicit; go 1.19
 go.uber.org/multierr
 # go.uber.org/zap v1.24.0
@@ -2576,7 +2597,7 @@ honnef.co/go/tools/unused
 # howett.net/plist v1.0.0
 ## explicit; go 1.12
 howett.net/plist
-# lukechampine.com/uint128 v1.2.0
+# lukechampine.com/uint128 v1.3.0
 ## explicit; go 1.12
 lukechampine.com/uint128
 # modernc.org/cc/v3 v3.40.0
@@ -2585,7 +2606,7 @@ modernc.org/cc/v3
 # modernc.org/ccgo/v3 v3.16.13
 ## explicit; go 1.17
 modernc.org/ccgo/v3/lib
-# modernc.org/libc v1.22.3
+# modernc.org/libc v1.22.5
 ## explicit; go 1.18
 modernc.org/libc
 modernc.org/libc/errno
@@ -2622,7 +2643,7 @@ modernc.org/memory
 # modernc.org/opt v0.1.3
 ## explicit; go 1.13
 modernc.org/opt
-# modernc.org/sqlite v1.21.0
+# modernc.org/sqlite v1.22.1
 ## explicit; go 1.18
 modernc.org/sqlite
 modernc.org/sqlite/lib
