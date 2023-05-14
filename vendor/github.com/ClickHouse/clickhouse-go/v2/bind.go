@@ -66,32 +66,47 @@ func bind(tz *time.Location, query string, args ...interface{}) (string, error) 
 		return query, nil
 	}
 	var (
-		haveNamed      bool
 		haveNumeric    bool
 		havePositional bool
 	)
+
+	allArgumentsNamed, err := checkAllNamedArguments(args...)
+	if err != nil {
+		return "", err
+	}
+
+	if allArgumentsNamed {
+		return bindNamed(tz, query, args...)
+	}
+
 	haveNumeric = bindNumericRe.MatchString(query)
 	havePositional = bindPositionalRe.MatchString(query)
 	if haveNumeric && havePositional {
 		return "", ErrBindMixedParamsFormats
 	}
+	if haveNumeric {
+		return bindNumeric(tz, query, args...)
+	}
+	return bindPositional(tz, query, args...)
+}
+
+func checkAllNamedArguments(args ...interface{}) (bool, error) {
+	var (
+		haveNamed     bool
+		haveAnonymous bool
+	)
 	for _, v := range args {
 		switch v.(type) {
 		case driver.NamedValue, driver.NamedDateValue:
 			haveNamed = true
 		default:
+			haveAnonymous = true
 		}
-		if haveNamed && (haveNumeric || havePositional) {
-			return "", ErrBindMixedParamsFormats
+		if haveNamed && haveAnonymous {
+			return haveNamed, ErrBindMixedParamsFormats
 		}
 	}
-	if haveNamed {
-		return bindNamed(tz, query, args...)
-	}
-	if haveNumeric {
-		return bindNumeric(tz, query, args...)
-	}
-	return bindPositional(tz, query, args...)
+	return haveNamed, nil
 }
 
 var bindPositionCharRe = regexp.MustCompile(`[?]`)
@@ -239,6 +254,11 @@ func format(tz *time.Location, scale TimeUnit, v interface{}) (string, error) {
 		return quote(v), nil
 	case time.Time:
 		return formatTime(tz, scale, v)
+	case bool:
+		if v {
+			return "1", nil
+		}
+		return "0", nil
 	case GroupSet:
 		val, err := join(tz, scale, v.Value)
 		if err != nil {
@@ -287,7 +307,11 @@ func format(tz *time.Location, scale TimeUnit, v interface{}) (string, error) {
 			values = append(values, fmt.Sprintf("%s, %s", name, val))
 		}
 		return "map(" + strings.Join(values, ", ") + ")", nil
-
+	case reflect.Ptr:
+		if v.IsNil() {
+			return "NULL", nil
+		}
+		return format(tz, scale, v.Elem().Interface())
 	}
 	return fmt.Sprint(v), nil
 }
