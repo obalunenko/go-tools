@@ -6,6 +6,7 @@ import (
 	_ "github.com/abice/go-enum"
 	_ "github.com/alvaroloes/enumer"
 	_ "github.com/axw/gocov/gocov"
+	_ "github.com/go-swagger/go-swagger/cmd/swagger"
 	_ "github.com/golangci/golangci-lint/cmd/golangci-lint"
 	_ "github.com/goreleaser/goreleaser"
 	_ "github.com/matm/gocov-html/cmd/gocov-html"
