@@ -9,7 +9,7 @@ require (
 	github.com/go-swagger/go-swagger v0.30.4
 	github.com/golangci/golangci-lint v1.52.2
 	github.com/goreleaser/goreleaser v1.18.2
-	github.com/matm/gocov-html v1.3.1
+	github.com/matm/gocov-html v1.4.0
 	github.com/mattn/goveralls v0.0.12
 	github.com/mfridman/tparse v0.12.1
 	github.com/obalunenko/coverbadger v1.4.0

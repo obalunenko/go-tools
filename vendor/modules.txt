@@ -1553,13 +1553,11 @@ github.com/maratori/testableexamples/pkg/testableexamples
 # github.com/maratori/testpackage v1.1.1
 ## explicit; go 1.20
 github.com/maratori/testpackage/pkg/testpackage
-# github.com/matm/gocov-html v1.3.1
+# github.com/matm/gocov-html v1.4.0
 ## explicit; go 1.11
 github.com/matm/gocov-html/cmd/gocov-html
 github.com/matm/gocov-html/pkg/config
-github.com/matm/gocov-html/pkg/cov
 github.com/matm/gocov-html/pkg/themes
-github.com/matm/gocov-html/pkg/types
 # github.com/matoous/godox v0.0.0-20230222163458-006bad1f9d26
 ## explicit; go 1.13
 github.com/matoous/godox
