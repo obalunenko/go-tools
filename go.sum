@@ -2046,8 +2046,8 @@ github.com/markbates/oncer v0.0.0-20181203154359-bf2de49a0be2/go.mod h1:Ld9puTsI
 github.com/markbates/pkger v0.15.1/go.mod h1:0JoVlrol20BSywW79rN3kdFFsE5xYM+rSCQDXbLhiuI=
 github.com/markbates/safe v1.0.1/go.mod h1:nAqgmRi7cY2nqMc92/bSEeQA+R4OheNU2T1kNSCBdG0=
 github.com/marstr/guid v1.1.0/go.mod h1:74gB1z2wpxxInTG6yaqA7KrtM0NZ+RbrcqDvYHefzho=
-github.com/matm/gocov-html v1.3.1 h1:BQe1BBd3PMj888tlqnDHzCZsdS0IAdBKLCt5ybegEUk=
-github.com/matm/gocov-html v1.3.1/go.mod h1:YtmZATysV+F1Q0CyvMjDgVVHHUaXAUbCpvS9onziLK8=
+github.com/matm/gocov-html v1.4.0 h1:fFDUXL6Sagf9vijTAiHqZRhjwrAm5ULbmBAvQ9tBoas=
+github.com/matm/gocov-html v1.4.0/go.mod h1:YtmZATysV+F1Q0CyvMjDgVVHHUaXAUbCpvS9onziLK8=
 github.com/matoous/godox v0.0.0-20230222163458-006bad1f9d26 h1:gWg6ZQ4JhDfJPqlo2srm/LN17lpybq15AryXIRcWYLE=
 github.com/matoous/godox v0.0.0-20230222163458-006bad1f9d26/go.mod h1:1BELzlh859Sh1c6+90blK8lbYy0kwQf1bYlBhBysy1s=
 github.com/matryer/is v1.2.0/go.mod h1:2fLPjFQM9rhQ15aVEtbuwhJinnOqrmgXPNdZsdwlWXA=
