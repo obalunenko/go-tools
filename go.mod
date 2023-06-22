@@ -16,7 +16,7 @@ require (
 	github.com/posener/goreadme v1.4.2
 	github.com/pressly/goose/v3 v3.11.2
 	golang.org/x/pkgsite v0.0.0-20230427194420-bb799e479030
-	golang.org/x/tools v0.9.3
+	golang.org/x/tools v0.10.0
 	golang.org/x/vuln v0.1.0
 	gotest.tools/gotestsum v1.10.0
 	mvdan.cc/gofumpt v0.5.0
@@ -442,16 +442,16 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
 	gocloud.dev v0.29.0 // indirect
-	golang.org/x/crypto v0.9.0 // indirect
+	golang.org/x/crypto v0.10.0 // indirect
 	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230224173230-c95f2b4c22f2 // indirect
-	golang.org/x/mod v0.10.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
+	golang.org/x/mod v0.11.0 // indirect
+	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
-	golang.org/x/sync v0.2.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
-	golang.org/x/term v0.8.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/sync v0.3.0 // indirect
+	golang.org/x/sys v0.9.0 // indirect
+	golang.org/x/term v0.9.0 // indirect
+	golang.org/x/text v0.10.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools/cmd/cover v0.1.0-deprecated // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
