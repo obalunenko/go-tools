@@ -201,7 +201,7 @@ func process(ctx *context.Context, docker config.Docker, artifacts []*artifact.A
 	if err := imagers[docker.Use].Build(ctx, tmp, images, buildFlags); err != nil {
 		if isFileNotFoundError(err.Error()) {
 			var files []string
-			_ = filepath.Walk(tmp, func(path string, info fs.FileInfo, err error) error {
+			_ = filepath.Walk(tmp, func(_ string, info fs.FileInfo, _ error) error {
 				if info.IsDir() {
 					return nil
 				}
@@ -285,10 +285,14 @@ func dockerPush(ctx *context.Context, image *artifact.Artifact) error {
 		return err
 	}
 
-	if strings.TrimSpace(docker.SkipPush) == "true" {
+	skip, err := tmpl.New(ctx).Apply(docker.SkipPush)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(skip) == "true" {
 		return pipe.Skip("docker.skip_push is set: " + image.Name)
 	}
-	if strings.TrimSpace(docker.SkipPush) == "auto" && ctx.Semver.Prerelease != "" {
+	if strings.TrimSpace(skip) == "auto" && ctx.Semver.Prerelease != "" {
 		return pipe.Skip("prerelease detected with 'auto' push, skipping docker publish: " + image.Name)
 	}
 

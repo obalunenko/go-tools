@@ -61,9 +61,21 @@ type ReleaserURLTemplater interface {
 	ReleaseURLTemplate(ctx *context.Context) (string, error)
 }
 
+// RepoFile is a file to be created.
+type RepoFile struct {
+	Content []byte
+	Path    string
+}
+
 // FileCreator can create the given file to some code repository.
 type FileCreator interface {
 	CreateFile(ctx *context.Context, commitAuthor config.CommitAuthor, repo Repo, content []byte, path, message string) (err error)
+}
+
+// FilesCreator can create the multiple files in some repository and in a single commit.
+type FilesCreator interface {
+	FileCreator
+	CreateFiles(ctx *context.Context, commitAuthor config.CommitAuthor, repo Repo, message string, files []RepoFile) (err error)
 }
 
 // ReleaseNotesGenerator can generate release notes.
@@ -73,7 +85,7 @@ type ReleaseNotesGenerator interface {
 
 // PullRequestOpener can open pull requests.
 type PullRequestOpener interface {
-	OpenPullRequest(ctx *context.Context, repo Repo, head, title string) error
+	OpenPullRequest(ctx *context.Context, base, head Repo, title string, draft bool) error
 }
 
 // New creates a new client depending on the token type.

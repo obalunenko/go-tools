@@ -25,6 +25,7 @@ import (
 // Type defines the type of an artifact.
 type Type int
 
+// If you add more types, update TestArtifactTypeStringer!
 const (
 	// UploadableArchive a tar.gz/zip archive to be uploaded.
 	UploadableArchive Type = iota + 1
@@ -58,6 +59,14 @@ const (
 	UploadableSourceArchive
 	// BrewTap is an uploadable homebrew tap recipe file.
 	BrewTap
+	// Nixpkg is an uploadable nix package.
+	Nixpkg
+	// WingetInstaller winget installer file.
+	WingetInstaller
+	// WingetDefaultLocale winget default locale file.
+	WingetDefaultLocale
+	// WingetVersion winget version file.
+	WingetVersion
 	// PkgBuild is an Arch Linux AUR PKGBUILD file.
 	PkgBuild
 	// SrcInfo is an Arch Linux AUR .SRCINFO file.
@@ -124,6 +133,10 @@ func (t Type) String() string {
 		return "C Archive Library"
 	case CShared:
 		return "C Shared Library"
+	case WingetInstaller, WingetDefaultLocale, WingetVersion:
+		return "Winget Manifest"
+	case Nixpkg:
+		return "Nixpkg"
 	default:
 		return "unknown"
 	}
@@ -348,6 +361,7 @@ func (artifacts *Artifacts) Add(a *Artifact) {
 			a.Path = rel
 		}
 	}
+	a.Path = filepath.ToSlash(a.Path)
 	log.WithField("name", a.Name).
 		WithField("type", a.Type).
 		WithField("path", a.Path).

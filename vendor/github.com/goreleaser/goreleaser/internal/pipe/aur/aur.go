@@ -32,6 +32,7 @@ var ErrNoArchivesFound = errors.New("no linux archives found")
 type Pipe struct{}
 
 func (Pipe) String() string                 { return "arch user repositories" }
+func (Pipe) ContinueOnError() bool          { return true }
 func (Pipe) Skip(ctx *context.Context) bool { return len(ctx.Config.AURs) == 0 }
 
 func (Pipe) Default(ctx *context.Context) error {
@@ -381,17 +382,16 @@ func doPublish(ctx *context.Context, pkgs []*artifact.Artifact) error {
 		Name: cfg.Name,
 	})
 
-	log.WithField("repo", cfg.GitURL).WithField("name", cfg.Name).Info("pushing")
+	files := make([]client.RepoFile, 0, len(pkgs))
 	for _, pkg := range pkgs {
-		log.WithField("package", pkg.Name).Info("pushing")
 		content, err := os.ReadFile(pkg.Path)
 		if err != nil {
 			return err
 		}
-		if err := cli.CreateFile(ctx, author, repo, content, pkg.Name, msg); err != nil {
-			return err
-		}
+		files = append(files, client.RepoFile{
+			Path:    pkg.Name,
+			Content: content,
+		})
 	}
-
-	return nil
+	return cli.CreateFiles(ctx, author, repo, msg, files)
 }

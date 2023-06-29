@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"text/template"
@@ -16,6 +17,7 @@ import (
 	"github.com/goreleaser/goreleaser/internal/artifact"
 	"github.com/goreleaser/goreleaser/internal/client"
 	"github.com/goreleaser/goreleaser/internal/commitauthor"
+	"github.com/goreleaser/goreleaser/internal/deprecate"
 	"github.com/goreleaser/goreleaser/internal/pipe"
 	"github.com/goreleaser/goreleaser/internal/tmpl"
 	"github.com/goreleaser/goreleaser/pkg/config"
@@ -43,6 +45,7 @@ func (e ErrNoArchivesFound) Error() string {
 type Pipe struct{}
 
 func (Pipe) String() string                 { return "homebrew tap formula" }
+func (Pipe) ContinueOnError() bool          { return true }
 func (Pipe) Skip(ctx *context.Context) bool { return len(ctx.Config.Brews) == 0 }
 
 func (Pipe) Default(ctx *context.Context) error {
@@ -62,6 +65,13 @@ func (Pipe) Default(ctx *context.Context) error {
 		}
 		if brew.Goamd64 == "" {
 			brew.Goamd64 = "v1"
+		}
+		if brew.Plist != "" {
+			deprecate.Notice(ctx, "brews.plist")
+		}
+		if !reflect.DeepEqual(brew.Tap, config.RepoRef{}) {
+			brew.Repository = brew.Tap
+			deprecate.Notice(ctx, "brews.tap")
 		}
 	}
 
@@ -127,12 +137,9 @@ func doPublish(ctx *context.Context, formula *artifact.Artifact, cl client.Clien
 		return pipe.Skip("prerelease detected with 'auto' upload, skipping homebrew publish")
 	}
 
-	repo := client.RepoFromRef(brew.Tap)
+	repo := client.RepoFromRef(brew.Repository)
 
 	gpath := buildFormulaPath(brew.Folder, formula.Name)
-	log.WithField("formula", gpath).
-		WithField("repo", repo.String()).
-		Info("pushing")
 
 	msg, err := tmpl.New(ctx).Apply(brew.CommitMessageTemplate)
 	if err != nil {
@@ -149,17 +156,17 @@ func doPublish(ctx *context.Context, formula *artifact.Artifact, cl client.Clien
 		return err
 	}
 
-	if brew.Tap.Git.URL != "" {
+	if brew.Repository.Git.URL != "" {
 		return client.NewGitUploadClient(repo.Branch).
 			CreateFile(ctx, author, repo, content, gpath, msg)
 	}
 
-	cl, err = client.NewIfToken(ctx, cl, brew.Tap.Token)
+	cl, err = client.NewIfToken(ctx, cl, brew.Repository.Token)
 	if err != nil {
 		return err
 	}
 
-	if !brew.Tap.PullRequest.Enabled {
+	if !brew.Repository.PullRequest.Enabled {
 		return cl.CreateFile(ctx, author, repo, content, gpath, msg)
 	}
 
@@ -173,13 +180,16 @@ func doPublish(ctx *context.Context, formula *artifact.Artifact, cl client.Clien
 		return err
 	}
 
-	title := fmt.Sprintf("Updated %s to %s", ctx.Config.ProjectName, ctx.Version)
-	return pcl.OpenPullRequest(ctx, repo, brew.Tap.PullRequest.Base, title)
+	return pcl.OpenPullRequest(ctx, client.Repo{
+		Name:   brew.Repository.PullRequest.Base.Name,
+		Owner:  brew.Repository.PullRequest.Base.Owner,
+		Branch: brew.Repository.PullRequest.Base.Branch,
+	}, repo, msg, brew.Repository.PullRequest.Draft)
 }
 
 func doRun(ctx *context.Context, brew config.Homebrew, cl client.ReleaserURLTemplater) error {
-	if brew.Tap.Name == "" {
-		return pipe.Skip("brew tap name is not set")
+	if brew.Repository.Name == "" {
+		return pipe.Skip("brew.repository.name is not set")
 	}
 
 	filters := []artifact.Filter{
@@ -227,11 +237,11 @@ func doRun(ctx *context.Context, brew config.Homebrew, cl client.ReleaserURLTemp
 	}
 	brew.Name = name
 
-	ref, err := client.TemplateRef(tmpl.New(ctx).Apply, brew.Tap)
+	ref, err := client.TemplateRef(tmpl.New(ctx).Apply, brew.Repository)
 	if err != nil {
 		return err
 	}
-	brew.Tap = ref
+	brew.Repository = ref
 
 	skipUpload, err := tmpl.New(ctx).Apply(brew.SkipUpload)
 	if err != nil {
@@ -245,7 +255,11 @@ func doRun(ctx *context.Context, brew config.Homebrew, cl client.ReleaserURLTemp
 	}
 
 	filename := brew.Name + ".rb"
-	path := filepath.Join(ctx.Config.Dist, filename)
+	path := filepath.Join(ctx.Config.Dist, "homebrew", brew.Folder, filename)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+
 	log.WithField("formula", path).Info("writing")
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil { //nolint: gosec
 		return fmt.Errorf("failed to write brew formula: %w", err)
@@ -346,6 +360,9 @@ func keys(m map[string]bool) []string {
 }
 
 func dataFor(ctx *context.Context, cfg config.Homebrew, cl client.ReleaserURLTemplater, artifacts []*artifact.Artifact) (templateData, error) {
+	sort.Slice(cfg.Dependencies, func(i, j int) bool {
+		return cfg.Dependencies[i].Name < cfg.Dependencies[j].Name
+	})
 	result := templateData{
 		Name:          formulaNameFor(cfg.Name),
 		Desc:          cfg.Description,

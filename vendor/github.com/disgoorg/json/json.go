@@ -10,6 +10,9 @@ var (
 	// Unmarshal unmarshals the given JSON string into v.
 	Unmarshal = json.Unmarshal
 
+	// Merge merges two JSON objects into one.
+	Merge = SimpleMerge
+
 	// MarshalIndent marshals the given value into a JSON string with indentation.
 	MarshalIndent = json.MarshalIndent
 

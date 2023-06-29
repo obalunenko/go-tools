@@ -17,11 +17,13 @@ import (
 	"github.com/goreleaser/goreleaser/internal/pipe/ko"
 	"github.com/goreleaser/goreleaser/internal/pipe/krew"
 	"github.com/goreleaser/goreleaser/internal/pipe/milestone"
+	"github.com/goreleaser/goreleaser/internal/pipe/nix"
 	"github.com/goreleaser/goreleaser/internal/pipe/release"
 	"github.com/goreleaser/goreleaser/internal/pipe/scoop"
 	"github.com/goreleaser/goreleaser/internal/pipe/sign"
 	"github.com/goreleaser/goreleaser/internal/pipe/snapcraft"
 	"github.com/goreleaser/goreleaser/internal/pipe/upload"
+	"github.com/goreleaser/goreleaser/internal/pipe/winget"
 	"github.com/goreleaser/goreleaser/pkg/context"
 )
 
@@ -33,36 +35,45 @@ type Publisher interface {
 	Publish(ctx *context.Context) error
 }
 
-// nolint: gochecknoglobals
-var publishers = []Publisher{
-	blob.Pipe{},
-	upload.Pipe{},
-	artifactory.Pipe{},
-	custompublishers.Pipe{},
-	docker.Pipe{},
-	docker.ManifestPipe{},
-	ko.Pipe{},
-	sign.DockerPipe{},
-	snapcraft.Pipe{},
-	// This should be one of the last steps
-	release.Pipe{},
-	// brew et al use the release URL, so, they should be last
-	brew.Pipe{},
-	aur.Pipe{},
-	krew.Pipe{},
-	scoop.Pipe{},
-	chocolatey.Pipe{},
-	milestone.Pipe{},
+// New publish pipeline.
+func New() Pipe {
+	return Pipe{
+		pipeline: []Publisher{
+			blob.Pipe{},
+			upload.Pipe{},
+			artifactory.Pipe{},
+			custompublishers.Pipe{},
+			docker.Pipe{},
+			docker.ManifestPipe{},
+			ko.Pipe{},
+			sign.DockerPipe{},
+			snapcraft.Pipe{},
+			// This should be one of the last steps
+			release.Pipe{},
+			// brew et al use the release URL, so, they should be last
+			nix.NewPublish(),
+			winget.Pipe{},
+			brew.Pipe{},
+			aur.Pipe{},
+			krew.Pipe{},
+			scoop.Pipe{},
+			chocolatey.Pipe{},
+			milestone.Pipe{},
+		},
+	}
 }
 
 // Pipe that publishes artifacts.
-type Pipe struct{}
+type Pipe struct {
+	pipeline []Publisher
+}
 
 func (Pipe) String() string                 { return "publishing" }
 func (Pipe) Skip(ctx *context.Context) bool { return ctx.SkipPublish }
 
-func (Pipe) Run(ctx *context.Context) error {
-	for _, publisher := range publishers {
+func (p Pipe) Run(ctx *context.Context) error {
+	memo := errhandler.Memo{}
+	for _, publisher := range p.pipeline {
 		if err := skip.Maybe(
 			publisher,
 			logging.PadLog(
@@ -70,8 +81,16 @@ func (Pipe) Run(ctx *context.Context) error {
 				errhandler.Handle(publisher.Publish),
 			),
 		)(ctx); err != nil {
+			if ig, ok := publisher.(Continuable); ok && ig.ContinueOnError() && !ctx.FailFast {
+				memo.Memorize(fmt.Errorf("%s: %w", publisher.String(), err))
+				continue
+			}
 			return fmt.Errorf("%s: failed to publish artifacts: %w", publisher.String(), err)
 		}
 	}
-	return nil
+	return memo.Error()
+}
+
+type Continuable interface {
+	ContinueOnError() bool
 }
