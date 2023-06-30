@@ -73,7 +73,7 @@ Support for the ClickHouse protocol advanced features using `Context`:
 			return d.DialContext(ctx, "tcp", addr)
 		},
 		Debug: true,
-		Debugf: func(format string, v ...interface{}) {
+		Debugf: func(format string, v ...any) {
 			fmt.Printf(format, v)
 		},
 		Settings: clickhouse.Settings{
@@ -202,7 +202,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 	Compression: &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	},
-	Interface: clickhouse.HttpInterface,
+	Protocol:  clickhouse.HTTP,
 })
 ```
 
@@ -253,7 +253,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 		Username: "default",
 		Password: "",
 	},
-	Interface: clickhouse.HttpsInterface,
+	Protocol:  clickhouse.HTTP,
 })
 ```
 

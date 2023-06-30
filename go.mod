@@ -14,7 +14,7 @@ require (
 	github.com/mfridman/tparse v0.12.2
 	github.com/obalunenko/coverbadger v1.4.0
 	github.com/posener/goreadme v1.4.2
-	github.com/pressly/goose/v3 v3.11.2
+	github.com/pressly/goose/v3 v3.13.0
 	golang.org/x/pkgsite v0.0.0-20230427194420-bb799e479030
 	golang.org/x/tools v0.10.0
 	golang.org/x/vuln v0.1.0
@@ -65,8 +65,8 @@ require (
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.0.0 // indirect
 	github.com/BurntSushi/toml v1.3.2 // indirect
-	github.com/ClickHouse/ch-go v0.55.0 // indirect
-	github.com/ClickHouse/clickhouse-go/v2 v2.9.1 // indirect
+	github.com/ClickHouse/ch-go v0.56.1 // indirect
+	github.com/ClickHouse/clickhouse-go/v2 v2.10.1 // indirect
 	github.com/Djarvur/go-err113 v0.0.0-20210108212216-aea10b59be24 // indirect
 	github.com/GaijinEntertainment/go-exhaustruct/v2 v2.3.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
@@ -154,14 +154,14 @@ require (
 	github.com/disgoorg/log v1.2.0 // indirect
 	github.com/disgoorg/snowflake/v2 v2.0.1 // indirect
 	github.com/dnephin/pflag v1.0.7 // indirect
-	github.com/docker/cli v23.0.6+incompatible // indirect
+	github.com/docker/cli v24.0.2+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/docker v24.0.2+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/elastic/go-sysinfo v1.10.1 // indirect
+	github.com/elastic/go-sysinfo v1.11.0 // indirect
 	github.com/elastic/go-windows v1.0.1 // indirect
 	github.com/elliotchance/orderedmap/v2 v2.2.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
@@ -274,7 +274,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jackc/pgtype v1.14.0 // indirect
 	github.com/jackc/pgx/v4 v4.18.1 // indirect
-	github.com/jackc/pgx/v5 v5.3.1 // indirect
+	github.com/jackc/pgx/v5 v5.4.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jessevdk/go-flags v1.5.0 // indirect
 	github.com/jgautheron/goconst v1.5.1 // indirect
@@ -320,7 +320,7 @@ require (
 	github.com/mbilski/exhaustivestruct v1.2.0 // indirect
 	github.com/mgechev/revive v1.3.2 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.16 // indirect
-	github.com/microsoft/go-mssqldb v0.21.0 // indirect
+	github.com/microsoft/go-mssqldb v1.1.0 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
@@ -347,7 +347,7 @@ require (
 	github.com/paulmach/orb v0.9.2 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
-	github.com/pierrec/lz4/v4 v4.1.17 // indirect
+	github.com/pierrec/lz4/v4 v4.1.18 // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -358,7 +358,7 @@ require (
 	github.com/prometheus/client_golang v1.15.1 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
-	github.com/prometheus/procfs v0.9.0 // indirect
+	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/prometheus/prometheus v0.44.0 // indirect
 	github.com/quasilyte/go-ruleguard v0.3.19 // indirect
 	github.com/quasilyte/gogrep v0.5.0 // indirect
@@ -436,8 +436,8 @@ require (
 	gitlab.com/digitalxero/go-conventional-commit v1.0.7 // indirect
 	go.mongodb.org/mongo-driver v1.11.4 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	go.opentelemetry.io/otel v1.15.1 // indirect
-	go.opentelemetry.io/otel/trace v1.15.1 // indirect
+	go.opentelemetry.io/otel v1.16.0 // indirect
+	go.opentelemetry.io/otel/trace v1.16.0 // indirect
 	go.tmz.dev/musttag v0.7.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/automaxprocs v1.5.2 // indirect
@@ -474,13 +474,13 @@ require (
 	honnef.co/go/tools v0.4.3 // indirect
 	howett.net/plist v1.0.0 // indirect
 	lukechampine.com/uint128 v1.3.0 // indirect
-	modernc.org/cc/v3 v3.40.0 // indirect
-	modernc.org/ccgo/v3 v3.16.13 // indirect
-	modernc.org/libc v1.22.5 // indirect
+	modernc.org/cc/v3 v3.41.0 // indirect
+	modernc.org/ccgo/v3 v3.16.14 // indirect
+	modernc.org/libc v1.24.1 // indirect
 	modernc.org/mathutil v1.5.0 // indirect
-	modernc.org/memory v1.5.0 // indirect
+	modernc.org/memory v1.6.0 // indirect
 	modernc.org/opt v0.1.3 // indirect
-	modernc.org/sqlite v1.22.1 // indirect
+	modernc.org/sqlite v1.23.1 // indirect
 	modernc.org/strutil v1.1.3 // indirect
 	modernc.org/token v1.1.0 // indirect
 	mvdan.cc/interfacer v0.0.0-20180901003855-c20040233aed // indirect
