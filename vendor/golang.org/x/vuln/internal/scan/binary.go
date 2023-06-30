@@ -14,66 +14,44 @@ import (
 	"strings"
 	"unicode"
 
+	"golang.org/x/vuln/internal/client"
 	"golang.org/x/vuln/internal/govulncheck"
 	"golang.org/x/vuln/internal/vulncheck"
 )
 
 // runBinary detects presence of vulnerable symbols in an executable.
-func runBinary(ctx context.Context, handler govulncheck.Handler, cfg *config) ([]*govulncheck.Vuln, error) {
+func runBinary(ctx context.Context, handler govulncheck.Handler, cfg *config, client *client.Client) error {
 	var exe *os.File
 	exe, err := os.Open(cfg.patterns[0])
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer exe.Close()
 
 	p := &govulncheck.Progress{Message: binaryProgressMessage}
 	if err := handler.Progress(p); err != nil {
-		return nil, err
+		return err
 	}
-	vr, err := binary(ctx, exe, &cfg.Config)
+	vr, err := binary(ctx, exe, &cfg.Config, client)
 	if err != nil {
-		return nil, fmt.Errorf("govulncheck: %v", err)
+		return fmt.Errorf("govulncheck: %v", err)
 	}
-	return createBinaryResult(vr), nil
+	callstacks := binaryCallstacks(vr)
+	return emitResult(handler, vr, callstacks)
 }
 
-func createBinaryResult(vr *vulncheck.Result) []*govulncheck.Vuln {
-	modVersions := moduleVersionMap(vr.Modules)
-	// Create Result where each vulncheck.Vuln{OSV, ModPath, PkgPath} becomes
-	// a separate Vuln{OSV, Modules{Packages{PkgPath}}} entry. We merge the
-	// results later.
-	var vulns []*govulncheck.Vuln
+func binaryCallstacks(vr *vulncheck.Result) map[*vulncheck.Vuln]vulncheck.CallStack {
+	callstacks := map[*vulncheck.Vuln]vulncheck.CallStack{}
 	for _, vv := range uniqueVulns(vr.Vulns) {
-		p := &govulncheck.Package{Path: vv.PkgPath}
-		// in binary mode, there is 1 call stack containing the vulnerable
-		// symbol.
-		f := &govulncheck.StackFrame{
-			Function: vv.Symbol,
-			Package:  vv.PkgPath,
-		}
+		f := &vulncheck.FuncNode{Package: vv.ImportSink, Name: vv.Symbol}
 		parts := strings.Split(vv.Symbol, ".")
 		if len(parts) != 1 {
-			f.Function = parts[0]
-			f.Receiver = parts[1]
+			f.RecvType = parts[0]
+			f.Name = parts[1]
 		}
-		p.CallStacks = []govulncheck.CallStack{
-			{Frames: []*govulncheck.StackFrame{f}},
-		}
-		m := &govulncheck.Module{
-			Path:         vv.ModPath,
-			FoundVersion: foundVersion(vv.ModPath, modVersions),
-			FixedVersion: fixedVersion(vv.ModPath, vv.OSV.Affected),
-			Packages:     []*govulncheck.Package{p},
-		}
-
-		v := &govulncheck.Vuln{OSV: vv.OSV, Modules: []*govulncheck.Module{m}}
-		vulns = append(vulns, v)
+		callstacks[vv] = vulncheck.CallStack{vulncheck.StackEntry{Function: f}}
 	}
-
-	vulns = merge(vulns)
-	sortResult(vulns)
-	return vulns
+	return callstacks
 }
 
 // uniqueVulns does for binary mode what uniqueCallStack does for source mode.
@@ -90,14 +68,14 @@ func uniqueVulns(vulns []*vulncheck.Vuln) []*vulncheck.Vuln {
 	hasExported := make(map[key]bool)
 	for _, v := range vulns {
 		if isExported(v.Symbol) {
-			k := key{id: v.OSV.ID, pkg: v.PkgPath, mod: v.ModPath}
+			k := key{id: v.OSV.ID, pkg: v.ImportSink.PkgPath, mod: v.ImportSink.Module.Path}
 			hasExported[k] = true
 		}
 	}
 
 	var uniques []*vulncheck.Vuln
 	for _, v := range vulns {
-		k := key{id: v.OSV.ID, pkg: v.PkgPath, mod: v.ModPath}
+		k := key{id: v.OSV.ID, pkg: v.ImportSink.PkgPath, mod: v.ImportSink.Module.Path}
 		if isExported(v.Symbol) || !hasExported[k] {
 			uniques = append(uniques, v)
 		}

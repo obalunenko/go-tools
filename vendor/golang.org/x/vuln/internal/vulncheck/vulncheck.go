@@ -6,124 +6,31 @@ package vulncheck
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
-	"go/types"
 	"strings"
 	"time"
 
 	"golang.org/x/tools/go/packages"
-	"golang.org/x/vuln/internal/client"
+	"golang.org/x/vuln/internal"
 	"golang.org/x/vuln/internal/osv"
 	"golang.org/x/vuln/internal/semver"
 )
-
-// Config is used for configuring vulncheck algorithms.
-type Config struct {
-	// ImportsOnly instructs vulncheck to analyze import chains only.
-	// Otherwise, call chains are analyzed too.
-	ImportsOnly bool
-
-	// Client is used for querying data from a vulnerability database.
-	Client client.Client
-
-	// SourceGoVersion is Go version used to build Source inputs passed
-	// to vulncheck. If not provided, the current Go version at PATH
-	// is used to detect vulnerabilities in Go standard library.
-	SourceGoVersion string
-
-	// Consider only vulnerabilities that apply to this OS and architecture.
-	// An empty string means "all" (don't filter).
-	// Applies only to Source.
-	GOOS, GOARCH string
-}
-
-// Package is a Go package for vulncheck analysis. It is a version of
-// packages.Package trimmed down to reduce memory consumption.
-type Package struct {
-	Name      string
-	PkgPath   string
-	Imports   []*Package
-	Pkg       *types.Package
-	Fset      *token.FileSet
-	Syntax    []*ast.File
-	TypesInfo *types.Info
-	Module    *Module
-}
-
-// Module is a Go module for vulncheck analysis.
-type Module struct {
-	Path    string
-	Version string
-	Dir     string
-	Replace *Module
-}
-
-// Convert transforms a slice of packages.Package to
-// a slice of corresponding vulncheck.Package.
-func Convert(pkgs []*packages.Package) []*Package {
-	convertMod := newModuleConverter()
-	ps := make(map[*packages.Package]*Package)
-	var pkg func(*packages.Package) *Package
-	pkg = func(p *packages.Package) *Package {
-		if vp, ok := ps[p]; ok {
-			return vp
-		}
-
-		vp := &Package{
-			Name:      p.Name,
-			PkgPath:   p.PkgPath,
-			Pkg:       p.Types,
-			Fset:      p.Fset,
-			Syntax:    p.Syntax,
-			TypesInfo: p.TypesInfo,
-			Module:    convertMod(p.Module),
-		}
-		ps[p] = vp
-
-		for _, i := range p.Imports {
-			vp.Imports = append(vp.Imports, pkg(i))
-		}
-		return vp
-	}
-
-	var vpkgs []*Package
-	for _, p := range pkgs {
-		vpkgs = append(vpkgs, pkg(p))
-	}
-	return vpkgs
-}
 
 // Result contains information on how known vulnerabilities are reachable
 // in the call graph, package imports graph, and module requires graph of
 // the user code.
 type Result struct {
-	// Calls is a call graph whose roots are program entry functions and
-	// methods, and sinks are known vulnerable symbols. It is empty when
-	// Config.ImportsOnly is true or when no vulnerable symbols are reachable
-	// via the program call graph.
-	Calls *CallGraph
+	// EntryFunctions are a subset of Functions representing vulncheck entry points.
+	EntryFunctions []*FuncNode
 
-	// Imports is a package dependency graph whose roots are entry user packages
-	// and sinks are packages with some known vulnerable symbols. It is empty
-	// when no packages with vulnerabilities are imported in the program.
-	Imports *ImportGraph
-
-	// Requires is a module dependency graph whose roots are entry user modules
-	// and sinks are modules with some vulnerable packages. It is empty when no
-	// modules with vulnerabilities are required by the program. If used, the
-	// standard library is modeled as an artificial "stdlib" module whose version
-	// is the Go version used to build the code under analysis.
-	Requires *RequireGraph
+	// EntryPackages are a subset of Packages representing packages of vulncheck entry points.
+	EntryPackages []*packages.Package
 
 	// Vulns contains information on detected vulnerabilities and their place in
 	// the above graphs. Only vulnerabilities whose symbols are reachable in Calls,
 	// or whose packages are imported in Imports, or whose modules are required in
 	// Requires, have an entry in Vulns.
 	Vulns []*Vuln
-
-	// Modules are the modules that comprise the user code.
-	Modules []*Module
 }
 
 // Vuln provides information on how a vulnerability is affecting user code by
@@ -142,60 +49,29 @@ type Vuln struct {
 	// Symbol is the name of the detected vulnerable function or method.
 	Symbol string
 
-	// PkgPath is the package path of the detected Symbol.
-	PkgPath string
-
-	// ModPath is the module path corresponding to PkgPath.
-	ModPath string
-
-	// CallSink is the ID of the FuncNode in Result.Calls corresponding to
-	// Symbol.
+	// CallSink is the FuncNode in Result.Calls corresponding to Symbol.
 	//
-	// When analyzing binaries, Symbol is not reachable, or Config.ImportsOnly
-	// is true, CallSink will be unavailable and set to 0.
-	CallSink int
+	// When analyzing binaries, Symbol is not reachable, or cfg.ScanLevel
+	// is symbol, CallSink will be unavailable and set to 0.
+	CallSink *FuncNode
 
-	// ImportSink is the ID of the PkgNode in Result.Imports corresponding to
-	// PkgPath.
+	// ImportSink is the PkgNode in Result.Imports corresponding to PkgPath.
 	//
 	// When analyzing binaries or PkgPath is not imported, ImportSink will be
 	// unavailable and set to 0.
-	ImportSink int
-
-	// RequireSink is the ID of the ModNode in Result.Requires corresponding to
-	// ModPath.
-	//
-	// When analyzing binaries, RequireSink will be unavailable and set to 0.
-	RequireSink int
-}
-
-// CallGraph is a slice of a full program call graph whose sinks are vulnerable
-// functions and sources are entry points of user packages.
-//
-// CallGraph is directed from vulnerable functions towards program entry
-// functions (see FuncNode) for a more efficient traversal of the slice
-// related to a particular vulnerability.
-type CallGraph struct {
-	// Functions contains all call graph nodes as a map: FuncNode.ID -> FuncNode.
-	Functions map[int]*FuncNode
-
-	// Entries are IDs of a subset of Functions representing vulncheck entry points.
-	Entries []int
+	ImportSink *packages.Package
 }
 
 // A FuncNode describes a function in the call graph.
 type FuncNode struct {
-	// ID is the id used to identify the FuncNode in CallGraph.
-	ID int
-
 	// Name is the name of the function.
 	Name string
 
 	// RecvType is the receiver object type of this function, if any.
 	RecvType string
 
-	// PkgPath is the import path of the package containing the function.
-	PkgPath string
+	// Package is the package the function is part of.
+	Package *packages.Package
 
 	// Position describes the position of the function in the file.
 	Pos *token.Position
@@ -206,7 +82,7 @@ type FuncNode struct {
 
 func (fn *FuncNode) String() string {
 	if fn.RecvType == "" {
-		return fmt.Sprintf("%s.%s", fn.PkgPath, fn.Name)
+		return fmt.Sprintf("%s.%s", fn.Package.PkgPath, fn.Name)
 	}
 	return fmt.Sprintf("%s.%s", fn.RecvType, fn.Name)
 }
@@ -214,13 +90,13 @@ func (fn *FuncNode) String() string {
 // Receiver returns the FuncNode's receiver, with package path removed.
 // Pointers are preserved if present.
 func (fn *FuncNode) Receiver() string {
-	return strings.Replace(fn.RecvType, fmt.Sprintf("%s.", fn.PkgPath), "", 1)
+	return strings.Replace(fn.RecvType, fmt.Sprintf("%s.", fn.Package.PkgPath), "", 1)
 }
 
 // A CallSite describes a function call.
 type CallSite struct {
-	// Parent is ID of the enclosing function where the call is made.
-	Parent int
+	// Parent is the enclosing function where the call is made.
+	Parent *FuncNode
 
 	// Name stands for the name of the function (variable) being called.
 	Name string
@@ -235,76 +111,6 @@ type CallSite struct {
 	Resolved bool
 }
 
-// RequireGraph is a slice of a full program module requires graph whose sinks
-// are modules with known vulnerabilities and sources are modules of user entry
-// packages.
-//
-// RequireGraph is directed from a vulnerable module towards the program entry
-// modules (see ModNode) for a more efficient traversal of the slice related
-// to a particular vulnerability.
-type RequireGraph struct {
-	// Modules contains all module nodes as a map: module node id -> module node.
-	Modules map[int]*ModNode
-
-	// Entries are IDs of a subset of Modules representing modules of vulncheck entry points.
-	Entries []int
-}
-
-// A ModNode describes a module in the requires graph.
-type ModNode struct {
-	// ID is the id used to identify the ModNode in CallGraph.
-	ID int
-
-	// Path is the module path.
-	Path string
-
-	// Version is the module version.
-	Version string
-
-	// Replace is the ID of the replacement module node.
-	// A zero value means there is no replacement.
-	Replace int
-
-	// RequiredBy contains IDs of the modules requiring this module.
-	RequiredBy []int
-}
-
-// ImportGraph is a slice of a full program package import graph whose sinks are
-// packages with some known vulnerabilities and sources are user specified
-// packages.
-//
-// ImportGraph is directed from a vulnerable package towards the program entry
-// packages (see PkgNode) for a more efficient traversal of the slice related
-// to a particular vulnerability.
-type ImportGraph struct {
-	// Packages contains all package nodes as a map: package node id -> package node.
-	Packages map[int]*PkgNode
-
-	// Entries are IDs of a subset of Packages representing packages of vulncheck entry points.
-	Entries []int
-}
-
-// A PkgNode describes a package in the import graph.
-type PkgNode struct {
-	// ID is the id used to identify the PkgNode in ImportGraph.
-	ID int
-
-	// Name is the package identifier as it appears in the source code.
-	Name string
-
-	// Path is the package path.
-	Path string
-
-	// Module holds ID of the corresponding module (node) in the Requires graph.
-	Module int
-
-	// ImportedBy contains IDs of packages directly importing this package.
-	ImportedBy []int
-
-	// pkg is used for connecting package node to module and call graph nodes.
-	pkg *Package
-}
-
 // moduleVulnerabilities is an internal structure for
 // holding and querying vulnerabilities provided by a
 // vulnerability database client.
@@ -312,7 +118,7 @@ type moduleVulnerabilities []*ModVulns
 
 // ModVulns groups vulnerabilities per module.
 type ModVulns struct {
-	Module *Module
+	Module *packages.Module
 	Vulns  []*osv.Entry
 }
 
@@ -413,7 +219,7 @@ func (mv moduleVulnerabilities) vulnsForPackage(importPath string) []*osv.Entry 
 	var mostSpecificMod *ModVulns
 	for _, mod := range mv {
 		md := mod
-		if isStd && mod.Module == stdlibModule {
+		if isStd && mod.Module.Path == internal.GoStdModulePath {
 			// standard library packages do not have an associated module,
 			// so we relate them to the artificial stdlib module.
 			mostSpecificMod = md
@@ -482,24 +288,14 @@ func contains(symbols []string, target string) bool {
 	return false
 }
 
-func newModuleConverter() func(m *packages.Module) *Module {
-	pmap := map[*packages.Module]*Module{}
-	var convert func(m *packages.Module) *Module
-	convert = func(m *packages.Module) *Module {
-		if m == nil {
-			return nil
-		}
-		if vm, ok := pmap[m]; ok {
-			return vm
-		}
-		vm := &Module{
-			Path:    m.Path,
-			Version: m.Version,
-			Dir:     m.Dir,
-			Replace: convert(m.Replace),
-		}
-		pmap[m] = vm
-		return vm
+func isStdPackage(pkg string) bool {
+	if pkg == "" {
+		return false
 	}
-	return convert
+	// std packages do not have a "." in their path. For instance, see
+	// Contains in pkgsite/+/refs/heads/master/internal/stdlbib/stdlib.go.
+	if i := strings.IndexByte(pkg, '/'); i != -1 {
+		pkg = pkg[:i]
+	}
+	return !strings.Contains(pkg, ".")
 }

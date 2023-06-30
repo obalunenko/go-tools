@@ -7,115 +7,15 @@ package vulncheck
 import (
 	"container/list"
 	"fmt"
+	"go/ast"
 	"go/token"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
+
+	"golang.org/x/tools/go/packages"
 )
-
-// ImportChain is a slice of packages where each
-// subsequent package is imported by its immediate
-// predecessor. The chain starts with a client package
-// and ends in a package with some known vulnerabilities.
-type ImportChain []*PkgNode
-
-// ImportChains returns a slice of representative import chains for
-// each vulnerability in res. The returned chains are ordered
-// increasingly by their length.
-//
-// ImportChains performs a breadth-first search of res.RequireGraph starting
-// at a vulnerable package and going up until reaching an entry package
-// in res.ImportGraph.Entries. During this search, a package is visited
-// only once to avoid analyzing every possible import chain. Hence, not
-// all import chains are analyzed.
-//
-// Note that vulnerabilities from the same package will have the same
-// slice of identified import chains.
-func ImportChains(res *Result) map[*Vuln][]ImportChain {
-	// Group vulns per package.
-	vPerPkg := make(map[int][]*Vuln)
-	for _, v := range res.Vulns {
-		vPerPkg[v.ImportSink] = append(vPerPkg[v.ImportSink], v)
-	}
-
-	// Collect chains in parallel for every package path.
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	chains := make(map[*Vuln][]ImportChain)
-	for pkgID, vulns := range vPerPkg {
-		pID := pkgID
-		vs := vulns
-		wg.Add(1)
-		go func() {
-			pChains := importChains(pID, res)
-			mu.Lock()
-			for _, v := range vs {
-				chains[v] = pChains
-			}
-			mu.Unlock()
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-	return chains
-}
-
-// importChains finds representative chains of package imports
-// leading to vulnerable package identified with vulnSinkID.
-func importChains(vulnSinkID int, res *Result) []ImportChain {
-	if vulnSinkID == 0 {
-		return nil
-	}
-
-	// Entry packages, needed for finalizing chains.
-	entries := make(map[int]bool)
-	for _, e := range res.Imports.Entries {
-		entries[e] = true
-	}
-
-	var chains []ImportChain
-	seen := make(map[int]bool)
-
-	queue := list.New()
-	queue.PushBack(&importChain{pkg: res.Imports.Packages[vulnSinkID]})
-	for queue.Len() > 0 {
-		front := queue.Front()
-		c := front.Value.(*importChain)
-		queue.Remove(front)
-
-		pkg := c.pkg
-		if seen[pkg.ID] {
-			continue
-		}
-		seen[pkg.ID] = true
-
-		for _, impBy := range pkg.ImportedBy {
-			imp := res.Imports.Packages[impBy]
-			newC := &importChain{pkg: imp, child: c}
-			// If the next package is an entry, we have
-			// a chain to report.
-			if entries[imp.ID] {
-				chains = append(chains, newC.ImportChain())
-			}
-			queue.PushBack(newC)
-		}
-	}
-	return chains
-}
-
-// importChain models an chain of package imports.
-type importChain struct {
-	pkg   *PkgNode
-	child *importChain
-}
-
-// ImportChain converts importChain to ImportChain type.
-func (r *importChain) ImportChain() ImportChain {
-	if r == nil {
-		return nil
-	}
-	return append([]*PkgNode{r.pkg}, r.child.ImportChain()...)
-}
 
 // CallStack is a call stack starting with a client
 // function or method and ending with a call to a
@@ -143,47 +43,67 @@ type StackEntry struct {
 // function or method in res.CallGraph.Entries. During this search,
 // each function is visited at most once to avoid potential
 // exponential explosion. Hence, not all call stacks are analyzed.
-func CallStacks(res *Result) map[*Vuln][]CallStack {
+func CallStacks(res *Result) map[*Vuln]CallStack {
 	var (
 		wg sync.WaitGroup
 		mu sync.Mutex
 	)
-	stacksPerVuln := make(map[*Vuln][]CallStack)
+	stackPerVuln := make(map[*Vuln]CallStack)
 	for _, vuln := range res.Vulns {
 		vuln := vuln
 		wg.Add(1)
 		go func() {
-			cs := callStacks(vuln.CallSink, res)
-			// sort call stacks by the estimated value to the user
-			sort.SliceStable(cs, func(i int, j int) bool { return stackLess(cs[i], cs[j]) })
+			cs := callStack(vuln, res)
 			mu.Lock()
-			stacksPerVuln[vuln] = cs
+			stackPerVuln[vuln] = cs
 			mu.Unlock()
 			wg.Done()
 		}()
 	}
-
 	wg.Wait()
-	return stacksPerVuln
+
+	updateInitPositions(stackPerVuln)
+	return stackPerVuln
 }
 
-// callStacks finds representative call stacks
-// for vulnerable symbol identified with vulnSinkID.
-func callStacks(vulnSinkID int, res *Result) []CallStack {
-	if vulnSinkID == 0 {
+// callStack finds a representative call stack for vuln.
+// This is a shortest unique call stack with the least
+// number of dynamic call sites.
+func callStack(vuln *Vuln, res *Result) CallStack {
+	vulnSink := vuln.CallSink
+	if vulnSink == nil {
 		return nil
 	}
 
-	entries := make(map[int]bool)
-	for _, e := range res.Calls.Entries {
+	entries := make(map[*FuncNode]bool)
+	for _, e := range res.EntryFunctions {
 		entries[e] = true
 	}
 
-	var stacks []CallStack
-	seen := make(map[int]bool)
+	seen := make(map[*FuncNode]bool)
 
+	// Do a BFS from the vuln sink to the entry points
+	// and find the representative call stack. This is
+	// the shortest call stack that goes through the
+	// least number of dynamic call sites. We first
+	// collect all candidate call stacks of the shortest
+	// length and then pick the best one accordingly.
+	var candidates []CallStack
+	candDepth := 0
 	queue := list.New()
-	queue.PushBack(&callChain{f: res.Calls.Functions[vulnSinkID]})
+	queue.PushBack(&callChain{f: vulnSink})
+
+	// We want to avoid call stacks that go through
+	// other vulnerable symbols of the same package
+	// for the same vulnerability. In other words,
+	// we want unique call stacks.
+	skipSymbols := make(map[*FuncNode]bool)
+	for _, v := range res.Vulns {
+		if v.CallSink != nil && v != vuln &&
+			v.OSV == vuln.OSV && v.ImportSink == vuln.ImportSink {
+			skipSymbols[v.CallSink] = true
+		}
+	}
 
 	for queue.Len() > 0 {
 		front := queue.Front()
@@ -191,31 +111,65 @@ func callStacks(vulnSinkID int, res *Result) []CallStack {
 		queue.Remove(front)
 
 		f := c.f
-		if seen[f.ID] {
+		if seen[f] {
 			continue
 		}
-		seen[f.ID] = true
+		seen[f] = true
 
 		// Pick a single call site for each function in determinstic order.
 		// A single call site is sufficient as we visit a function only once.
-		for _, cs := range callsites(f.CallSites, res, seen) {
-			caller := res.Calls.Functions[cs.Parent]
-			nStack := &callChain{f: caller, call: cs, child: c}
-			if entries[caller.ID] {
-				stacks = append(stacks, nStack.CallStack())
+		for _, cs := range callsites(f.CallSites, seen) {
+			nStack := &callChain{f: cs.Parent, call: cs, child: c}
+			if !skipSymbols[cs.Parent] {
+				queue.PushBack(nStack)
 			}
-			queue.PushBack(nStack)
+
+			if entries[cs.Parent] {
+				ns := nStack.CallStack()
+				if len(candidates) == 0 || len(ns) == candDepth {
+					// The case where we either have not identified
+					// any call stacks or just found one of the same
+					// length as the previous ones.
+					candidates = append(candidates, ns)
+					candDepth = len(ns)
+				} else {
+					// We just found a candidate call stack whose
+					// length is greater than what we previously
+					// found. We can thus safely disregard this
+					// call stack and stop searching since we won't
+					// be able to find any better candidates.
+					queue.Init() // clear the list, effectively exiting the outer loop
+				}
+			}
 		}
 	}
-	return stacks
+
+	// Sort candidate call stacks by their number of dynamic call
+	// sites and return the first one.
+	sort.SliceStable(candidates, func(i int, j int) bool {
+		s1, s2 := candidates[i], candidates[j]
+		if w1, w2 := weight(s1), weight(s2); w1 != w2 {
+			return w1 < w2
+		}
+
+		// At this point, the stableness/determinism of
+		// sorting is guaranteed by the determinism of
+		// the underlying call graph and the call stack
+		// search algorithm.
+		return true
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	return candidates[0]
 }
 
 // callsites picks a call site from sites for each non-visited function.
 // For each such function, the smallest (posLess) call site is chosen. The
 // returned slice is sorted by caller functions (funcLess). Assumes callee
 // of each call site is the same.
-func callsites(sites []*CallSite, result *Result, visited map[int]bool) []*CallSite {
-	minCs := make(map[int]*CallSite)
+func callsites(sites []*CallSite, visited map[*FuncNode]bool) []*CallSite {
+	minCs := make(map[*FuncNode]*CallSite)
 	for _, cs := range sites {
 		if visited[cs.Parent] {
 			continue
@@ -226,14 +180,14 @@ func callsites(sites []*CallSite, result *Result, visited map[int]bool) []*CallS
 	}
 
 	var fs []*FuncNode
-	for id := range minCs {
-		fs = append(fs, result.Calls.Functions[id])
+	for _, cs := range minCs {
+		fs = append(fs, cs.Parent)
 	}
 	sort.SliceStable(fs, func(i, j int) bool { return funcLess(fs[i], fs[j]) })
 
 	var css []*CallSite
 	for _, f := range fs {
-		css = append(css, minCs[f.ID])
+		css = append(css, minCs[f])
 	}
 	return css
 }
@@ -265,58 +219,6 @@ func weight(stack CallStack) int {
 		}
 	}
 	return w
-}
-
-func isStdPackage(pkg string) bool {
-	if pkg == "" {
-		return false
-	}
-	// std packages do not have a "." in their path. For instance, see
-	// Contains in pkgsite/+/refs/heads/master/internal/stdlbib/stdlib.go.
-	if i := strings.IndexByte(pkg, '/'); i != -1 {
-		pkg = pkg[:i]
-	}
-	return !strings.Contains(pkg, ".")
-}
-
-// confidence computes an approximate measure of whether the stack
-// is realizeable in practice. Currently, it equals the number of call
-// sites in stack that go through standard libraries. Such call stacks
-// have been experimentally shown to often result in false positives.
-func confidence(stack CallStack) int {
-	c := 0
-	for _, e := range stack {
-		if isStdPackage(e.Function.PkgPath) {
-			c += 1
-		}
-	}
-	return c
-}
-
-// stackLess compares two call stacks in terms of their estimated
-// value to the user. Shorter stacks generally come earlier in the ordering.
-//
-// Two stacks are lexicographically ordered by:
-// 1) their estimated level of confidence in being a real call stack,
-// 2) their length, and 3) the number of dynamic call sites in the stack.
-func stackLess(s1, s2 CallStack) bool {
-	if c1, c2 := confidence(s1), confidence(s2); c1 != c2 {
-		return c1 < c2
-	}
-
-	if len(s1) != len(s2) {
-		return len(s1) < len(s2)
-	}
-
-	if w1, w2 := weight(s1), weight(s2); w1 != w2 {
-		return w1 < w2
-	}
-
-	// At this point, the stableness/determinism of
-	// sorting is guaranteed by the determinism of
-	// the underlying call graph and the call stack
-	// search algorithm.
-	return true
 }
 
 // csLess compares two call sites by their locations and, if needed,
@@ -391,4 +293,100 @@ func funcLess(f1, f2 *FuncNode) bool {
 	}
 	// should happen only for inits
 	return f1.String() < f2.String()
+}
+
+// updateInitPositions populates non-existing positions of init functions
+// and their respective calls in callStacks (see #51575).
+func updateInitPositions(callStacks map[*Vuln]CallStack) {
+	for _, cs := range callStacks {
+		for i := range cs {
+			updateInitPosition(&cs[i])
+			if i != len(cs)-1 {
+				updateInitCallPosition(&cs[i], cs[i+1])
+			}
+		}
+	}
+}
+
+// updateInitCallPosition updates the position of a call to init in a stack frame, if
+// one already does not exist:
+//
+//	P1.init -> P2.init: position of call to P2.init is the position of "import P2"
+//	statement in P1
+//
+//	P.init -> P.init#d: P.init is an implicit init. We say it calls the explicit
+//	P.init#d at the place of "package P" statement.
+func updateInitCallPosition(curr *StackEntry, next StackEntry) {
+	call := curr.Call
+	if !isInit(next.Function) || (call.Pos != nil && call.Pos.IsValid()) {
+		// Skip non-init functions and inits whose call site position is available.
+		return
+	}
+
+	var pos token.Position
+	if curr.Function.Name == "init" && curr.Function.Package == next.Function.Package {
+		// We have implicit P.init calling P.init#d. Set the call position to
+		// be at "package P" statement position.
+		pos = packageStatementPos(curr.Function.Package)
+	} else {
+		// Choose the beginning of the import statement as the position.
+		pos = importStatementPos(curr.Function.Package, next.Function.Package.PkgPath)
+	}
+
+	call.Pos = &pos
+}
+
+func importStatementPos(pkg *packages.Package, importPath string) token.Position {
+	var importSpec *ast.ImportSpec
+spec:
+	for _, f := range pkg.Syntax {
+		for _, impSpec := range f.Imports {
+			// Import spec paths have quotation marks.
+			impSpecPath, err := strconv.Unquote(impSpec.Path.Value)
+			if err != nil {
+				panic(fmt.Sprintf("import specification: package path has no quotation marks: %v", err))
+			}
+			if impSpecPath == importPath {
+				importSpec = impSpec
+				break spec
+			}
+		}
+	}
+
+	if importSpec == nil {
+		// for sanity, in case of a wild call graph imprecision
+		return token.Position{}
+	}
+
+	// Choose the beginning of the import statement as the position.
+	return pkg.Fset.Position(importSpec.Pos())
+}
+
+func packageStatementPos(pkg *packages.Package) token.Position {
+	if len(pkg.Syntax) == 0 {
+		return token.Position{}
+	}
+	// Choose beginning of the package statement as the position. Pick
+	// the first file since it is as good as any.
+	return pkg.Fset.Position(pkg.Syntax[0].Package)
+}
+
+// updateInitPosition updates the position of P.init function in a stack frame if one
+// is not available. The new position is the position of the "package P" statement.
+func updateInitPosition(se *StackEntry) {
+	fun := se.Function
+	if !isInit(fun) || (fun.Pos != nil && fun.Pos.IsValid()) {
+		// Skip non-init functions and inits whose position is available.
+		return
+	}
+
+	pos := packageStatementPos(fun.Package)
+	fun.Pos = &pos
+}
+
+func isInit(f *FuncNode) bool {
+	// A source init function, or anonymous functions used in inits, will
+	// be named "init#x" by vulncheck (more precisely, ssa), where x is a
+	// positive integer. Implicit inits are named simply "init".
+	return f.Name == "init" || strings.HasPrefix(f.Name, "init#")
 }

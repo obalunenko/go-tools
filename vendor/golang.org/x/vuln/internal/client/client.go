@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -24,28 +25,25 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/vuln/internal/derrors"
 	"golang.org/x/vuln/internal/osv"
+	isem "golang.org/x/vuln/internal/semver"
 	"golang.org/x/vuln/internal/web"
 )
 
-// Client interface for fetching vulnerabilities based on module path or ID.
-type Client interface {
-	// ByModule returns the entries that affect the given module path.
-	// It returns (nil, nil) if there are none.
-	ByModule(context.Context, string) ([]*osv.Entry, error)
+// A Client for reading vulnerability databases.
+type Client struct {
+	source
+}
 
-	// LastModifiedTime returns the time that the database was last modified.
-	// It can be used by tools that periodically check for vulnerabilities
-	// to avoid repeating work.
-	LastModifiedTime(context.Context) (time.Time, error)
+type Options struct {
+	HTTPClient *http.Client
 }
 
 // NewClient returns a client that reads the vulnerability database
 // in source (an "http" or "file" prefixed URL).
 //
-// It currently supports database sources in both the v1 and legacy
-// formats, preferring the v1 format if both are implemented.
-// Support for the legacy database format will be removed soon.
-func NewClient(source string, opts *Options) (_ Client, err error) {
+// It supports databases following the API described
+// in https://go.dev/security/vuln/database#api.
+func NewClient(source string, opts *Options) (_ *Client, err error) {
 	source = strings.TrimRight(source, "/")
 	uri, err := url.Parse(source)
 	if err != nil {
@@ -53,7 +51,7 @@ func NewClient(source string, opts *Options) (_ Client, err error) {
 	}
 	switch uri.Scheme {
 	case "http", "https":
-		return newHTTPClient(uri, opts), nil
+		return newHTTPClient(uri, opts)
 	case "file":
 		return newLocalClient(uri)
 	default:
@@ -61,88 +59,81 @@ func NewClient(source string, opts *Options) (_ Client, err error) {
 	}
 }
 
-func newHTTPClient(uri *url.URL, opts *Options) Client {
-	// v1 returns true if the given source likely follows the V1 schema.
-	// This is always true if the source is "https://vuln.go.dev".
-	// Otherwise, this is determined by checking if the "index/db.json"
-	// endpoint is present.
+var errUnknownSchema = errors.New("unrecognized vulndb format; see https://go.dev/security/vuln/database#api for accepted schema")
+
+func newHTTPClient(uri *url.URL, opts *Options) (*Client, error) {
+	source := uri.String()
+
+	// v1 returns true if the source likely follows the V1 schema.
 	v1 := func() bool {
-		source := uri.String()
-		if source == "https://vuln.go.dev" {
-			return true
-		}
-		r, err := http.Head(source + "/index/db.json")
-		if err != nil || r.StatusCode != http.StatusOK {
-			return false
-		}
-		return true
+		return source == "https://vuln.go.dev" ||
+			endpointExistsHTTP(source, "index/modules.json.gz")
 	}
+
 	if v1() {
-		return newHTTPClientV1(uri, opts)
+		return &Client{source: newHTTPSource(uri.String(), opts)}, nil
 	}
-	return newLegacyHTTPClient(uri, opts)
+
+	return nil, errUnknownSchema
 }
 
-func newLocalClient(uri *url.URL) (Client, error) {
-	// v1 returns true if the given source likely follows the
-	// v1 schema. This is determined by checking if the "index/db.json"
-	// endpoint is present.
-	v1 := func() bool {
-		dir, err := web.URLToFilePath(uri)
-		if err != nil {
-			return false
-		}
-		_, err = os.Stat(filepath.Join(dir, dbEndpoint+".json"))
-		return err == nil
-	}
-	if v1() {
-		return newLocalClientV1(uri)
-	}
-	return newLegacyLocalClient(uri)
+func endpointExistsHTTP(source, endpoint string) bool {
+	r, err := http.Head(source + "/" + endpoint)
+	return err == nil && r.StatusCode == http.StatusOK
 }
 
-func NewV1Client(source string, opts *Options) (_ Client, err error) {
-	source = strings.TrimRight(source, "/")
-	uri, err := url.Parse(source)
+func newLocalClient(uri *url.URL) (*Client, error) {
+	dir, err := toDir(uri)
 	if err != nil {
 		return nil, err
 	}
-	switch uri.Scheme {
-	case "http", "https":
-		return newHTTPClientV1(uri, opts), nil
-	case "file":
-		return newLocalClientV1(uri)
-	default:
-		return nil, fmt.Errorf("source %q has unsupported scheme", uri)
+
+	// Check if the DB likely follows the v1 schema by
+	// looking for the "index/modules.json" endpoint.
+	if endpointExistsDir(dir, modulesEndpoint+".json") {
+		return &Client{source: newLocalSource(dir)}, nil
 	}
+
+	// If the DB doesn't follow the v1 schema,
+	// attempt to intepret it as a flat list of OSV files.
+	// This is currently a "hidden" feature, so don't output the
+	// specific error if this fails.
+	src, err := newHybridSource(dir)
+	if err != nil {
+		return nil, errUnknownSchema
+	}
+	return &Client{source: src}, nil
 }
 
-func NewInMemoryClient(entries []*osv.Entry) (Client, error) {
+func toDir(uri *url.URL) (string, error) {
+	dir, err := web.URLToFilePath(uri)
+	if err != nil {
+		return "", err
+	}
+	fi, err := os.Stat(dir)
+	if err != nil {
+		return "", err
+	}
+	if !fi.IsDir() {
+		return "", fmt.Errorf("%s is not a directory", dir)
+	}
+	return dir, nil
+}
+
+func endpointExistsDir(dir, endpoint string) bool {
+	_, err := os.Stat(filepath.Join(dir, endpoint))
+	return err == nil
+}
+
+func NewInMemoryClient(entries []*osv.Entry) (*Client, error) {
 	s, err := newInMemorySource(entries)
 	if err != nil {
 		return nil, err
 	}
-	return &client{source: s}, nil
+	return &Client{source: s}, nil
 }
 
-// A client for reading v1 vulnerability databases.
-type client struct {
-	source
-}
-
-func newHTTPClientV1(uri *url.URL, opts *Options) *client {
-	return &client{source: newHTTPSource(uri.String(), opts)}
-}
-
-func newLocalClientV1(uri *url.URL) (*client, error) {
-	fs, err := newLocalSource(uri)
-	if err != nil {
-		return nil, err
-	}
-	return &client{source: fs}, nil
-}
-
-func (c *client) LastModifiedTime(ctx context.Context) (_ time.Time, err error) {
+func (c *Client) LastModifiedTime(ctx context.Context) (_ time.Time, err error) {
 	derrors.Wrap(&err, "LastModifiedTime()")
 
 	b, err := c.source.get(ctx, dbEndpoint)
@@ -158,10 +149,61 @@ func (c *client) LastModifiedTime(ctx context.Context) (_ time.Time, err error) 
 	return dbMeta.Modified, nil
 }
 
-// ByModule returns the OSV entries matching the module request.
-func (c *client) ByModule(ctx context.Context, modulePath string) (_ []*osv.Entry, err error) {
-	derrors.Wrap(&err, "ByModule(%v)", modulePath)
+type ModuleRequest struct {
+	// The module path to filter on.
+	// This must be set (if empty, ByModule errors).
+	Path string
+	// (Optional) If set, only return vulnerabilities affected
+	// at this version.
+	Version string
+}
 
+type ModuleResponse struct {
+	Path    string
+	Version string
+	Entries []*osv.Entry
+}
+
+// ByModules returns a list of responses
+// containing the OSV entries corresponding to each request.
+//
+// The order of the requests is preserved, and each request has
+// a response even if there are no entries (in which case the Entries
+// field is nil).
+func (c *Client) ByModules(ctx context.Context, reqs []*ModuleRequest) (_ []*ModuleResponse, err error) {
+	derrors.Wrap(&err, "ByModules(%v)", reqs)
+
+	metas, err := c.moduleMetas(ctx, reqs)
+	if err != nil {
+		return nil, err
+	}
+
+	resps := make([]*ModuleResponse, len(reqs))
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(10)
+	for i, req := range reqs {
+		i, req := i, req
+		g.Go(func() error {
+			entries, err := c.byModule(gctx, req, metas[i])
+			if err != nil {
+				return err
+			}
+			resps[i] = &ModuleResponse{
+				Path:    req.Path,
+				Version: req.Version,
+				Entries: entries,
+			}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	return resps, nil
+}
+
+func (c *Client) moduleMetas(ctx context.Context, reqs []*ModuleRequest) (_ []*moduleMeta, err error) {
 	b, err := c.source.get(ctx, modulesEndpoint)
 	if err != nil {
 		return nil, err
@@ -172,19 +214,43 @@ func (c *client) ByModule(ctx context.Context, modulePath string) (_ []*osv.Entr
 		return nil, err
 	}
 
-	var ids []string
+	metas := make([]*moduleMeta, len(reqs))
 	for dec.More() {
 		var m moduleMeta
 		err := dec.Decode(&m)
 		if err != nil {
 			return nil, err
 		}
-		if m.Path == modulePath {
-			for _, v := range m.Vulns {
-				ids = append(ids, v.ID)
+		for i, req := range reqs {
+			if m.Path == req.Path {
+				metas[i] = &m
 			}
-			// We found the requested module, so skip the rest.
-			break
+		}
+	}
+
+	return metas, nil
+}
+
+// byModule returns the OSV entries matching the ModuleRequest,
+// or (nil, nil) if there are none.
+func (c *Client) byModule(ctx context.Context, req *ModuleRequest, m *moduleMeta) (_ []*osv.Entry, err error) {
+	// This module isn't in the database.
+	if m == nil {
+		return nil, nil
+	}
+
+	if req.Path == "" {
+		return nil, fmt.Errorf("module path must be set")
+	}
+
+	if req.Version != "" && !isem.Valid(req.Version) {
+		return nil, fmt.Errorf("version %s is not valid semver", req.Version)
+	}
+
+	var ids []string
+	for _, v := range m.Vulns {
+		if v.Fixed == "" || isem.Less(req.Version, v.Fixed) {
+			ids = append(ids, v.ID)
 		}
 	}
 
@@ -192,26 +258,31 @@ func (c *client) ByModule(ctx context.Context, modulePath string) (_ []*osv.Entr
 		return nil, nil
 	}
 
-	// Fetch all the entries in parallel.
-	g, gctx := errgroup.WithContext(ctx)
-	g.SetLimit(10)
-	entries := make([]*osv.Entry, len(ids))
-	for i, id := range ids {
-		i := i
-		id := id
-		g.Go(func() error {
-			entry, err := c.byID(gctx, id)
-			if err != nil {
-				return err
-			}
-
-			entries[i] = entry
-
-			return nil
-		})
-	}
-	if err := g.Wait(); err != nil {
+	entries, err := c.byIDs(ctx, ids)
+	if err != nil {
 		return nil, err
+	}
+
+	// Filter by version.
+	if req.Version != "" {
+		affected := func(e *osv.Entry) bool {
+			for _, a := range e.Affected {
+				if a.Module.Path == req.Path && isem.Affects(a.Ranges, req.Version) {
+					return true
+				}
+			}
+			return false
+		}
+
+		var filtered []*osv.Entry
+		for _, entry := range entries {
+			if affected(entry) {
+				filtered = append(filtered, entry)
+			}
+		}
+		if len(filtered) == 0 {
+			return nil, nil
+		}
 	}
 
 	sort.SliceStable(entries, func(i, j int) bool {
@@ -221,9 +292,31 @@ func (c *client) ByModule(ctx context.Context, modulePath string) (_ []*osv.Entr
 	return entries, nil
 }
 
+func (c *Client) byIDs(ctx context.Context, ids []string) (_ []*osv.Entry, err error) {
+	entries := make([]*osv.Entry, len(ids))
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(10)
+	for i, id := range ids {
+		i, id := i, id
+		g.Go(func() error {
+			e, err := c.byID(gctx, id)
+			if err != nil {
+				return err
+			}
+			entries[i] = e
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	return entries, nil
+}
+
 // byID returns the OSV entry with the given ID,
 // or an error if it does not exist / cannot be unmarshaled.
-func (c *client) byID(ctx context.Context, id string) (_ *osv.Entry, err error) {
+func (c *Client) byID(ctx context.Context, id string) (_ *osv.Entry, err error) {
 	derrors.Wrap(&err, "byID(%s)", id)
 
 	b, err := c.source.get(ctx, entryEndpoint(id))

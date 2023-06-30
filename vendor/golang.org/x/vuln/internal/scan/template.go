@@ -5,249 +5,123 @@
 package scan
 
 import (
-	_ "embed"
-	"fmt"
+	"go/token"
+	"io"
+	"path"
 	"sort"
+	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/vuln/internal"
 	"golang.org/x/vuln/internal/govulncheck"
 	"golang.org/x/vuln/internal/osv"
 )
 
-var (
-	//go:embed template/config.tmpl
-	introTemplate string
-
-	//go:embed template/output.tmpl
-	outputTemplate string
-)
-
-// tmplResult is a structure containing summarized govulncheck.Result, passed
-// to outputTemplate.
-type tmplResult struct {
-	Affected        []tmplVulnInfo
-	Unaffected      []tmplVulnInfo
-	AffectedModules int
-	StdlibAffected  bool
+type findingSummary struct {
+	*govulncheck.Finding
+	Compact string
+	OSV     *osv.Entry
 }
 
-// createTmplResult transforms Result r into a
-// template structure for printing.
-func createTmplResult(vulns []*govulncheck.Vuln, verbose, source bool) tmplResult {
-	// unaffected are (imported) OSVs, none of which vulnerabilities are called.
-	var (
-		r      tmplResult
-		vInfos []tmplVulnInfo
-	)
-	topPkgs := topPackages(vulns)
-	for _, v := range vulns {
-		vInfos = append(vInfos, createTmplVulnInfo(v, verbose, source, topPkgs))
+type summaryCounters struct {
+	VulnerabilitiesCalled int
+	ModulesCalled         int
+	StdlibCalled          bool
+}
+
+func fixupFindings(osvs []*osv.Entry, findings []*findingSummary) {
+	for _, f := range findings {
+		f.OSV = getOSV(osvs, f.Finding.OSV)
 	}
-	r.Affected, r.Unaffected = splitVulns(vInfos)
-	r.AffectedModules = affectedModules(vInfos)
-	r.StdlibAffected = stdlibAffected(vInfos)
-	return r
 }
 
-func topPackages(vulns []*govulncheck.Vuln) map[string]bool {
-	topPkgs := map[string]bool{}
-	for _, v := range vulns {
-		for _, m := range v.Modules {
-			for _, p := range m.Packages {
-				for _, c := range p.CallStacks {
-					if len(c.Frames) > 0 {
-						topPkgs[c.Frames[0].Package] = true
-					}
-				}
-			}
-		}
+func groupByVuln(findings []*findingSummary) [][]*findingSummary {
+	return groupBy(findings, func(left, right *findingSummary) int {
+		return -strings.Compare(left.OSV.ID, right.OSV.ID)
+	})
+}
+
+func groupByModule(findings []*findingSummary) [][]*findingSummary {
+	return groupBy(findings, func(left, right *findingSummary) int {
+		return strings.Compare(left.Trace[0].Module, right.Trace[0].Module)
+	})
+}
+
+func groupBy(findings []*findingSummary, compare func(left, right *findingSummary) int) [][]*findingSummary {
+	switch len(findings) {
+	case 0:
+		return nil
+	case 1:
+		return [][]*findingSummary{findings}
 	}
-	return topPkgs
-}
-
-func splitVulns(vulns []tmplVulnInfo) (affected, unaffected []tmplVulnInfo) {
-	for _, a := range vulns {
-		if a.Affected {
-			affected = append(affected, a)
-		} else {
-			unaffected = append(unaffected, a)
-		}
-	}
-	return affected, unaffected
-}
-
-// AffectedModules returns the number of unique modules
-// whose vulnerabilties are detected.
-func affectedModules(vulns []tmplVulnInfo) int {
-	mods := make(map[string]bool)
-	for _, a := range vulns {
-		if !a.Affected {
+	sort.SliceStable(findings, func(i, j int) bool {
+		return compare(findings[i], findings[j]) < 0
+	})
+	result := [][]*findingSummary{}
+	first := 0
+	for i, next := range findings {
+		if i == first {
 			continue
 		}
-		for _, m := range a.Modules {
-			if !m.IsStd {
-				mods[m.Module] = true
-			}
+		if compare(findings[first], next) != 0 {
+			result = append(result, findings[first:i])
+			first = i
 		}
 	}
-	return len(mods)
+	result = append(result, findings[first:])
+	return result
 }
 
-// stdlibAffected tells if some of the vulnerabilities
-// detected come from standard library.
-func stdlibAffected(vulns []tmplVulnInfo) bool {
-	for _, a := range vulns {
-		if !a.Affected {
+func counters(findings []*findingSummary) summaryCounters {
+	vulns := map[string]struct{}{}
+	modules := map[string]struct{}{}
+	for _, f := range findings {
+		if f.Trace[0].Function == "" {
 			continue
 		}
-		for _, m := range a.Modules {
-			if m.IsStd {
-				return true
-			}
+		id := f.OSV.ID
+		vulns[id] = struct{}{}
+		mod := f.Trace[0].Module
+		modules[mod] = struct{}{}
+	}
+	result := summaryCounters{
+		VulnerabilitiesCalled: len(vulns),
+		ModulesCalled:         len(modules),
+	}
+	if _, found := modules[internal.GoStdModulePath]; found {
+		result.StdlibCalled = true
+		result.ModulesCalled--
+	}
+	return result
+}
+
+func isCalled(findings []*findingSummary) bool {
+	for _, f := range findings {
+		if f.Trace[0].Function != "" {
+			return true
 		}
 	}
 	return false
 }
-
-// tmplVulnInfo is a vulnerability info
-// structure used by the outputTemplate.
-type tmplVulnInfo struct {
-	ID       string
-	Details  string
-	Modules  []tmplModVulnInfo
-	Affected bool
-}
-
-// createTmplVulnInfo creates a template vuln info for
-// a vulnerability that is called by source code or
-// present in the binary.
-func createTmplVulnInfo(v *govulncheck.Vuln, verbose, source bool, topPkgs map[string]bool) tmplVulnInfo {
-	vInfo := tmplVulnInfo{
-		ID:       v.OSV.ID,
-		Details:  v.OSV.Details,
-		Affected: !source || IsCalled(v),
+func getOSV(osvs []*osv.Entry, id string) *osv.Entry {
+	for _, entry := range osvs {
+		if entry.ID == id {
+			return entry
+		}
 	}
-
-	// stacks returns call stack info of p as a
-	// string depending on verbose and source mode.
-	stacks := func(p *govulncheck.Package) string {
-		if !source {
-			return ""
-		}
-
-		if verbose {
-			return verboseCallStacks(p.CallStacks)
-		}
-		return defaultCallStacks(p.CallStacks, topPkgs)
-	}
-
-	for _, m := range v.Modules {
-		if m.Path == internal.GoStdModulePath {
-			// For stdlib vulnerabilities, we pretend each package
-			// is effectively a module because showing "Module: stdlib"
-			// to the user is confusing. In most cases, stdlib
-			// vulnerabilities affect only one package anyhow.
-			for _, p := range m.Packages {
-				if source && len(p.CallStacks) == 0 {
-					// package symbols not exercised, nothing to do here
-					continue
-				}
-				tm := createTmplModule(m, p.Path, v.OSV)
-				tm.Stacks = stacks(p) // for binary mode, this will be ""
-				vInfo.Modules = append(vInfo.Modules, tm)
-			}
-			if len(vInfo.Modules) == 0 {
-				p := m.Packages[0]
-				tm := createTmplModule(m, p.Path, v.OSV)
-				tm.Stacks = stacks(p) // for binary mode, this will be ""
-				vInfo.Modules = append(vInfo.Modules, tm)
-			}
-			continue
-		}
-
-		// For third-party packages, we create a single output entry for
-		// the whole module by merging call stack info of each exercised
-		// package (in source mode).
-		var moduleStacks []string
-		if source {
-			for _, p := range m.Packages {
-				if len(p.CallStacks) == 0 {
-					// package symbols not exercised, nothing to do here
-					continue
-				}
-				moduleStacks = append(moduleStacks, stacks(p))
-			}
-		}
-		tm := createTmplModule(m, m.Path, v.OSV)
-		tm.Stacks = strings.Join(moduleStacks, "\n") // for binary mode, this will be ""
-		vInfo.Modules = append(vInfo.Modules, tm)
-	}
-	return vInfo
-}
-
-// tmplModVulnInfo is a module vulnerability
-// structure used by the outputTemplate.
-type tmplModVulnInfo struct {
-	IsStd     bool
-	Module    string
-	Found     string
-	Fixed     string
-	Platforms []string
-	Stacks    string
-}
-
-func createTmplModule(m *govulncheck.Module, path string, osv *osv.Entry) tmplModVulnInfo {
-	return tmplModVulnInfo{
-		IsStd:     m.Path == internal.GoStdModulePath,
-		Module:    path,
-		Found:     moduleVersionString(path, m.FoundVersion),
-		Fixed:     moduleVersionString(path, m.FixedVersion),
-		Platforms: platforms(m.Path, osv),
+	return &osv.Entry{
+		ID:               id,
+		DatabaseSpecific: &osv.DatabaseSpecific{},
 	}
 }
 
-func defaultCallStacks(css []govulncheck.CallStack, topPkgs map[string]bool) string {
-	var summaries []string
-	for _, cs := range css {
-		s := summarizeCallStack(cs, topPkgs)
-		summaries = append(summaries, s)
+func newFindingSummary(f *govulncheck.Finding) *findingSummary {
+	return &findingSummary{
+		Finding: f,
+		Compact: compactTrace(f),
 	}
-
-	// Sort call stack summaries and get rid of duplicates.
-	// Note that different call stacks can yield same summaries.
-	if len(summaries) > 0 {
-		sort.Strings(summaries)
-		summaries = compact(summaries)
-	}
-	var b strings.Builder
-	for _, s := range summaries {
-		b.WriteString(s)
-		b.WriteString("\n")
-	}
-	return b.String()
-}
-
-func verboseCallStacks(css []govulncheck.CallStack) string {
-	// Display one full call stack for each vuln.
-	i := 1
-	var b strings.Builder
-	for _, cs := range css {
-		vf := cs.Frames[len(cs.Frames)-1]
-		symbol := vf.Function
-		if vf.Receiver != "" {
-			symbol = fmt.Sprintf("%s.%s", vf.Receiver, vf.Function)
-		}
-		b.WriteString(fmt.Sprintf("#%d: for function %s\n", i, symbol))
-		for _, e := range cs.Frames {
-			b.WriteString(fmt.Sprintf("  %s\n", FuncName(e)))
-			if pos := AbsRelShorter(Pos(e)); pos != "" {
-				b.WriteString(fmt.Sprintf("      %s\n", pos))
-			}
-		}
-		i++
-	}
-	return b.String()
 }
 
 // platforms returns a string describing the GOOS, GOARCH,
@@ -296,23 +170,121 @@ func platforms(mod string, e *osv.Entry) []string {
 	return keys
 }
 
-// wrap wraps s to fit in maxWidth by breaking it into lines at whitespace. If a
-// single word is longer than maxWidth, it is retained as its own line.
-func wrap(s string, maxWidth int) string {
-	var b strings.Builder
-	w := 0
-
-	for _, f := range strings.Fields(s) {
-		if w > 0 && w+len(f)+1 > maxWidth {
-			b.WriteByte('\n')
-			w = 0
-		}
-		if w != 0 {
-			b.WriteByte(' ')
-			w++
-		}
-		b.WriteString(f)
-		w += len(f)
+func posToString(p *govulncheck.Position) string {
+	if p == nil || p.Line <= 0 {
+		return ""
 	}
-	return b.String()
+	return token.Position{
+		Filename: AbsRelShorter(p.Filename),
+		Offset:   p.Offset,
+		Line:     p.Line,
+		Column:   p.Column,
+	}.String()
+}
+
+func symbol(frame *govulncheck.Frame, short bool) string {
+	buf := &strings.Builder{}
+	addSymbolName(buf, frame, short)
+	return buf.String()
+}
+
+// compactTrace returns a short description of the call stack.
+// It prefers to show you the edge from the top module to other code, along with
+// the vulnerable symbol.
+// Where the vulnerable symbol directly called by the users code, it will only
+// show those two points.
+// If the vulnerable symbol is in the users code, it will show the entry point
+// and the vulnerable symbol.
+func compactTrace(finding *govulncheck.Finding) string {
+	if len(finding.Trace) < 1 {
+		return ""
+	}
+	iTop := len(finding.Trace) - 1
+	topModule := finding.Trace[iTop].Module
+	// search for the exit point of the top module
+	for i, frame := range finding.Trace {
+		if frame.Module == topModule {
+			iTop = i
+			break
+		}
+	}
+
+	if iTop == 0 {
+		// all in one module, reset to the end
+		iTop = len(finding.Trace) - 1
+	}
+
+	buf := &strings.Builder{}
+	topPos := posToString(finding.Trace[iTop].Position)
+	if topPos != "" {
+		buf.WriteString(topPos)
+		buf.WriteString(": ")
+	}
+
+	if iTop > 0 {
+		addSymbolName(buf, finding.Trace[iTop], true)
+		buf.WriteString(" calls ")
+	}
+	if iTop > 1 {
+		addSymbolName(buf, finding.Trace[iTop-1], true)
+		buf.WriteString(", which")
+		if iTop > 2 {
+			buf.WriteString(" eventually")
+		}
+		buf.WriteString(" calls ")
+	}
+	addSymbolName(buf, finding.Trace[0], true)
+	return buf.String()
+}
+
+// notIdentifier reports whether ch is an invalid identifier character.
+func notIdentifier(ch rune) bool {
+	return !('a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' ||
+		'0' <= ch && ch <= '9' ||
+		ch == '_' ||
+		ch >= utf8.RuneSelf && (unicode.IsLetter(ch) || unicode.IsDigit(ch)))
+}
+
+// importPathToAssumedName is taken from goimports, it works out the natural imported name
+// for a package.
+// This is used to get a shorter identifier in the compact stack trace
+func importPathToAssumedName(importPath string) string {
+	base := path.Base(importPath)
+	if strings.HasPrefix(base, "v") {
+		if _, err := strconv.Atoi(base[1:]); err == nil {
+			dir := path.Dir(importPath)
+			if dir != "." {
+				base = path.Base(dir)
+			}
+		}
+	}
+	base = strings.TrimPrefix(base, "go-")
+	if i := strings.IndexFunc(base, notIdentifier); i >= 0 {
+		base = base[:i]
+	}
+	return base
+}
+
+func addSymbolName(w io.Writer, frame *govulncheck.Frame, short bool) {
+	if frame.Function == "" {
+		return
+	}
+	if frame.Package != "" {
+		pkg := frame.Package
+		if short {
+			pkg = importPathToAssumedName(frame.Package)
+		}
+		io.WriteString(w, pkg)
+		io.WriteString(w, ".")
+	}
+	if frame.Receiver != "" {
+		if frame.Receiver[0] == '*' {
+			io.WriteString(w, frame.Receiver[1:])
+		} else {
+			io.WriteString(w, frame.Receiver)
+		}
+		io.WriteString(w, ".")
+	}
+	funcname := strings.Split(frame.Function, "$")[0]
+	io.WriteString(w, funcname)
 }

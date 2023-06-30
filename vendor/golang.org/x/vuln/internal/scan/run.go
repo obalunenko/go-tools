@@ -6,103 +6,107 @@ package scan
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
 
-	"golang.org/x/vuln/internal"
 	"golang.org/x/vuln/internal/client"
 	"golang.org/x/vuln/internal/govulncheck"
 )
 
-// doGovulncheck performs main govulncheck functionality and exits the
+// RunGovulncheck performs main govulncheck functionality and exits the
 // program upon success with an appropriate exit status. Otherwise,
 // returns an error.
-func doGovulncheck(ctx context.Context, w io.Writer, args []string) error {
-	cfg, err := parseFlags(args)
-	if err != nil {
+func RunGovulncheck(ctx context.Context, env []string, r io.Reader, stdout io.Writer, stderr io.Writer, args []string) error {
+	cfg := &config{env: env}
+	if err := parseFlags(cfg, stderr, args); err != nil {
 		return err
 	}
-
-	cfg.Client, err = client.NewClient(cfg.db, nil)
-	if err != nil {
-		return err
+	if cfg.mode == modeConvert {
+		return convertJSONToText(r, stdout)
 	}
 
-	config := newConfig(ctx, cfg)
+	client, err := client.NewClient(cfg.db, nil)
+	if err != nil {
+		return fmt.Errorf("creating client: %w", err)
+	}
+
+	prepareConfig(ctx, cfg, client)
 	var handler govulncheck.Handler
 	switch {
 	case cfg.json:
-		handler = govulncheck.NewJSONHandler(w)
+		handler = govulncheck.NewJSONHandler(stdout)
 	default:
-		handler = NewTextHandler(w, cfg.mode == modeSource, cfg.verbose)
+		th := NewTextHandler(stdout)
+		th.Show(cfg.show)
+		handler = th
 	}
 
 	// Write the introductory message to the user.
-	if err := handler.Config(config); err != nil {
+	if err := handler.Config(&cfg.Config); err != nil {
 		return err
 	}
 
-	var vulns []*govulncheck.Vuln
 	switch cfg.mode {
 	case modeSource:
 		dir := filepath.FromSlash(cfg.dir)
-		vulns, err = runSource(ctx, handler, cfg, dir)
+		err = runSource(ctx, handler, cfg, client, dir)
 	case modeBinary:
-		vulns, err = runBinary(ctx, handler, cfg)
+		err = runBinary(ctx, handler, cfg, client)
+	case modeQuery:
+		err = runQuery(ctx, handler, cfg, client)
 	}
 	if err != nil {
 		return err
-	}
-
-	// For each vulnerability, queue it to be written to the output.
-	for _, v := range vulns {
-		if err := handler.Vulnerability(v); err != nil {
-			return err
-		}
 	}
 	if err := Flush(handler); err != nil {
 		return err
 	}
-	if containsAffectedVulnerabilities(vulns) && !cfg.json {
-		return ErrVulnerabilitiesFound
-	}
 	return nil
 }
 
-func containsAffectedVulnerabilities(vulns []*govulncheck.Vuln) bool {
-	for _, v := range vulns {
-		if IsCalled(v) {
-			return true
+func prepareConfig(ctx context.Context, cfg *config, client *client.Client) {
+	cfg.ProtocolVersion = govulncheck.ProtocolVersion
+	cfg.DB = cfg.db
+	if cfg.mode == modeSource && cfg.GoVersion == "" {
+		const goverPrefix = "GOVERSION="
+		for _, env := range cfg.env {
+			if val := strings.TrimPrefix(env, goverPrefix); val != env {
+				cfg.GoVersion = val
+			}
 		}
-	}
-	return false
-}
-
-func newConfig(ctx context.Context, cfg *config) *govulncheck.Config {
-	config := govulncheck.Config{DataSource: cfg.db}
-	if cfg.mode == modeSource {
-		// The Go version is only relevant for source analysis, so omit it for
-		// binary mode.
-		if v, err := internal.GoEnv("GOVERSION"); err == nil {
-			config.GoVersion = v
+		if cfg.GoVersion == "" {
+			if out, err := exec.Command("go", "env", "GOVERSION").Output(); err == nil {
+				cfg.GoVersion = string(out)
+			}
 		}
 	}
 	if bi, ok := debug.ReadBuildInfo(); ok {
-		config.Version = scannerVersion(bi)
+		scannerVersion(cfg, bi)
 	}
-	if mod, err := cfg.Client.LastModifiedTime(ctx); err == nil {
-		config.LastModified = &mod
+	if mod, err := client.LastModifiedTime(ctx); err == nil {
+		cfg.DBLastModified = &mod
 	}
-	return &config
 }
 
 // scannerVersion reconstructs the current version of
 // this binary used from the build info.
-func scannerVersion(bi *debug.BuildInfo) string {
+func scannerVersion(cfg *config, bi *debug.BuildInfo) {
+	if bi.Path != "" {
+		cfg.ScannerName = path.Base(bi.Path)
+	}
+	if bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+		cfg.ScannerVersion = bi.Main.Version
+		return
+	}
+
+	// TODO(https://go.dev/issue/29228): we need to manually construct the
+	// version string when it is "(devel)" until #29228 is resolved.
 	var revision, at string
 	for _, s := range bi.Settings {
 		if s.Key == "vcs.revision" {
@@ -113,12 +117,6 @@ func scannerVersion(bi *debug.BuildInfo) string {
 		}
 	}
 	buf := strings.Builder{}
-	if bi.Path != "" {
-		buf.WriteString(path.Base(bi.Path))
-		buf.WriteString("@")
-	}
-	// TODO(https://go.dev/issue/29228): we manually change this after every
-	// minor revision? bi.Main.Version does not seem to work.
 	buf.WriteString("v0.0.0")
 	if revision != "" {
 		buf.WriteString("-")
@@ -132,5 +130,16 @@ func scannerVersion(bi *debug.BuildInfo) string {
 			buf.WriteString(p.Format("20060102150405"))
 		}
 	}
-	return buf.String()
+	cfg.ScannerVersion = buf.String()
+}
+
+// convertJSONToText converts r, which is expected to be the JSON output of govulncheck,
+// into the text output, and writes the output to w.
+func convertJSONToText(r io.Reader, w io.Writer) error {
+	h := NewTextHandler(w)
+	if err := govulncheck.HandleJSON(r, h); err != nil {
+		return err
+	}
+	Flush(h)
+	return nil
 }

@@ -12,14 +12,11 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
-	"net/url"
 	"os"
-	"sort"
+	"path/filepath"
 
 	"golang.org/x/vuln/internal/derrors"
 	"golang.org/x/vuln/internal/osv"
-	isem "golang.org/x/vuln/internal/semver"
-	"golang.org/x/vuln/internal/web"
 )
 
 type source interface {
@@ -72,19 +69,8 @@ func (hs *httpSource) get(ctx context.Context, endpoint string) (_ []byte, err e
 	return io.ReadAll(r)
 }
 
-func newLocalSource(u *url.URL) (*localSource, error) {
-	dir, err := web.URLToFilePath(u)
-	if err != nil {
-		return nil, err
-	}
-	fi, err := os.Stat(dir)
-	if err != nil {
-		return nil, err
-	}
-	if !fi.IsDir() {
-		return nil, fmt.Errorf("%s is not a directory", dir)
-	}
-	return &localSource{fs: os.DirFS(dir)}, nil
+func newLocalSource(dir string) *localSource {
+	return &localSource{fs: os.DirFS(dir)}
 }
 
 // localSource reads a vulnerability database from a local file system.
@@ -98,65 +84,52 @@ func (ls *localSource) get(ctx context.Context, endpoint string) (_ []byte, err 
 	return fs.ReadFile(ls.fs, endpoint+".json")
 }
 
-// newInMemorySource creates a new in-memory source.
+func newHybridSource(dir string) (*hybridSource, error) {
+	index, err := indexFromDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	return &hybridSource{
+		index: &inMemorySource{data: index},
+		osv:   &localSource{fs: os.DirFS(dir)},
+	}, nil
+}
+
+// hybridSource reads OSV entries from a local file system, but reads
+// indexes from an in-memory map.
+type hybridSource struct {
+	index *inMemorySource
+	osv   *localSource
+}
+
+func (hs *hybridSource) get(ctx context.Context, endpoint string) (_ []byte, err error) {
+	derrors.Wrap(&err, "get(%s)", endpoint)
+
+	dir, file := filepath.Split(endpoint)
+
+	if filepath.Dir(dir) == indexDir {
+		return hs.index.get(ctx, endpoint)
+	}
+
+	return hs.osv.get(ctx, file)
+}
+
+// newInMemorySource creates a new in-memory source from OSV entries.
 // Adapted from x/vulndb/internal/database.go.
 func newInMemorySource(entries []*osv.Entry) (*inMemorySource, error) {
-	data := make(map[string][]byte)
-	db := dbMeta{}
-	modulesMap := make(map[string]*moduleMeta)
+	data, err := indexFromEntries(entries)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, entry := range entries {
-		if entry.ID == "" {
-			return nil, fmt.Errorf("entry %v has no ID", entry)
-		}
-		if entry.Modified.After(db.Modified) {
-			db.Modified = entry.Modified
-		}
-		for _, affected := range entry.Affected {
-			modulePath := affected.Module.Path
-			if _, ok := modulesMap[modulePath]; !ok {
-				modulesMap[modulePath] = &moduleMeta{
-					Path:  modulePath,
-					Vulns: []moduleVuln{},
-				}
-			}
-			module := modulesMap[modulePath]
-			module.Vulns = append(module.Vulns, moduleVuln{
-				ID:       entry.ID,
-				Modified: entry.Modified,
-				Fixed:    latestFixedVersion(affected.Ranges),
-			})
-		}
 		b, err := json.Marshal(entry)
 		if err != nil {
 			return nil, err
 		}
 		data[entryEndpoint(entry.ID)] = b
 	}
-
-	b, err := json.Marshal(db)
-	if err != nil {
-		return nil, err
-	}
-	data[dbEndpoint] = b
-
-	// Add the modules endpoint.
-	modules := make([]*moduleMeta, 0, len(modulesMap))
-	for _, module := range modulesMap {
-		modules = append(modules, module)
-	}
-	sort.SliceStable(modules, func(i, j int) bool {
-		return modules[i].Path < modules[j].Path
-	})
-	for _, module := range modules {
-		sort.SliceStable(module.Vulns, func(i, j int) bool {
-			return module.Vulns[i].ID < module.Vulns[j].ID
-		})
-	}
-	b, err = json.Marshal(modules)
-	if err != nil {
-		return nil, err
-	}
-	data[modulesEndpoint] = b
 
 	return &inMemorySource{data: data}, nil
 }
@@ -173,28 +146,4 @@ func (db *inMemorySource) get(ctx context.Context, endpoint string) ([]byte, err
 		return nil, fmt.Errorf("no data found at endpoint %q", endpoint)
 	}
 	return b, nil
-}
-
-func latestFixedVersion(ranges []osv.Range) string {
-	var latestFixed string
-	for _, r := range ranges {
-		if r.Type == "SEMVER" {
-			for _, e := range r.Events {
-				fixed := e.Fixed
-				if fixed != "" && isem.Less(latestFixed, fixed) {
-					latestFixed = fixed
-				}
-			}
-			// If the vulnerability was re-introduced after the latest fix
-			// we found, there is no latest fix for this range.
-			for _, e := range r.Events {
-				introduced := e.Introduced
-				if introduced != "" && introduced != "0" && isem.Less(latestFixed, introduced) {
-					latestFixed = ""
-					break
-				}
-			}
-		}
-	}
-	return latestFixed
 }
