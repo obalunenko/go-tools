@@ -31,6 +31,7 @@ var cmd cmder = stdCmd{}
 type Pipe struct{}
 
 func (Pipe) String() string                           { return "chocolatey packages" }
+func (Pipe) ContinueOnError() bool                    { return true }
 func (Pipe) Skip(ctx *context.Context) bool           { return len(ctx.Config.Chocolateys) == 0 }
 func (Pipe) Dependencies(_ *context.Context) []string { return []string{"choco"} }
 
@@ -325,7 +326,7 @@ func dataFor(ctx *context.Context, cl client.Client, choco config.Chocolatey, ar
 // The intention is to be used to wrap the standard exec and provide the
 // ability to create a fake one for testing.
 type cmder interface {
-	// Exec executes an command.
+	// Exec executes a command.
 	Exec(*context.Context, string, ...string) ([]byte, error)
 }
 

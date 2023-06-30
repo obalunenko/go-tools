@@ -28,13 +28,13 @@ type rawInteraction struct {
 	Version       int             `json:"version"`
 	GuildID       *snowflake.ID   `json:"guild_id,omitempty"`
 	// Deprecated: Use Channel instead
-	ChannelID      snowflake.ID    `json:"channel_id,omitempty"`
-	Channel        *PartialChannel `json:"channel,omitempty"`
-	Locale         Locale          `json:"locale,omitempty"`
-	GuildLocale    *Locale         `json:"guild_locale,omitempty"`
-	Member         *ResolvedMember `json:"member,omitempty"`
-	User           *User           `json:"user,omitempty"`
-	AppPermissions *Permissions    `json:"app_permissions,omitempty"`
+	ChannelID      snowflake.ID       `json:"channel_id,omitempty"`
+	Channel        InteractionChannel `json:"channel,omitempty"`
+	Locale         Locale             `json:"locale,omitempty"`
+	GuildLocale    *Locale            `json:"guild_locale,omitempty"`
+	Member         *ResolvedMember    `json:"member,omitempty"`
+	User           *User              `json:"user,omitempty"`
+	AppPermissions *Permissions       `json:"app_permissions,omitempty"`
 }
 
 // Interaction is used for easier unmarshalling of different Interaction(s)
@@ -47,7 +47,7 @@ type Interaction interface {
 	GuildID() *snowflake.ID
 	// Deprecated: Use Interaction.Channel instead
 	ChannelID() snowflake.ID
-	Channel() *PartialChannel
+	Channel() InteractionChannel
 	Locale() Locale
 	GuildLocale() *Locale
 	Member() *ResolvedMember
@@ -108,17 +108,60 @@ func UnmarshalInteraction(data []byte) (Interaction, error) {
 	return interaction, nil
 }
 
-type (
-	ResolvedMember struct {
-		Member
-		Permissions Permissions `json:"permissions,omitempty"`
+type ResolvedMember struct {
+	Member
+	Permissions Permissions `json:"permissions,omitempty"`
+}
+
+type ResolvedChannel struct {
+	ID             snowflake.ID   `json:"id"`
+	Name           string         `json:"name"`
+	Type           ChannelType    `json:"type"`
+	Permissions    Permissions    `json:"permissions"`
+	ThreadMetadata ThreadMetadata `json:"thread_metadata"`
+	ParentID       snowflake.ID   `json:"parent_id"`
+}
+
+type InteractionChannel struct {
+	MessageChannel
+	Permissions Permissions `json:"permissions"`
+}
+
+func (c *InteractionChannel) UnmarshalJSON(data []byte) error {
+	var v struct {
+		Permissions Permissions `json:"permissions"`
 	}
-	ResolvedChannel struct {
-		ID             snowflake.ID   `json:"id"`
-		Name           string         `json:"name"`
-		Type           ChannelType    `json:"type"`
-		Permissions    Permissions    `json:"permissions"`
-		ThreadMetadata ThreadMetadata `json:"thread_metadata"`
-		ParentID       snowflake.ID   `json:"parent_id"`
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
 	}
-)
+	var vc UnmarshalChannel
+	if err := json.Unmarshal(data, &vc); err != nil {
+		return err
+	}
+	msgChannel, ok := vc.Channel.(MessageChannel)
+	if !ok {
+		return fmt.Errorf("unknown channel type: %T", vc.Channel)
+	}
+	c.MessageChannel = msgChannel
+	c.Permissions = v.Permissions
+
+	return nil
+}
+
+func (c InteractionChannel) MarshalJSON() ([]byte, error) {
+	mData, err := json.Marshal(c.MessageChannel)
+	if err != nil {
+		return nil, err
+	}
+
+	pData, err := json.Marshal(struct {
+		Permissions Permissions `json:"permissions"`
+	}{
+		Permissions: c.Permissions,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Merge(mData, pData)
+}

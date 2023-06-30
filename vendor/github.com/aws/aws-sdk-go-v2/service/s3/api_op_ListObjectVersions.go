@@ -12,30 +12,19 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Returns metadata about all versions of the objects in a bucket. You can also use
-// request parameters as selection criteria to return metadata about a subset of
-// all the object versions. To use this operation, you must have permissions to
-// perform the s3:ListBucketVersions action. Be aware of the name difference. A 200
-// OK response can contain valid or invalid XML. Make sure to design your
+// Returns metadata about all versions of the objects in a bucket. You can also
+// use request parameters as selection criteria to return metadata about a subset
+// of all the object versions. To use this operation, you must have permissions to
+// perform the s3:ListBucketVersions action. Be aware of the name difference. A
+// 200 OK response can contain valid or invalid XML. Make sure to design your
 // application to parse the contents of the response and handle it appropriately.
 // To use this operation, you must have READ access to the bucket. This action is
 // not supported by Amazon S3 on Outposts. The following operations are related to
-// ListObjectVersions:
-//
-// * ListObjectsV2
-// (https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html)
-//
-// *
-// GetObject
-// (https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html)
-//
-// *
-// PutObject
-// (https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html)
-//
-// *
-// DeleteObject
-// (https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html)
+// ListObjectVersions :
+//   - ListObjectsV2 (https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html)
+//   - GetObject (https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html)
+//   - PutObject (https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html)
+//   - DeleteObject (https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html)
 func (c *Client) ListObjectVersions(ctx context.Context, params *ListObjectVersionsInput, optFns ...func(*Options)) (*ListObjectVersionsOutput, error) {
 	if params == nil {
 		params = &ListObjectVersionsInput{}
@@ -58,11 +47,11 @@ type ListObjectVersionsInput struct {
 	// This member is required.
 	Bucket *string
 
-	// A delimiter is a character that you specify to group keys. All keys that contain
-	// the same string between the prefix and the first occurrence of the delimiter are
-	// grouped under a single result element in CommonPrefixes. These groups are
-	// counted as one result against the max-keys limitation. These keys are not
-	// returned elsewhere in the response.
+	// A delimiter is a character that you specify to group keys. All keys that
+	// contain the same string between the prefix and the first occurrence of the
+	// delimiter are grouped under a single result element in CommonPrefixes. These
+	// groups are counted as one result against the max-keys limitation. These keys are
+	// not returned elsewhere in the response.
 	Delimiter *string
 
 	// Requests Amazon S3 to encode the object keys in the response and specifies the
@@ -95,6 +84,13 @@ type ListObjectVersionsInput struct {
 	// objects into a single result under CommonPrefixes.
 	Prefix *string
 
+	// Confirms that the requester knows that they will be charged for the request.
+	// Bucket owners need not specify this parameter in their requests. For information
+	// about downloading objects from Requester Pays buckets, see Downloading Objects
+	// in Requester Pays Buckets (https://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html)
+	// in the Amazon S3 User Guide.
+	RequestPayer types.RequestPayer
+
 	// Specifies the object version you want to start listing from.
 	VersionIdMarker *string
 
@@ -113,14 +109,14 @@ type ListObjectVersionsOutput struct {
 	// The delimiter grouping the included keys. A delimiter is a character that you
 	// specify to group keys. All keys that contain the same string between the prefix
 	// and the first occurrence of the delimiter are grouped under a single result
-	// element in CommonPrefixes. These groups are counted as one result against the
+	// element in CommonPrefixes . These groups are counted as one result against the
 	// max-keys limitation. These keys are not returned elsewhere in the response.
 	Delimiter *string
 
 	// Encoding type used by Amazon S3 to encode object key names in the XML response.
 	// If you specify encoding-type request parameter, Amazon S3 includes this element
 	// in the response, and returns encoded key name values in the following response
-	// elements: KeyMarker, NextKeyMarker, Prefix, Key, and Delimiter.
+	// elements: KeyMarker, NextKeyMarker, Prefix, Key , and Delimiter .
 	EncodingType types.EncodingType
 
 	// A flag that indicates whether Amazon S3 returned all of the results that
@@ -139,12 +135,12 @@ type ListObjectVersionsOutput struct {
 	// The bucket name.
 	Name *string
 
-	// When the number of responses exceeds the value of MaxKeys, NextKeyMarker
+	// When the number of responses exceeds the value of MaxKeys , NextKeyMarker
 	// specifies the first key not returned that satisfies the search criteria. Use
 	// this value for the key-marker request parameter in a subsequent request.
 	NextKeyMarker *string
 
-	// When the number of responses exceeds the value of MaxKeys, NextVersionIdMarker
+	// When the number of responses exceeds the value of MaxKeys , NextVersionIdMarker
 	// specifies the first object version not returned that satisfies the search
 	// criteria. Use this value for the version-id-marker request parameter in a
 	// subsequent request.
@@ -152,6 +148,10 @@ type ListObjectVersionsOutput struct {
 
 	// Selects objects that start with the value supplied by this parameter.
 	Prefix *string
+
+	// If present, indicates that the requester was successfully charged for the
+	// request.
+	RequestCharged types.RequestCharged
 
 	// Marks the last version of the key returned in a truncated response.
 	VersionIdMarker *string
@@ -220,6 +220,9 @@ func (c *Client) addOperationListObjectVersionsMiddlewares(stack *middleware.Sta
 		return err
 	}
 	if err = addMetadataRetrieverMiddleware(stack); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addListObjectVersionsUpdateEndpoint(stack, options); err != nil {

@@ -23,6 +23,7 @@ import (
 	"github.com/goreleaser/goreleaser/internal/pipe/mattermost"
 	"github.com/goreleaser/goreleaser/internal/pipe/milestone"
 	"github.com/goreleaser/goreleaser/internal/pipe/nfpm"
+	"github.com/goreleaser/goreleaser/internal/pipe/nix"
 	"github.com/goreleaser/goreleaser/internal/pipe/opencollective"
 	"github.com/goreleaser/goreleaser/internal/pipe/project"
 	"github.com/goreleaser/goreleaser/internal/pipe/reddit"
@@ -42,6 +43,7 @@ import (
 	"github.com/goreleaser/goreleaser/internal/pipe/upload"
 	"github.com/goreleaser/goreleaser/internal/pipe/upx"
 	"github.com/goreleaser/goreleaser/internal/pipe/webhook"
+	"github.com/goreleaser/goreleaser/internal/pipe/winget"
 	"github.com/goreleaser/goreleaser/pkg/context"
 )
 
@@ -78,6 +80,8 @@ var Defaulters = []Defaulter{
 	blob.Pipe{},
 	upload.Pipe{},
 	aur.Pipe{},
+	nix.Pipe{},
+	winget.Pipe{},
 	brew.Pipe{},
 	krew.Pipe{},
 	ko.Pipe{},
