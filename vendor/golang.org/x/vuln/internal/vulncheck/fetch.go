@@ -7,27 +7,34 @@ package vulncheck
 import (
 	"context"
 
+	"golang.org/x/tools/go/packages"
 	"golang.org/x/vuln/internal/client"
 )
 
 // FetchVulnerabilities fetches vulnerabilities that affect the supplied modules.
-func FetchVulnerabilities(ctx context.Context, client client.Client, modules []*Module) ([]*ModVulns, error) {
-	var mv []*ModVulns
-	for _, mod := range modules {
+func FetchVulnerabilities(ctx context.Context, c *client.Client, modules []*packages.Module) ([]*ModVulns, error) {
+	mreqs := make([]*client.ModuleRequest, len(modules))
+	for i, mod := range modules {
 		modPath := mod.Path
 		if mod.Replace != nil {
 			modPath = mod.Replace.Path
 		}
-		vulns, err := client.ByModule(ctx, modPath)
-		if err != nil {
-			return nil, err
+		mreqs[i] = &client.ModuleRequest{
+			Path: modPath,
 		}
-		if len(vulns) == 0 {
+	}
+	resps, err := c.ByModules(ctx, mreqs)
+	if err != nil {
+		return nil, err
+	}
+	var mv []*ModVulns
+	for i, resp := range resps {
+		if len(resp.Entries) == 0 {
 			continue
 		}
 		mv = append(mv, &ModVulns{
-			Module: mod,
-			Vulns:  vulns,
+			Module: modules[i],
+			Vulns:  resp.Entries,
 		})
 	}
 	return mv, nil

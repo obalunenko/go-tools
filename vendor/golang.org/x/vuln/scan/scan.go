@@ -9,19 +9,37 @@ import (
 	"errors"
 	"io"
 	"os"
+
+	"golang.org/x/vuln/internal/scan"
 )
 
 // Cmd represents an external govulncheck command being prepared or run,
 // similar to exec.Cmd.
 type Cmd struct {
+	// Stdin specifies the standard input. If provided, it is expected to be
+	// the output of govulncheck -json.
+	Stdin io.Reader
+
 	// Stdout specifies the standard output. If nil, Run connects os.Stdout.
 	Stdout io.Writer
 
-	ctx     context.Context
-	args    []string
-	closers []io.Closer
-	done    chan struct{}
-	err     error
+	// Stderr specifies the standard error. If nil, Run connects os.Stderr.
+	Stderr io.Writer
+
+	// Env is the environment to use.
+	// If Env is nil, the current environment is used.
+	// As in os/exec's Cmd, only the last value in the slice for
+	// each environment key is used. To specify the setting of only
+	// a few variables, append to the current environment, as in:
+	//
+	//	opt.Env = append(os.Environ(), "GOOS=plan9", "GOARCH=386")
+	//
+	Env []string
+
+	ctx  context.Context
+	args []string
+	done chan struct{}
+	err  error
 }
 
 // Command returns the Cmd struct to execute govulncheck with the given
@@ -33,14 +51,6 @@ func Command(ctx context.Context, arg ...string) *Cmd {
 	}
 }
 
-// Run starts govulncheck and waits for it to complete.
-func (c *Cmd) Run() error {
-	if err := c.Start(); err != nil {
-		return err
-	}
-	return c.Wait()
-}
-
 // Start starts the specified command but does not wait for it to complete.
 //
 // After a successful call to Start the Wait method must be called in order to
@@ -49,33 +59,24 @@ func (c *Cmd) Start() error {
 	if c.done != nil {
 		return errors.New("vuln: already started")
 	}
+	if c.Stdin == nil {
+		c.Stdin = os.Stdin
+	}
 	if c.Stdout == nil {
 		c.Stdout = os.Stdout
 	}
+	if c.Stderr == nil {
+		c.Stderr = os.Stderr
+	}
+	if c.Env == nil {
+		c.Env = os.Environ()
+	}
 	c.done = make(chan struct{})
 	go func() {
-		defer func() {
-			for _, cl := range c.closers {
-				cl.Close()
-			}
-			c.closers = nil
-			close(c.done)
-		}()
+		defer close(c.done)
 		c.err = c.scan()
 	}()
 	return nil
-}
-
-// StdoutPipe returns a pipe that will be connected to the command's
-// standard output when the command starts.
-func (c *Cmd) StdoutPipe() io.ReadCloser {
-	if c.Stdout != nil {
-		panic("Stdout already set")
-	}
-	pr, pw := io.Pipe()
-	c.Stdout = pw
-	c.closers = append(c.closers, pw)
-	return pr
 }
 
 // Wait waits for the command to exit. The command must have been started by
@@ -83,6 +84,9 @@ func (c *Cmd) StdoutPipe() io.ReadCloser {
 //
 // Wait releases any resources associated with the Cmd.
 func (c *Cmd) Wait() error {
+	if c.done == nil {
+		return errors.New("vuln: start must be called before wait")
+	}
 	<-c.done
 	return c.err
 }
@@ -91,5 +95,5 @@ func (c *Cmd) scan() error {
 	if err := c.ctx.Err(); err != nil {
 		return err
 	}
-	return doGovulncheck(c.ctx, c.Stdout, c.args)
+	return scan.RunGovulncheck(c.ctx, c.Env, c.Stdin, c.Stdout, c.Stderr, c.args)
 }

@@ -6,28 +6,25 @@ package scan
 
 import (
 	"errors"
-	"fmt"
 	"strings"
-
-	"golang.org/x/tools/go/packages"
-)
-
-var (
-	// ErrVulnerabilitiesFound indicates that vulnerabilities were detected
-	// when running govulncheck. This returns exit status 3 when running
-	// without the -json flag.
-	ErrVulnerabilitiesFound = errors.New("vulnerabilities found")
-
-	// ErrNoPatterns indicates that no patterns were passed in when running
-	// govulncheck.
-	//
-	// In this case, we assume that the user does not know how to run
-	// govulncheck, and print the usage message with exit status 1.
-	ErrNoPatterns = errors.New("no patterns provided")
 )
 
 //lint:file-ignore ST1005 Ignore staticcheck message about error formatting
 var (
+	// ErrVulnerabilitiesFound indicates that vulnerabilities were detected
+	// when running govulncheck. This returns exit status 3 when running
+	// without the -json flag.
+	errVulnerabilitiesFound = &exitCodeError{message: "vulnerabilities found", code: 3}
+
+	// errHelp indicates that usage help was requested.
+	errHelp = &exitCodeError{message: "help requested", code: 0}
+
+	// errUsage indicates that there was a usage error on the command line.
+	//
+	// In this case, we assume that the user does not know how to run
+	// govulncheck, and print the usage message with exit status 2.
+	errUsage = &exitCodeError{message: "invalid usage", code: 2}
+
 	// errGoVersionMismatch is used to indicate that there is a mismatch between
 	// the Go version used to build govulncheck and the one currently on PATH.
 	errGoVersionMismatch = errors.New(`Loading packages failed, possibly due to a mismatch between the Go version
@@ -51,21 +48,13 @@ Did you mean to run govulncheck with -mode=binary?
 For details, run govulncheck -h.`)
 )
 
-// packageError contains errors from loading a set of packages.
-type packageError struct {
-	Errors []packages.Error
+type exitCodeError struct {
+	message string
+	code    int
 }
 
-func (e *packageError) Error() string {
-	var b strings.Builder
-	fmt.Fprintln(&b, "\nThere are errors with the provided package patterns:")
-	fmt.Fprintln(&b, "")
-	for _, e := range e.Errors {
-		fmt.Fprintln(&b, e)
-	}
-	fmt.Fprintln(&b, "\nFor details on package patterns, see https://pkg.go.dev/cmd/go#hdr-Package_lists_and_patterns.")
-	return b.String()
-}
+func (e *exitCodeError) Error() string { return e.message }
+func (e *exitCodeError) ExitCode() int { return e.code }
 
 // isGoVersionMismatchError checks if err is due to mismatch between
 // the Go version used to build govulncheck and the one currently

@@ -8,14 +8,14 @@ import (
 	"context"
 	"fmt"
 	"go/token"
-	"sort"
 	"sync"
 
 	"golang.org/x/tools/go/callgraph"
+	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/ssa"
-	"golang.org/x/vuln/internal"
+	"golang.org/x/vuln/internal/client"
+	"golang.org/x/vuln/internal/govulncheck"
 	"golang.org/x/vuln/internal/osv"
-	"golang.org/x/vuln/internal/semver"
 )
 
 // Source detects vulnerabilities in packages. The result will contain:
@@ -27,7 +27,7 @@ import (
 // some known vulnerabilities.
 //
 // 3) A CallGraph leading to the use of a known vulnerable function or method.
-func Source(ctx context.Context, pkgs []*Package, cfg *Config) (_ *Result, err error) {
+func Source(ctx context.Context, pkgs []*packages.Package, cfg *govulncheck.Config, client *client.Client, graph *PackageGraph) (_ *Result, err error) {
 	// buildSSA builds a whole program that assumes all packages use the same FileSet.
 	// Check all packages in pkgs are using the same FileSet.
 	// TODO(https://go.dev/issue/59729): take FileSet out of Package and
@@ -44,18 +44,6 @@ func Source(ctx context.Context, pkgs []*Package, cfg *Config) (_ *Result, err e
 		}
 	}
 
-	// set the stdlib version for detection of vulns in the standard library
-	// TODO(https://go.dev/issue/53740): what if Go version is not in semver format?
-	if cfg.SourceGoVersion != "" {
-		stdlibModule.Version = semver.GoTagToSemver(cfg.SourceGoVersion)
-	} else {
-		gover, err := internal.GoEnv("GOVERSION")
-		if err != nil {
-			return nil, err
-		}
-		stdlibModule.Version = semver.GoTagToSemver(gover)
-	}
-
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -68,7 +56,7 @@ func Source(ctx context.Context, pkgs []*Package, cfg *Config) (_ *Result, err e
 		cg       *callgraph.Graph
 		buildErr error
 	)
-	if !cfg.ImportsOnly {
+	if cfg.ScanLevel.WantSymbols() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -79,23 +67,18 @@ func Source(ctx context.Context, pkgs []*Package, cfg *Config) (_ *Result, err e
 	}
 
 	mods := extractModules(pkgs)
-	mv, err := FetchVulnerabilities(ctx, cfg.Client, mods)
+	mv, err := FetchVulnerabilities(ctx, client, mods)
 	if err != nil {
 		return nil, err
 	}
 	modVulns := moduleVulnerabilities(mv)
-	modVulns = modVulns.filter(cfg.GOOS, cfg.GOARCH)
-	result := &Result{
-		Imports:  &ImportGraph{Packages: make(map[int]*PkgNode)},
-		Requires: &RequireGraph{Modules: make(map[int]*ModNode)},
-		Calls:    &CallGraph{Functions: make(map[int]*FuncNode)},
-	}
+	modVulns = modVulns.filter("", "")
+	result := &Result{}
 
 	vulnPkgModSlice(pkgs, modVulns, result)
-	setModules(result, mods)
-	// Return result immediately if in ImportsOnly mode or
+	// Return result immediately if not in symbol mode or
 	// if there are no vulnerable packages.
-	if cfg.ImportsOnly || len(result.Imports.Packages) == 0 {
+	if !cfg.ScanLevel.WantSymbols() || len(result.EntryPackages) == 0 {
 		return result, nil
 	}
 
@@ -104,75 +87,44 @@ func Source(ctx context.Context, pkgs []*Package, cfg *Config) (_ *Result, err e
 		return nil, err
 	}
 
-	vulnCallGraphSlice(entries, modVulns, cg, result)
-
-	// Release residual memory.
-	for _, p := range result.Imports.Packages {
-		p.pkg = nil
-	}
+	vulnCallGraphSlice(entries, modVulns, cg, result, graph)
 
 	return result, nil
-}
-
-// Set r.Modules to an adjusted list of modules.
-func setModules(r *Result, mods []*Module) {
-	// Remove Dirs from modules; they aren't needed and complicate testing.
-	for _, m := range mods {
-		m.Dir = ""
-		if m.Replace != nil {
-			m.Replace.Dir = ""
-		}
-	}
-	// Sort for determinism.
-	sort.Slice(mods, func(i, j int) bool { return mods[i].Path < mods[j].Path })
-	r.Modules = append(r.Modules, mods...)
-}
-
-// pkgID is an id counter for nodes of Imports graph.
-var pkgID int = 0
-
-func nextPkgID() int {
-	pkgID++
-	return pkgID
 }
 
 // vulnPkgModSlice computes the slice of pkgs imports and requires graph
 // leading to imports/requires of vulnerable packages/modules in modVulns
 // and stores the computed slices to result.
-func vulnPkgModSlice(pkgs []*Package, modVulns moduleVulnerabilities, result *Result) {
+func vulnPkgModSlice(pkgs []*packages.Package, modVulns moduleVulnerabilities, result *Result) {
 	// analyzedPkgs contains information on packages analyzed thus far.
-	// If a package is mapped to nil, this means it has been visited
+	// If a package is mapped to false, this means it has been visited
 	// but it does not lead to a vulnerable imports. Otherwise, a
-	// visited package is mapped to Imports package node.
-	analyzedPkgs := make(map[*Package]*PkgNode)
+	// visited package is mapped to true.
+	analyzedPkgs := make(map[*packages.Package]bool)
 	for _, pkg := range pkgs {
 		// Top level packages that lead to vulnerable imports are
-		// stored as result.Imports graph entry points.
-		if e := vulnImportSlice(pkg, modVulns, result, analyzedPkgs); e != nil {
-			result.Imports.Entries = append(result.Imports.Entries, e.ID)
+		// stored as result.EntryPackages graph entry points.
+		if vulnerable := vulnImportSlice(pkg, modVulns, result, analyzedPkgs); vulnerable {
+			result.EntryPackages = append(result.EntryPackages, pkg)
 		}
 	}
-
-	// Populate module requires slice as an overlay
-	// of package imports slice.
-	vulnModuleSlice(result)
 }
 
 // vulnImportSlice checks if pkg has some vulnerabilities or transitively imports
 // a package with known vulnerabilities. If that is the case, populates result.Imports
 // graph with this reachability information and returns the result.Imports package
 // node for pkg. Otherwise, returns nil.
-func vulnImportSlice(pkg *Package, modVulns moduleVulnerabilities, result *Result, analyzed map[*Package]*PkgNode) *PkgNode {
-	if pn, ok := analyzed[pkg]; ok {
-		return pn
+func vulnImportSlice(pkg *packages.Package, modVulns moduleVulnerabilities, result *Result, analyzed map[*packages.Package]bool) bool {
+	if vulnerable, ok := analyzed[pkg]; ok {
+		return vulnerable
 	}
-	analyzed[pkg] = nil
+	analyzed[pkg] = false
 	// Recursively compute which direct dependencies lead to an import of
 	// a vulnerable package and remember the nodes of such dependencies.
-	var onSlice []*PkgNode
+	transitiveVulnerable := false
 	for _, imp := range pkg.Imports {
-		if impNode := vulnImportSlice(imp, modVulns, result, analyzed); impNode != nil {
-			onSlice = append(onSlice, impNode)
+		if impVulnerable := vulnImportSlice(imp, modVulns, result, analyzed); impVulnerable {
+			transitiveVulnerable = true
 		}
 	}
 
@@ -181,186 +133,41 @@ func vulnImportSlice(pkg *Package, modVulns moduleVulnerabilities, result *Resul
 
 	// If pkg is not vulnerable nor it transitively leads
 	// to vulnerabilities, jump out.
-	if len(onSlice) == 0 && len(vulns) == 0 {
-		return nil
-	}
-
-	// Module id gets populated later.
-	id := nextPkgID()
-	pkgNode := &PkgNode{
-		ID:   id,
-		Name: pkg.Name,
-		Path: pkg.PkgPath,
-		pkg:  pkg,
-	}
-	analyzed[pkg] = pkgNode
-
-	result.Imports.Packages[id] = pkgNode
-
-	// Save node predecessor information.
-	for _, impSliceNode := range onSlice {
-		impSliceNode.ImportedBy = append(impSliceNode.ImportedBy, id)
+	if !transitiveVulnerable && len(vulns) == 0 {
+		return false
 	}
 
 	// Create Vuln entry for each symbol of known OSV entries for pkg.
 	for _, osv := range vulns {
 		for _, affected := range osv.Affected {
 			for _, p := range affected.EcosystemSpecific.Packages {
-				if p.Path != pkgNode.Path {
+				if p.Path != pkg.PkgPath {
 					continue
 				}
 
 				symbols := p.Symbols
 				if len(symbols) == 0 {
-					symbols = allSymbols(pkg.Pkg)
+					symbols = allSymbols(pkg.Types)
 				}
 
 				for _, symbol := range symbols {
 					vuln := &Vuln{
 						OSV:        osv,
 						Symbol:     symbol,
-						PkgPath:    pkgNode.Path,
-						ImportSink: id,
+						ImportSink: pkg,
 					}
 					result.Vulns = append(result.Vulns, vuln)
 				}
 			}
 		}
 	}
-	return pkgNode
-}
-
-// vulnModuleSlice populates result.Requires as an overlay
-// of result.Imports.
-func vulnModuleSlice(result *Result) {
-	// Map from module nodes, identified with their
-	// path and version, to their unique ids.
-	modNodeIDs := make(map[string]int)
-	// We first collect inverse requires by (predecessor)
-	// relation on module node ids.
-	modPredRelation := make(map[int]map[int]bool)
-	// Sort keys so modules are assigned IDs deterministically, for tests.
-	var pkgIDs []int
-	for id := range result.Imports.Packages {
-		pkgIDs = append(pkgIDs, id)
-	}
-	sort.Ints(pkgIDs)
-	for _, id := range pkgIDs {
-		pkgNode := result.Imports.Packages[id]
-		// Create or get module node for pkgNode.
-		modID := moduleNodeID(pkgNode, result, modNodeIDs)
-		pkgNode.Module = modID
-
-		// Update the set of predecessors.
-		if _, ok := modPredRelation[modID]; !ok {
-			modPredRelation[modID] = make(map[int]bool)
-		}
-		predSet := modPredRelation[modID]
-
-		for _, predPkgID := range pkgNode.ImportedBy {
-			predModID := moduleNodeID(result.Imports.Packages[predPkgID], result, modNodeIDs)
-			// We don't add module edges for imports
-			// of packages in the same module as that
-			// will create self-loops in Requires graphs.
-			if predModID == modID {
-				continue
-			}
-			predSet[predModID] = true
-		}
-	}
-
-	// Add entry module IDs.
-	seenEntries := make(map[int]bool)
-	for _, epID := range result.Imports.Entries {
-		entryModID := moduleNodeID(result.Imports.Packages[epID], result, modNodeIDs)
-		if seenEntries[entryModID] {
-			continue
-		}
-		seenEntries[entryModID] = true
-		result.Requires.Entries = append(result.Requires.Entries, entryModID)
-	}
-
-	// Store the predecessor requires relation to result.
-	for modID := range modPredRelation {
-		if modID == 0 {
-			continue
-		}
-
-		var predIDs []int
-		for predID := range modPredRelation[modID] {
-			predIDs = append(predIDs, predID)
-		}
-		modNode := result.Requires.Modules[modID]
-		modNode.RequiredBy = predIDs
-	}
-
-	// And finally update Vulns with module information.
-	for _, vuln := range result.Vulns {
-		pkgNode := result.Imports.Packages[vuln.ImportSink]
-		modNode := result.Requires.Modules[pkgNode.Module]
-
-		vuln.RequireSink = pkgNode.Module
-		vuln.ModPath = modNode.Path
-	}
-}
-
-// modID is an id counter for nodes of Requires graph.
-var modID int = 0
-
-func nextModID() int {
-	modID++
-	return modID
-}
-
-// moduleNode creates a module node associated with pkgNode, if one does
-// not exist already, and returns id of the module node. The actual module
-// node is stored to result.
-func moduleNodeID(pkgNode *PkgNode, result *Result, modNodeIDs map[string]int) int {
-	mod := pkgNode.pkg.Module
-	if isStdPackage(pkgNode.Path) {
-		// standard library packages don't have a module.
-		mod = stdlibModule
-	}
-	if mod == nil {
-		return 0
-	}
-
-	mk := modKey(mod)
-	if id, ok := modNodeIDs[mk]; ok {
-		return id
-	}
-
-	id := nextModID()
-	n := &ModNode{
-		ID:      id,
-		Path:    mod.Path,
-		Version: mod.Version,
-	}
-	result.Requires.Modules[id] = n
-	modNodeIDs[mk] = id
-
-	// Create a replace module too when applicable.
-	if mod.Replace != nil {
-		rmk := modKey(mod.Replace)
-		if rid, ok := modNodeIDs[rmk]; ok {
-			n.Replace = rid
-		} else {
-			rid := nextModID()
-			rn := &ModNode{
-				Path:    mod.Replace.Path,
-				Version: mod.Replace.Version,
-			}
-			result.Requires.Modules[rid] = rn
-			modNodeIDs[rmk] = rid
-			n.Replace = rid
-		}
-	}
-	return id
+	analyzed[pkg] = true
+	return true
 }
 
 // vulnCallGraphSlice checks if known vulnerabilities are transitively reachable from sources
 // via call graph cg. If so, populates result.Calls graph with this reachability information.
-func vulnCallGraphSlice(sources []*ssa.Function, modVulns moduleVulnerabilities, cg *callgraph.Graph, result *Result) {
+func vulnCallGraphSlice(sources []*ssa.Function, modVulns moduleVulnerabilities, cg *callgraph.Graph, result *Result, graph *PackageGraph) {
 	sinksWithVulns := vulnFuncs(cg, modVulns)
 
 	// Compute call graph backwards reachable
@@ -391,7 +198,7 @@ func vulnCallGraphSlice(sources []*ssa.Function, modVulns moduleVulnerabilities,
 
 	// Transform the resulting call graph slice into
 	// vulncheck representation and store it to result.
-	vulnCallGraph(filteredSources, filteredSinks, result)
+	vulnCallGraph(filteredSources, filteredSinks, result, graph)
 }
 
 // callGraphSlice computes a slice of callgraph beginning at starts
@@ -433,41 +240,24 @@ func callGraphSlice(starts []*callgraph.Node, forward bool) *callgraph.Graph {
 	return g
 }
 
-// funID is an id counter for nodes of Calls graph.
-var funID int = 0
-
-func nextFunID() int {
-	funID++
-	return funID
-}
-
 // vulnCallGraph creates vulnerability call graph from sources -> sinks reachability info.
-func vulnCallGraph(sources []*callgraph.Node, sinks map[*callgraph.Node][]*osv.Entry, result *Result) {
+func vulnCallGraph(sources []*callgraph.Node, sinks map[*callgraph.Node][]*osv.Entry, result *Result, graph *PackageGraph) {
 	nodes := make(map[*ssa.Function]*FuncNode)
-	createNode := func(f *ssa.Function) *FuncNode {
-		if fn, ok := nodes[f]; ok {
-			return fn
-		}
-		fn := funcNode(f)
-		nodes[f] = fn
-		result.Calls.Functions[fn.ID] = fn
-		return fn
-	}
 
 	// First create entries and sinks and store relevant information.
 	for _, s := range sources {
-		fn := createNode(s.Func)
-		result.Calls.Entries = append(result.Calls.Entries, fn.ID)
+		fn := createNode(nodes, s.Func, graph)
+		result.EntryFunctions = append(result.EntryFunctions, fn)
 	}
 
 	for s, vulns := range sinks {
 		f := s.Func
-		funNode := createNode(s.Func)
+		funNode := createNode(nodes, s.Func, graph)
 
 		// Populate CallSink field for each detected vuln symbol.
 		for _, osv := range vulns {
-			if vulnMatchesPackage(osv, funNode.PkgPath) {
-				addCallSinkForVuln(funNode.ID, osv, dbFuncName(f), funNode.PkgPath, result)
+			if vulnMatchesPackage(osv, funNode.Package.PkgPath) {
+				addCallSinkForVuln(funNode, osv, dbFuncName(f), funNode.Package.PkgPath, result)
 			}
 		}
 	}
@@ -481,12 +271,12 @@ func vulnCallGraph(sources []*callgraph.Node, sinks map[*callgraph.Node][]*osv.E
 		visited[n] = true
 
 		for _, edge := range n.In {
-			nCallee := createNode(edge.Callee.Func)
-			nCaller := createNode(edge.Caller.Func)
+			nCallee := createNode(nodes, edge.Callee.Func, graph)
+			nCaller := createNode(nodes, edge.Caller.Func, graph)
 
 			call := edge.Site
 			cs := &CallSite{
-				Parent:   nCaller.ID,
+				Parent:   nCaller,
 				Name:     call.Common().Value.Name(),
 				RecvType: callRecvType(call),
 				Resolved: resolved(call),
@@ -524,62 +314,46 @@ func pkgPath(f *ssa.Function) string {
 	return ""
 }
 
-func funcNode(f *ssa.Function) *FuncNode {
-	id := nextFunID()
-	return &FuncNode{
-		ID:       id,
+func createNode(nodes map[*ssa.Function]*FuncNode, f *ssa.Function, graph *PackageGraph) *FuncNode {
+	if fn, ok := nodes[f]; ok {
+		return fn
+	}
+	fn := &FuncNode{
 		Name:     f.Name(),
-		PkgPath:  pkgPath(f),
+		Package:  graph.GetPackage(pkgPath(f)),
 		RecvType: funcRecvType(f),
 		Pos:      funcPosition(f),
 	}
+	nodes[f] = fn
+	return fn
 }
 
 // addCallSinkForVuln adds callID as call sink to vuln of result.Vulns
 // identified with <osv, symbol, pkg>.
-func addCallSinkForVuln(callID int, osv *osv.Entry, symbol, pkg string, result *Result) {
+func addCallSinkForVuln(call *FuncNode, osv *osv.Entry, symbol, pkg string, result *Result) {
 	for _, vuln := range result.Vulns {
-		if vuln.OSV == osv && vuln.Symbol == symbol && vuln.PkgPath == pkg {
-			vuln.CallSink = callID
+		if vuln.OSV == osv && vuln.Symbol == symbol && vuln.ImportSink.PkgPath == pkg {
+			vuln.CallSink = call
 			return
 		}
 	}
 }
 
-var stdlibModule = &Module{
-	Path: internal.GoStdModulePath,
-	// Version is populated by Source and Binary based on user input
-}
-
-// modKey creates a unique string identifier for mod.
-func modKey(mod *Module) string {
-	if mod == nil {
-		return ""
-	}
-	return fmt.Sprintf("%s@%s", mod.Path, mod.Version)
-}
-
 // extractModules collects modules in `pkgs` up to uniqueness of
 // module path and version.
-func extractModules(pkgs []*Package) []*Module {
-	modMap := map[string]*Module{}
-
-	// Add "stdlib" module. Even if stdlib is not used, which
-	// is unlikely, it won't appear in vulncheck.Modules nor
-	// other results.
-	modMap[stdlibModule.Path] = stdlibModule
-
-	seen := map[*Package]bool{}
-	var extract func(*Package, map[string]*Module)
-	extract = func(pkg *Package, modMap map[string]*Module) {
+func extractModules(pkgs []*packages.Package) []*packages.Module {
+	modMap := map[string]*packages.Module{}
+	seen := map[*packages.Package]bool{}
+	var extract func(*packages.Package, map[string]*packages.Module)
+	extract = func(pkg *packages.Package, modMap map[string]*packages.Module) {
 		if pkg == nil || seen[pkg] {
 			return
 		}
 		if pkg.Module != nil {
 			if pkg.Module.Replace != nil {
-				modMap[modKey(pkg.Module.Replace)] = pkg.Module
+				modMap[pkg.Module.Replace.Path] = pkg.Module
 			} else {
-				modMap[modKey(pkg.Module)] = pkg.Module
+				modMap[pkg.Module.Path] = pkg.Module
 			}
 		}
 		seen[pkg] = true
@@ -591,7 +365,7 @@ func extractModules(pkgs []*Package) []*Module {
 		extract(pkg, modMap)
 	}
 
-	modules := []*Module{}
+	modules := []*packages.Module{}
 	for _, mod := range modMap {
 		modules = append(modules, mod)
 	}
