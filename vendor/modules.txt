@@ -1777,7 +1777,7 @@ github.com/posener/goreadme/internal/template
 # github.com/posener/script v1.1.5
 ## explicit; go 1.13
 github.com/posener/script
-# github.com/pressly/goose/v3 v3.13.0
+# github.com/pressly/goose/v3 v3.13.1
 ## explicit; go 1.18
 github.com/pressly/goose/v3
 github.com/pressly/goose/v3/cmd/goose
