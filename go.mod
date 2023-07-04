@@ -14,7 +14,7 @@ require (
 	github.com/mfridman/tparse v0.12.2
 	github.com/obalunenko/coverbadger v1.4.0
 	github.com/posener/goreadme v1.4.2
-	github.com/pressly/goose/v3 v3.13.0
+	github.com/pressly/goose/v3 v3.13.1
 	golang.org/x/pkgsite v0.0.0-20230427194420-bb799e479030
 	golang.org/x/tools v0.10.0
 	golang.org/x/vuln v0.2.0
