@@ -104,102 +104,61 @@ func (p Pipe) doRun(ctx *context.Context, winget config.Winget, cl client.Releas
 
 	tp := tmpl.New(ctx)
 
-	publisher, err := tp.Apply(winget.Publisher)
+	err := tp.ApplyAll(
+		&winget.Publisher,
+		&winget.Name,
+		&winget.Author,
+		&winget.PublisherURL,
+		&winget.PublisherSupportURL,
+		&winget.Homepage,
+		&winget.SkipUpload,
+		&winget.Description,
+		&winget.ShortDescription,
+		&winget.ReleaseNotesURL,
+		&winget.Path,
+		&winget.Copyright,
+		&winget.CopyrightURL,
+		&winget.License,
+		&winget.LicenseURL,
+	)
 	if err != nil {
 		return err
 	}
-	if publisher == "" {
+
+	if winget.Publisher == "" {
 		return errNoPublisher
 	}
-	winget.Publisher = publisher
 
 	if winget.License == "" {
 		return errNoLicense
 	}
 
-	name, err := tp.Apply(winget.Name)
+	winget.Repository, err = client.TemplateRef(tp.Apply, winget.Repository)
 	if err != nil {
 		return err
 	}
-	winget.Name = name
-
-	author, err := tp.Apply(winget.Author)
-	if err != nil {
-		return err
-	}
-	winget.Author = author
-
-	publisherURL, err := tp.Apply(winget.PublisherURL)
-	if err != nil {
-		return err
-	}
-	winget.PublisherURL = publisherURL
-
-	homepage, err := tp.Apply(winget.Homepage)
-	if err != nil {
-		return err
-	}
-	winget.Homepage = homepage
-
-	ref, err := client.TemplateRef(tp.Apply, winget.Repository)
-	if err != nil {
-		return err
-	}
-	winget.Repository = ref
-
-	skipUpload, err := tp.Apply(winget.SkipUpload)
-	if err != nil {
-		return err
-	}
-	winget.SkipUpload = skipUpload
-
-	description, err := tp.Apply(winget.Description)
-	if err != nil {
-		return err
-	}
-	winget.Description = description
-
-	shortDescription, err := tp.Apply(winget.ShortDescription)
-	if err != nil {
-		return err
-	}
-	winget.ShortDescription = shortDescription
 
 	if winget.ShortDescription == "" {
 		return errNoShortDescription
 	}
 
-	releaseNotesURL, err := tp.Apply(winget.ReleaseNotesURL)
-	if err != nil {
-		return err
-	}
-	winget.ReleaseNotesURL = releaseNotesURL
-
-	releaseNotes, err := tp.WithExtraFields(tmpl.Fields{
+	winget.ReleaseNotes, err = tp.WithExtraFields(tmpl.Fields{
 		"Changelog": ctx.ReleaseNotes,
 	}).Apply(winget.ReleaseNotes)
 	if err != nil {
 		return err
 	}
-	winget.ReleaseNotes = releaseNotes
 
 	if winget.URLTemplate == "" {
-		url, err := cl.ReleaseURLTemplate(ctx)
+		winget.URLTemplate, err = cl.ReleaseURLTemplate(ctx)
 		if err != nil {
 			return err
 		}
-		winget.URLTemplate = url
 	}
 
-	path, err := tp.Apply(winget.Path)
-	if err != nil {
-		return err
+	if winget.Path == "" {
+		winget.Path = filepath.Join("manifests", strings.ToLower(string(winget.Publisher[0])), winget.Publisher, winget.Name, ctx.Version)
 	}
-
-	if path == "" {
-		path = filepath.Join("manifests", strings.ToLower(string(winget.Publisher[0])), winget.Publisher, winget.Name, ctx.Version)
-	}
-	winget.Path = path
 
 	filters := []artifact.Filter{
 		artifact.ByGoos("windows"),
@@ -226,7 +185,7 @@ func (p Pipe) doRun(ctx *context.Context, winget config.Winget, cl client.Releas
 	}
 
 	if winget.PackageIdentifier == "" {
-		winget.PackageIdentifier = publisher + "." + name
+		winget.PackageIdentifier = winget.Publisher + "." + winget.Name
 	}
 
 	if !packageIdentifierValid.MatchString(winget.PackageIdentifier) {
@@ -297,25 +256,27 @@ func (p Pipe) doRun(ctx *context.Context, winget config.Winget, cl client.Releas
 	}
 
 	return createYAML(ctx, winget, Locale{
-		PackageIdentifier: winget.PackageIdentifier,
-		PackageVersion:    ctx.Version,
-		PackageLocale:     defaultLocale,
-		Publisher:         publisher,
-		PublisherURL:      winget.PublisherURL,
-		Author:            author,
-		PackageName:       name,
-		PackageURL:        winget.Homepage,
-		License:           winget.License,
-		LicenseURL:        winget.LicenseURL,
-		Copyright:         winget.Copyright,
-		ShortDescription:  shortDescription,
-		Description:       description,
-		Moniker:           name,
-		Tags:              []string{},
-		ReleaseNotes:      winget.ReleaseNotes,
-		ReleaseNotesURL:   winget.ReleaseNotesURL,
-		ManifestType:      "defaultLocale",
-		ManifestVersion:   manifestVersion,
+		PackageIdentifier:   winget.PackageIdentifier,
+		PackageVersion:      ctx.Version,
+		PackageLocale:       defaultLocale,
+		Publisher:           winget.Publisher,
+		PublisherURL:        winget.PublisherURL,
+		PublisherSupportURL: winget.PublisherSupportURL,
+		Author:              winget.Author,
+		PackageName:         winget.Name,
+		PackageURL:          winget.Homepage,
+		License:             winget.License,
+		LicenseURL:          winget.LicenseURL,
+		Copyright:           winget.Copyright,
+		CopyrightURL:        winget.CopyrightURL,
+		ShortDescription:    winget.ShortDescription,
+		Description:         winget.Description,
+		Moniker:             winget.Name,
+		Tags:                winget.Tags,
+		ReleaseNotes:        winget.ReleaseNotes,
+		ReleaseNotesURL:     winget.ReleaseNotesURL,
+		ManifestType:        "defaultLocale",
+		ManifestVersion:     manifestVersion,
 	}, artifact.WingetDefaultLocale)
 }
 
