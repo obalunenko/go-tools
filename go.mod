@@ -18,7 +18,7 @@ require (
 	golang.org/x/pkgsite v0.0.0-20230427194420-bb799e479030
 	golang.org/x/tools v0.11.0
 	golang.org/x/vuln v0.2.0
-	gotest.tools/gotestsum v1.10.0
+	gotest.tools/gotestsum v1.10.1
 	mvdan.cc/gofumpt v0.5.0
 )
 
