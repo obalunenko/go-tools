@@ -69,12 +69,10 @@ func Flush(h govulncheck.Handler) error {
 }
 
 func (h *TextHandler) Flush() error {
-	if len(h.findings) == 0 {
-		return nil
-	}
 	fixupFindings(h.osvs, h.findings)
 	h.byVulnerability(h.findings)
 	h.summary(h.findings)
+	h.print("\nShare feedback at https://go.dev/s/govulncheck-feedback.\n")
 	if h.err != nil {
 		return h.err
 	}
@@ -86,7 +84,7 @@ func (h *TextHandler) Flush() error {
 
 // Config writes text output formatted according to govulncheck-intro.tmpl.
 func (h *TextHandler) Config(config *govulncheck.Config) error {
-	h.print("govulncheck is an experimental tool. Share feedback at https://go.dev/s/govulncheck-feedback.\n\nUsing ")
+	h.print("Using ")
 	if config.GoVersion != "" {
 		h.style(goStyle, config.GoVersion)
 		h.print(` and `)
@@ -132,9 +130,6 @@ func (h *TextHandler) byVulnerability(findings []*findingSummary) {
 	called := 0
 	for _, findings := range byVuln {
 		if isCalled(findings) {
-			if called > 0 {
-				h.print("\n")
-			}
 			h.vulnerability(called, findings)
 			called++
 		}
@@ -143,7 +138,6 @@ func (h *TextHandler) byVulnerability(findings []*findingSummary) {
 	if unCalled == 0 {
 		return
 	}
-	h.print("\n")
 	h.style(sectionStyle, "=== Informational ===\n")
 	h.print("\nFound ", unCalled)
 	h.print(choose(unCalled == 1, ` vulnerability`, ` vulnerabilities`))
@@ -153,9 +147,6 @@ func (h *TextHandler) byVulnerability(findings []*findingSummary) {
 	index := 0
 	for _, findings := range byVuln {
 		if !isCalled(findings) {
-			if index > 0 {
-				h.print("\n")
-			}
 			h.vulnerability(index, findings)
 			index++
 		}
@@ -228,6 +219,7 @@ func (h *TextHandler) vulnerability(index int, findings []*findingSummary) {
 		}
 		h.traces(module)
 	}
+	h.print("\n")
 }
 
 func (h *TextHandler) traces(traces []*findingSummary) {
@@ -260,7 +252,6 @@ func (h *TextHandler) traces(traces []*findingSummary) {
 
 func (h *TextHandler) summary(findings []*findingSummary) {
 	counters := counters(findings)
-	h.print("\n")
 	if counters.VulnerabilitiesCalled == 0 {
 		h.print("No vulnerabilities found.\n")
 		return
