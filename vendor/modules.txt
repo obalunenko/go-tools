@@ -280,7 +280,7 @@ github.com/ProtonMail/go-crypto/openpgp/internal/ecc
 github.com/ProtonMail/go-crypto/openpgp/internal/encoding
 github.com/ProtonMail/go-crypto/openpgp/packet
 github.com/ProtonMail/go-crypto/openpgp/s2k
-# github.com/abice/go-enum v0.5.6
+# github.com/abice/go-enum v0.5.7
 ## explicit; go 1.20
 github.com/abice/go-enum
 github.com/abice/go-enum/generator
@@ -2047,7 +2047,7 @@ github.com/ultraware/funlen
 # github.com/ultraware/whitespace v0.0.5
 ## explicit
 github.com/ultraware/whitespace
-# github.com/urfave/cli/v2 v2.25.1
+# github.com/urfave/cli/v2 v2.25.7
 ## explicit; go 1.18
 github.com/urfave/cli/v2
 # github.com/uudashr/gocognit v1.0.6
