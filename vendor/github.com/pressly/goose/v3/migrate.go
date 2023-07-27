@@ -140,9 +140,10 @@ type GoMigrationNoTx func(db *sql.DB) error
 type GoMigrationNoTxContext func(ctx context.Context, db *sql.DB) error
 
 // AddMigration adds Go migrations.
+//
+// Deprecated: Use AddMigrationContext.
 func AddMigration(up, down GoMigration) {
 	_, filename, _, _ := runtime.Caller(1)
-	// intentionally don't call to AddMigrationContext so each of these functions can calculate the filename correctly
 	AddNamedMigrationContext(filename, withContext(up), withContext(down))
 }
 
@@ -153,6 +154,8 @@ func AddMigrationContext(up, down GoMigrationContext) {
 }
 
 // AddNamedMigration adds named Go migrations.
+//
+// Deprecated: Use AddNamedMigrationContext.
 func AddNamedMigration(filename string, up, down GoMigration) {
 	AddNamedMigrationContext(filename, withContext(up), withContext(down))
 }
@@ -165,17 +168,22 @@ func AddNamedMigrationContext(filename string, up, down GoMigrationContext) {
 }
 
 // AddMigrationNoTx adds Go migrations that will be run outside transaction.
+//
+// Deprecated: Use AddNamedMigrationNoTxContext.
 func AddMigrationNoTx(up, down GoMigrationNoTx) {
-	AddMigrationNoTxContext(withContext(up), withContext(down))
+	_, filename, _, _ := runtime.Caller(1)
+	AddNamedMigrationNoTxContext(filename, withContext(up), withContext(down))
 }
 
 // AddMigrationNoTxContext adds Go migrations that will be run outside transaction.
 func AddMigrationNoTxContext(up, down GoMigrationNoTxContext) {
-	_, filename, _, _ := runtime.Caller(2)
+	_, filename, _, _ := runtime.Caller(1)
 	AddNamedMigrationNoTxContext(filename, up, down)
 }
 
 // AddNamedMigrationNoTx adds named Go migrations that will be run outside transaction.
+//
+// Deprecated: Use AddNamedMigrationNoTxContext.
 func AddNamedMigrationNoTx(filename string, up, down GoMigrationNoTx) {
 	AddNamedMigrationNoTxContext(filename, withContext(up), withContext(down))
 }
@@ -255,18 +263,8 @@ func collectMigrationsFS(fsys fs.FS, dirpath string, current, target int64) (Mig
 		}
 	}
 
-	// Go migrations registered via goose.AddMigration().
-	for _, migration := range registeredGoMigrations {
-		v, err := NumericComponent(migration.Source)
-		if err != nil {
-			return nil, fmt.Errorf("could not parse go migration file %q: %w", migration.Source, err)
-		}
-		if versionFilter(v, current, target) {
-			migrations = append(migrations, migration)
-		}
-	}
-
 	// Go migration files
+	fsGoMigrations := map[int64]*Migration{}
 	goMigrationFiles, err := fs.Glob(fsys, path.Join(dirpath, "*.go"))
 	if err != nil {
 		return nil, err
@@ -281,15 +279,32 @@ func collectMigrationsFS(fsys fs.FS, dirpath string, current, target int64) (Mig
 			continue // Skip Go test files.
 		}
 
-		// Skip migrations already existing migrations registered via goose.AddMigration().
-		if _, ok := registeredGoMigrations[v]; ok {
-			continue
-		}
-
 		if versionFilter(v, current, target) {
 			migration := &Migration{Version: v, Next: -1, Previous: -1, Source: file, Registered: false}
+			fsGoMigrations[v] = migration
+		}
+	}
+
+	// Go migrations registered via goose.AddMigration().
+	for _, migration := range registeredGoMigrations {
+		v, err := NumericComponent(migration.Source)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse go migration file %q: %w", migration.Source, err)
+		}
+		if !versionFilter(v, current, target) {
+			continue
+		}
+		if _, ok := fsGoMigrations[v]; ok {
 			migrations = append(migrations, migration)
 		}
+	}
+
+	for _, fsMigration := range fsGoMigrations {
+		// Skip migrations already existing migrations registered via goose.AddMigration().
+		if _, ok := registeredGoMigrations[fsMigration.Version]; ok {
+			continue
+		}
+		migrations = append(migrations, fsMigration)
 	}
 
 	if len(migrations) == 0 {
