@@ -54,14 +54,16 @@ type Generator struct {
 	mustParse         bool
 	forceLower        bool
 	noComments        bool
+	buildTags         []string
 }
 
 // Enum holds data for a discovered enum in the parsed source
 type Enum struct {
-	Name   string
-	Prefix string
-	Type   string
-	Values []EnumValue
+	Name    string
+	Prefix  string
+	Type    string
+	Values  []EnumValue
+	Comment string
 }
 
 // EnumValue holds the individual data for each enum value within the found enum.
@@ -209,6 +211,12 @@ func (g *Generator) WithNoComments() *Generator {
 	return g
 }
 
+// WithBuildTags will add build tags to the generated file.
+func (g *Generator) WithBuildTags(tags ...string) *Generator {
+	g.buildTags = append(g.buildTags, tags...)
+	return g
+}
+
 func (g *Generator) anySQLEnabled() bool {
 	return g.sql || g.sqlNullStr || g.sqlint || g.sqlNullInt
 }
@@ -273,6 +281,7 @@ func (g *Generator) Generate(f *ast.File) ([]byte, error) {
 		"revision":  g.Revision,
 		"buildDate": g.BuildDate,
 		"builtBy":   g.BuiltBy,
+		"buildTags": g.buildTags,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed writing header: %w", err)
@@ -376,6 +385,9 @@ func (g *Generator) parseEnum(ts *ast.TypeSpec) (*Enum, error) {
 	if g.prefix != "" {
 		enum.Prefix = g.prefix + enum.Prefix
 	}
+
+	commentPreEnumDecl, _, _ := strings.Cut(ts.Doc.Text(), `ENUM(`)
+	enum.Comment = strings.TrimSpace(commentPreEnumDecl)
 
 	enumDecl := getEnumDeclFromComments(ts.Doc.List)
 	if enumDecl == "" {

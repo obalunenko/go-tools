@@ -3,7 +3,7 @@ module github.com/obalunenko/go-tools
 go 1.20
 
 require (
-	github.com/abice/go-enum v0.5.6
+	github.com/abice/go-enum v0.5.7
 	github.com/alvaroloes/enumer v1.1.2
 	github.com/axw/gocov v1.1.0
 	github.com/go-swagger/go-swagger v0.30.5
@@ -417,7 +417,7 @@ require (
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/ultraware/funlen v0.0.3 // indirect
 	github.com/ultraware/whitespace v0.0.5 // indirect
-	github.com/urfave/cli/v2 v2.25.1 // indirect
+	github.com/urfave/cli/v2 v2.25.7 // indirect
 	github.com/uudashr/gocognit v1.0.6 // indirect
 	github.com/vbatts/tar-split v0.11.3 // indirect
 	github.com/vertica/vertica-sql-go v1.3.2 // indirect
