@@ -49,11 +49,19 @@ FROM golang:1.20.6-alpine3.17 as releaser
 ARG APK_BASH_VERSION=~5
 ARG APK_BUILDBASE_VERSION=~0
 ARG APK_GIT_VERSION=~2
+ARG APK_DOCKER_CLI_VERSION=~20
+ARG APK_DOCKER_CLI_BUILDX_VERSION=~0
+ARG APK_OPENSSH_VERSION=~9
+ARG APK_TINI_VERSION=~0
 
 RUN apk add --no-cache \
     "bash=${APK_BASH_VERSION}" \
     "git=${APK_GIT_VERSION}" \
-	"build-base=${APK_BUILDBASE_VERSION}"
+	"build-base=${APK_BUILDBASE_VERSION}" \
+    "docker-cli=${APK_DOCKER_CLI_VERSION}" \
+    "docker-cli-buildx=${APK_DOCKER_CLI_BUILDX_VERSION}" \
+    "openssh-client=${APK_OPENSSH_VERSION}" \
+    "tini=${APK_TINI_VERSION}"
 
 ENV GOROOT /usr/local/go
 
