@@ -1609,7 +1609,7 @@ github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/mbilski/exhaustivestruct v1.2.0
 ## explicit; go 1.15
 github.com/mbilski/exhaustivestruct/pkg/analyzer
-# github.com/mfridman/tparse v0.12.2
+# github.com/mfridman/tparse v0.13.1
 ## explicit; go 1.17
 github.com/mfridman/tparse
 github.com/mfridman/tparse/internal/app

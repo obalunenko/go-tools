@@ -2354,8 +2354,8 @@ github.com/maxatome/go-testdeep v1.12.0/go.mod h1:lPZc/HAcJMP92l7yI6TRz1aZN5URwU
 github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2/go.mod h1:eD9eIE7cdwcMi9rYluz88Jz2VyhSmden33/aXg4oVIY=
 github.com/mbilski/exhaustivestruct v1.2.0 h1:wCBmUnSYufAHO6J4AVWY6ff+oxWxsVFrwgOdMUQePUo=
 github.com/mbilski/exhaustivestruct v1.2.0/go.mod h1:OeTBVxQWoEmB2J2JCHmXWPJ0aksxSUOUy+nvtVEfzXc=
-github.com/mfridman/tparse v0.12.2 h1:bfxHBaSgXXfr30TbUp9wo5vEHb3+5z4ZytLPz9yxw/g=
-github.com/mfridman/tparse v0.12.2/go.mod h1:M8ljslbK8rTTVyLs9Ll9PYyr4tLrFLfQIvkDvKVgJOY=
+github.com/mfridman/tparse v0.13.1 h1:zjuloCnjcZkrFIhdeXXl6sqvDjBSnZHVTsfgUloEznk=
+github.com/mfridman/tparse v0.13.1/go.mod h1:M8ljslbK8rTTVyLs9Ll9PYyr4tLrFLfQIvkDvKVgJOY=
 github.com/mgechev/revive v1.3.2 h1:Wb8NQKBaALBJ3xrrj4zpwJwqwNA6nDpyJSEQWcCka6U=
 github.com/mgechev/revive v1.3.2/go.mod h1:UCLtc7o5vg5aXCwdUTU1kEBQ1v+YXPAkYDIDXbrs5I0=
 github.com/microcosm-cc/bluemonday v1.0.16 h1:kHmAq2t7WPWLjiGvzKa5o3HzSfahUKiOq7fAPUiMNIc=
