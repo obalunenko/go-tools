@@ -15,7 +15,6 @@ import (
 	"golang.org/x/mod/semver"
 	"golang.org/x/pkgsite/internal"
 	"golang.org/x/pkgsite/internal/log"
-	"golang.org/x/pkgsite/internal/postgres"
 	"golang.org/x/pkgsite/internal/stdlib"
 	"golang.org/x/pkgsite/internal/version"
 	"golang.org/x/pkgsite/internal/vuln"
@@ -86,7 +85,7 @@ type VersionSummary struct {
 }
 
 func fetchVersionsDetails(ctx context.Context, ds internal.DataSource, um *internal.UnitMeta, vc *vuln.Client) (*VersionsDetails, error) {
-	db, ok := ds.(*postgres.DB)
+	db, ok := ds.(internal.PostgresDB)
 	if !ok {
 		// The proxydatasource does not support the imported by page.
 		return nil, datasourceNotSupportedErr()
@@ -372,7 +371,8 @@ func pseudoVersionRev(v string) string {
 // displayVersion returns the version string, formatted for display.
 func displayVersion(modulePath, requestedVersion, resolvedVersion string) string {
 	if modulePath == stdlib.ModulePath {
-		if stdlib.SupportedBranches[requestedVersion] || strings.HasPrefix(resolvedVersion, "v0.0.0") {
+		if stdlib.SupportedBranches[requestedVersion] ||
+			(strings.HasPrefix(resolvedVersion, "v0.0.0") && resolvedVersion != "v0.0.0") { // Plain v0.0.0 is from the go packages module getter
 			commit := strings.Split(resolvedVersion, "-")[2]
 			// If the resolvedVersion is a pseudoversion and the
 			// requestedVersion is not dev.fuzz, display "master (<commit>)".
@@ -396,10 +396,10 @@ func displayVersion(modulePath, requestedVersion, resolvedVersion string) string
 func linkVersion(modulePath, requestedVersion, resolvedVersion string) string {
 	if modulePath == stdlib.ModulePath {
 		if strings.HasPrefix(resolvedVersion, "go") {
-			return resolvedVersion
+			return resolvedVersion // already a go version
 		}
 		if stdlib.SupportedBranches[requestedVersion] {
-			return requestedVersion
+			return requestedVersion // branch, not version
 		}
 		return goTagForVersion(resolvedVersion)
 	}

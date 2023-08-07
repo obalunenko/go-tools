@@ -22,11 +22,10 @@ import (
 	"golang.org/x/pkgsite/internal"
 	"golang.org/x/pkgsite/internal/derrors"
 	"golang.org/x/pkgsite/internal/log"
-	"golang.org/x/pkgsite/internal/middleware"
-	"golang.org/x/pkgsite/internal/postgres"
 	"golang.org/x/pkgsite/internal/stdlib"
 	"golang.org/x/pkgsite/internal/version"
 	"golang.org/x/pkgsite/internal/vuln"
+	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
 
@@ -242,7 +241,7 @@ func fetchSearchPage(ctx context.Context, ds internal.DataSource, cq, symbol str
 
 	// Pageless search: always start from the beginning.
 	offset := 0
-	dbresults, err := ds.Search(ctx, cq, postgres.SearchOptions{
+	dbresults, err := ds.Search(ctx, cq, internal.SearchOptions{
 		MaxResults:     pageParams.limit,
 		Offset:         offset,
 		MaxResultCount: maxResultCount,
@@ -255,7 +254,7 @@ func fetchSearchPage(ctx context.Context, ds internal.DataSource, cq, symbol str
 
 	var results []*SearchResult
 	for _, r := range dbresults {
-		sr := newSearchResult(r, searchSymbols, message.NewPrinter(middleware.LanguageTag(ctx)))
+		sr := newSearchResult(r, searchSymbols, message.NewPrinter(language.English))
 		results = append(results, sr)
 	}
 
@@ -287,7 +286,7 @@ func fetchSearchPage(ctx context.Context, ds internal.DataSource, cq, symbol str
 	return sp, nil
 }
 
-func newSearchResult(r *postgres.SearchResult, searchSymbols bool, pr *message.Printer) *SearchResult {
+func newSearchResult(r *internal.SearchResult, searchSymbols bool, pr *message.Printer) *SearchResult {
 	// For commands, change the name from "main" to the last component of the import path.
 	chipText := ""
 	name := r.Name
@@ -351,8 +350,8 @@ func searchRequestRedirectPath(ctx context.Context, ds internal.DataSource, quer
 	if urlSchemeIdx > -1 {
 		query = query[urlSchemeIdx+3:]
 	}
-	if vulnSupport && vuln.IsGoID(query) {
-		return fmt.Sprintf("/vuln/%s?q", query)
+	if id, ok := vuln.CanonicalGoID(query); vulnSupport && ok {
+		return fmt.Sprintf("/vuln/%s?q", id)
 	}
 	requestedPath := path.Clean(query)
 	if !strings.Contains(requestedPath, "/") || mode == searchModeVuln {
@@ -388,14 +387,15 @@ func searchVulnModule(ctx context.Context, mode, query string, client *vuln.Clie
 func searchVulnAlias(ctx context.Context, mode, cq string, vc *vuln.Client) (_ *searchAction, err error) {
 	defer derrors.Wrap(&err, "searchVulnAlias(%q, %q)", mode, cq)
 
-	if mode != searchModeVuln || !vuln.IsAlias(cq) || vc == nil {
+	alias, ok := vuln.CanonicalAlias(cq)
+	if mode != searchModeVuln || !ok || vc == nil {
 		return nil, nil
 	}
-	id, err := vc.ByAlias(ctx, cq)
+	goID, err := vc.ByAlias(ctx, alias)
 	if err != nil {
 		return nil, &serverError{status: derrors.ToStatus(err)}
 	}
-	return &searchAction{redirectURL: "/vuln/" + id}, nil
+	return &searchAction{redirectURL: "/vuln/" + goID}, nil
 }
 
 // searchMode reports whether the search performed should be in package or
@@ -413,7 +413,7 @@ func searchMode(r *http.Request) string {
 	case searchModeVuln:
 		return searchModeVuln
 	default:
-		if vuln.IsAlias(q) {
+		if _, ok := vuln.CanonicalAlias(q); ok {
 			return searchModeVuln
 		}
 		if shouldDefaultToSymbolSearch(q) {
@@ -472,7 +472,7 @@ func shouldDefaultToSymbolSearch(q string) bool {
 
 // symbolSynopsis returns the string to be displayed in the code snippet
 // section for a symbol search result.
-func symbolSynopsis(r *postgres.SearchResult) string {
+func symbolSynopsis(r *internal.SearchResult) string {
 	switch r.SymbolKind {
 	case internal.SymbolKindField:
 		return fmt.Sprintf(`
@@ -492,7 +492,7 @@ type %s interface {
 	return r.SymbolSynopsis
 }
 
-func packagePaths(heading string, rs []*postgres.SearchResult) *subResult {
+func packagePaths(heading string, rs []*internal.SearchResult) *subResult {
 	if len(rs) == 0 {
 		return nil
 	}
@@ -539,7 +539,7 @@ func isCapitalized(s string) bool {
 	return unicode.IsUpper(rune(s[0]))
 }
 
-// elapsedTime takes a date and returns returns human-readable,
+// elapsedTime takes a date and returns human-readable,
 // relative timestamps based on the following rules:
 // (1) 'X hours ago' when X < 6
 // (2) 'today' between 6 hours and 1 day ago

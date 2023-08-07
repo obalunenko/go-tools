@@ -6,7 +6,7 @@
 // It runs as a web server and presents the documentation as a
 // web page.
 //
-// To install, run `go install ./cmd/pkgsite` from the pkgsite repo root.
+// To install, run `go install golang.org/x/pkgsite/cmd/pkgsite@latest`.
 //
 // With no arguments, pkgsite will serve docs for main modules relative to the
 // current directory, i.e. the modules listed by `go list -m`. This is
@@ -14,7 +14,7 @@
 // directory. However, this may include multiple main modules when using a
 // go.work file to define a [workspace].
 //
-// For example, both of the following the following forms could be used to work
+// For example, both of the following forms could be used to work
 // on the module defined in repos/cue/go.mod:
 //
 // The single module form:
@@ -55,21 +55,24 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/safehtml/template"
 	"golang.org/x/pkgsite/internal"
+	"golang.org/x/pkgsite/internal/browser"
 	"golang.org/x/pkgsite/internal/fetch"
 	"golang.org/x/pkgsite/internal/fetchdatasource"
 	"golang.org/x/pkgsite/internal/frontend"
 	"golang.org/x/pkgsite/internal/log"
-	"golang.org/x/pkgsite/internal/middleware"
+	"golang.org/x/pkgsite/internal/middleware/timeout"
 	"golang.org/x/pkgsite/internal/proxy"
 	"golang.org/x/pkgsite/internal/source"
 	"golang.org/x/pkgsite/internal/stdlib"
@@ -85,15 +88,17 @@ var (
 	useProxy   = flag.Bool("proxy", false, "fetch from GOPROXY if not found locally")
 	devMode    = flag.Bool("dev", false, "enable developer mode (reload templates on each page load, serve non-minified JS/CSS, etc.)")
 	staticFlag = flag.String("static", "static", "path to folder containing static files served")
+	openFlag   = flag.Bool("open", false, "open a browser window to the server's address")
 	// other flags are bound to serverConfig below
 )
 
 type serverConfig struct {
-	paths         []string
-	gopathMode    bool
-	useCache      bool
-	cacheDir      string
-	useListedMods bool
+	paths          []string
+	gopathMode     bool
+	useCache       bool
+	cacheDir       string
+	useListedMods  bool
+	useLocalStdlib bool
 
 	proxy *proxy.Client // client, or nil; controlled by the -proxy flag
 }
@@ -142,11 +147,32 @@ func main() {
 		die(err.Error())
 	}
 
+	addr := *httpAddr
+	if addr == "" {
+		addr = ":http"
+	}
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		die(err.Error())
+	}
+
+	url := "http://" + addr
+	log.Infof(ctx, "Listening on addr %s", url)
+
+	if *openFlag {
+		go func() {
+			if !browser.Open(url) {
+				log.Infof(ctx, "Failed to open browser window. Please visit %s in your browser.", url)
+			}
+		}()
+	}
+
 	router := http.NewServeMux()
 	server.Install(router.Handle, nil, nil)
-	mw := middleware.Timeout(54 * time.Second)
-	log.Infof(ctx, "Listening on addr http://%s", *httpAddr)
-	die("%v", http.ListenAndServe(*httpAddr, mw(router)))
+	mw := timeout.Timeout(54 * time.Second)
+	srv := &http.Server{Addr: addr, Handler: mw(router)}
+	die("%v", srv.Serve(ln))
 }
 
 func die(format string, args ...any) {
@@ -194,6 +220,10 @@ func buildServer(ctx context.Context, serverCfg serverConfig) (*frontend.Server,
 				return nil, fmt.Errorf("empty value for GOMODCACHE")
 			}
 		}
+	}
+
+	if serverCfg.useLocalStdlib {
+		cfg.useLocalStdlib = true
 	}
 
 	getters, err := buildGetters(ctx, cfg)
@@ -304,10 +334,11 @@ func getGOPATHModuleDirs(ctx context.Context, modulePaths []string) (map[string]
 // getterConfig defines the set of getters for the server to use.
 // See buildGetters.
 type getterConfig struct {
-	all         bool                              // if set, request "all" instead of ["<modulePath>/..."]
-	dirs        map[string][]frontend.LocalModule // local modules to serve
-	modCacheDir string                            // path to module cache, or ""
-	proxy       *proxy.Client                     // proxy client, or nil
+	all            bool                              // if set, request "all" instead of ["<modulePath>/..."]
+	dirs           map[string][]frontend.LocalModule // local modules to serve
+	modCacheDir    string                            // path to module cache, or ""
+	proxy          *proxy.Client                     // proxy client, or nil
+	useLocalStdlib bool                              // use go/packages for the local stdlib
 }
 
 // buildGetters constructs module getters based on the given configuration.
@@ -353,6 +384,22 @@ func buildGetters(ctx context.Context, cfg getterConfig) ([]fetch.ModuleGetter, 
 	if cfg.proxy != nil {
 		getters = append(getters, fetch.NewProxyModuleGetter(cfg.proxy, source.NewClient(time.Second)))
 	}
+
+	if cfg.useLocalStdlib {
+		goRepo := *goRepoPath
+		if goRepo == "" {
+			goRepo = runtime.GOROOT()
+		}
+		mg, err := fetch.NewGoPackagesStdlibModuleGetter(ctx, goRepo)
+		if err != nil {
+			log.Errorf(ctx, "loading packages from stdlib: %v", err)
+		} else {
+			getters = append(getters, mg)
+		}
+	}
+
+	getters = append(getters, fetch.NewStdlibZipModuleGetter())
+
 	return getters, nil
 }
 
