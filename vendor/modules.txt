@@ -6,28 +6,16 @@
 4d63.com/gochecknoglobals/checknoglobals
 # cloud.google.com/go v0.110.2
 ## explicit; go 1.19
-cloud.google.com/go
 cloud.google.com/go/internal
 cloud.google.com/go/internal/optional
 cloud.google.com/go/internal/trace
 cloud.google.com/go/internal/version
-# cloud.google.com/go/cloudtasks v1.10.0
-## explicit; go 1.19
-cloud.google.com/go/cloudtasks/apiv2
-cloud.google.com/go/cloudtasks/apiv2/cloudtaskspb
-cloud.google.com/go/cloudtasks/internal
 # cloud.google.com/go/compute v1.20.0
 ## explicit; go 1.19
 cloud.google.com/go/compute/internal
 # cloud.google.com/go/compute/metadata v0.2.3
 ## explicit; go 1.19
 cloud.google.com/go/compute/metadata
-# cloud.google.com/go/errorreporting v0.3.0
-## explicit; go 1.19
-cloud.google.com/go/errorreporting
-cloud.google.com/go/errorreporting/apiv1beta1
-cloud.google.com/go/errorreporting/apiv1beta1/errorreportingpb
-cloud.google.com/go/errorreporting/internal
 # cloud.google.com/go/iam v1.1.0
 ## explicit; go 1.19
 cloud.google.com/go/iam
@@ -40,17 +28,6 @@ cloud.google.com/go/iam/internal
 cloud.google.com/go/kms/apiv1
 cloud.google.com/go/kms/apiv1/kmspb
 cloud.google.com/go/kms/internal
-# cloud.google.com/go/logging v1.7.0
-## explicit; go 1.19
-cloud.google.com/go/logging
-cloud.google.com/go/logging/apiv2
-cloud.google.com/go/logging/apiv2/loggingpb
-cloud.google.com/go/logging/internal
-# cloud.google.com/go/longrunning v0.5.0
-## explicit; go 1.19
-cloud.google.com/go/longrunning
-cloud.google.com/go/longrunning/autogen
-cloud.google.com/go/longrunning/autogen/longrunningpb
 # cloud.google.com/go/monitoring v1.15.0
 ## explicit; go 1.19
 cloud.google.com/go/monitoring/apiv3/v2
@@ -84,9 +61,6 @@ contrib.go.opencensus.io/exporter/stackdriver
 contrib.go.opencensus.io/exporter/stackdriver/monitoredresource
 contrib.go.opencensus.io/exporter/stackdriver/monitoredresource/aws
 contrib.go.opencensus.io/exporter/stackdriver/monitoredresource/gcp
-# contrib.go.opencensus.io/integrations/ocsql v0.1.7
-## explicit
-contrib.go.opencensus.io/integrations/ocsql
 # github.com/4meepo/tagalign v1.2.2
 ## explicit; go 1.19
 github.com/4meepo/tagalign
@@ -245,9 +219,6 @@ github.com/Masterminds/semver/v3
 # github.com/Masterminds/sprig/v3 v3.2.3
 ## explicit; go 1.13
 github.com/Masterminds/sprig/v3
-# github.com/Masterminds/squirrel v1.5.2
-## explicit; go 1.14
-github.com/Masterminds/squirrel
 # github.com/Microsoft/go-winio v0.6.1
 ## explicit; go 1.17
 github.com/Microsoft/go-winio
@@ -654,9 +625,6 @@ github.com/dghubble/oauth1
 # github.com/dghubble/sling v1.4.0
 ## explicit; go 1.16
 github.com/dghubble/sling
-# github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
-## explicit
-github.com/dgryski/go-rendezvous
 # github.com/dimchansky/utfbom v1.1.1
 ## explicit
 github.com/dimchansky/utfbom
@@ -809,9 +777,6 @@ github.com/fzipp/gocyclo
 # github.com/getsentry/raven-go v0.2.0
 ## explicit
 github.com/getsentry/raven-go
-# github.com/ghodss/yaml v1.0.0
-## explicit
-github.com/ghodss/yaml
 # github.com/go-critic/go-critic v0.8.1
 ## explicit; go 1.18
 github.com/go-critic/go-critic/checkers
@@ -932,19 +897,6 @@ github.com/go-openapi/swag
 # github.com/go-openapi/validate v0.22.1
 ## explicit; go 1.14
 github.com/go-openapi/validate
-# github.com/go-redis/redis/v8 v8.11.5
-## explicit; go 1.17
-github.com/go-redis/redis/v8
-github.com/go-redis/redis/v8/internal
-github.com/go-redis/redis/v8/internal/hashtag
-github.com/go-redis/redis/v8/internal/hscan
-github.com/go-redis/redis/v8/internal/pool
-github.com/go-redis/redis/v8/internal/proto
-github.com/go-redis/redis/v8/internal/rand
-github.com/go-redis/redis/v8/internal/util
-# github.com/go-redis/redis_rate/v9 v9.1.2
-## explicit; go 1.17
-github.com/go-redis/redis_rate/v9
 # github.com/go-sql-driver/mysql v1.7.1
 ## explicit; go 1.13
 github.com/go-sql-driver/mysql
@@ -1004,16 +956,6 @@ github.com/gogo/protobuf/proto
 # github.com/golang-jwt/jwt/v4 v4.5.0
 ## explicit; go 1.16
 github.com/golang-jwt/jwt/v4
-# github.com/golang-migrate/migrate/v4 v4.15.1
-## explicit; go 1.16
-github.com/golang-migrate/migrate/v4
-github.com/golang-migrate/migrate/v4/database
-github.com/golang-migrate/migrate/v4/database/multistmt
-github.com/golang-migrate/migrate/v4/database/postgres
-github.com/golang-migrate/migrate/v4/internal/url
-github.com/golang-migrate/migrate/v4/source
-github.com/golang-migrate/migrate/v4/source/file
-github.com/golang-migrate/migrate/v4/source/iofs
 # github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9
 ## explicit
 github.com/golang-sql/civil
@@ -1038,7 +980,6 @@ github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
-github.com/golang/protobuf/ptypes/struct
 github.com/golang/protobuf/ptypes/timestamp
 github.com/golang/protobuf/ptypes/wrappers
 # github.com/golangci/check v0.0.0-20180506172741-cfe4005ccda2
@@ -1107,7 +1048,6 @@ github.com/golangci/unconvert
 # github.com/google/go-cmp v0.5.9
 ## explicit; go 1.13
 github.com/google/go-cmp/cmp
-github.com/google/go-cmp/cmp/cmpopts
 github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
@@ -1404,34 +1344,12 @@ github.com/inconshreveable/mousetrap
 # github.com/invopop/jsonschema v0.7.0
 ## explicit; go 1.16
 github.com/invopop/jsonschema
-# github.com/jackc/chunkreader/v2 v2.0.1
-## explicit; go 1.12
-github.com/jackc/chunkreader/v2
-# github.com/jackc/pgconn v1.14.0
-## explicit; go 1.12
-github.com/jackc/pgconn
-github.com/jackc/pgconn/internal/ctxwatch
-github.com/jackc/pgconn/stmtcache
-# github.com/jackc/pgio v1.0.0
-## explicit; go 1.12
-github.com/jackc/pgio
 # github.com/jackc/pgpassfile v1.0.0
 ## explicit; go 1.12
 github.com/jackc/pgpassfile
-# github.com/jackc/pgproto3/v2 v2.3.2
-## explicit; go 1.12
-github.com/jackc/pgproto3/v2
 # github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a
 ## explicit; go 1.14
 github.com/jackc/pgservicefile
-# github.com/jackc/pgtype v1.14.0
-## explicit; go 1.13
-github.com/jackc/pgtype
-# github.com/jackc/pgx/v4 v4.18.1
-## explicit; go 1.13
-github.com/jackc/pgx/v4
-github.com/jackc/pgx/v4/internal/sanitize
-github.com/jackc/pgx/v4/stdlib
 # github.com/jackc/pgx/v5 v5.4.1
 ## explicit; go 1.19
 github.com/jackc/pgx/v5
@@ -1524,12 +1442,6 @@ github.com/kyoh86/exportloopref
 # github.com/labstack/gommon v0.4.0
 ## explicit; go 1.12
 github.com/labstack/gommon/color
-# github.com/lann/builder v0.0.0-20180802200727-47ae307949d0
-## explicit
-github.com/lann/builder
-# github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0
-## explicit
-github.com/lann/ps
 # github.com/ldez/gomoddirectives v0.2.3
 ## explicit; go 1.16
 github.com/ldez/gomoddirectives
@@ -1555,11 +1467,6 @@ github.com/letsencrypt/boulder/identifier
 github.com/letsencrypt/boulder/probs
 github.com/letsencrypt/boulder/revocation
 github.com/letsencrypt/boulder/sa/proto
-# github.com/lib/pq v1.10.9
-## explicit; go 1.13
-github.com/lib/pq
-github.com/lib/pq/oid
-github.com/lib/pq/scram
 # github.com/lucasb-eyer/go-colorful v1.2.0
 ## explicit; go 1.12
 github.com/lucasb-eyer/go-colorful
@@ -2202,7 +2109,7 @@ gocloud.dev/secrets/awskms
 gocloud.dev/secrets/azurekeyvault
 gocloud.dev/secrets/driver
 gocloud.dev/secrets/gcpkms
-# golang.org/x/crypto v0.11.0
+# golang.org/x/crypto v0.12.0
 ## explicit; go 1.17
 golang.org/x/crypto/argon2
 golang.org/x/crypto/bcrypt
@@ -2252,7 +2159,7 @@ golang.org/x/mod/modfile
 golang.org/x/mod/module
 golang.org/x/mod/semver
 golang.org/x/mod/zip
-# golang.org/x/net v0.12.0
+# golang.org/x/net v0.14.0
 ## explicit; go 1.17
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
@@ -2275,15 +2182,14 @@ golang.org/x/oauth2/google/internal/externalaccount
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/pkgsite v0.0.0-20230427194420-bb799e479030
+# golang.org/x/pkgsite v0.0.0-20230807185432-3918c8036035
 ## explicit; go 1.19
 golang.org/x/pkgsite/cmd/pkgsite
 golang.org/x/pkgsite/internal
 golang.org/x/pkgsite/internal/auth
-golang.org/x/pkgsite/internal/cache
+golang.org/x/pkgsite/internal/browser
 golang.org/x/pkgsite/internal/config
 golang.org/x/pkgsite/internal/cookie
-golang.org/x/pkgsite/internal/database
 golang.org/x/pkgsite/internal/dcensus
 golang.org/x/pkgsite/internal/derrors
 golang.org/x/pkgsite/internal/experiment
@@ -2298,19 +2204,15 @@ golang.org/x/pkgsite/internal/godoc/dochtml/internal/render
 golang.org/x/pkgsite/internal/licenses
 golang.org/x/pkgsite/internal/log
 golang.org/x/pkgsite/internal/memory
-golang.org/x/pkgsite/internal/middleware
+golang.org/x/pkgsite/internal/middleware/stats
+golang.org/x/pkgsite/internal/middleware/timeout
 golang.org/x/pkgsite/internal/osv
-golang.org/x/pkgsite/internal/poller
-golang.org/x/pkgsite/internal/postgres
-golang.org/x/pkgsite/internal/postgres/search
 golang.org/x/pkgsite/internal/proxy
 golang.org/x/pkgsite/internal/queue
 golang.org/x/pkgsite/internal/secrets
 golang.org/x/pkgsite/internal/source
 golang.org/x/pkgsite/internal/static
 golang.org/x/pkgsite/internal/stdlib
-golang.org/x/pkgsite/internal/symbol
-golang.org/x/pkgsite/internal/testing/sample
 golang.org/x/pkgsite/internal/testing/testhelper
 golang.org/x/pkgsite/internal/version
 golang.org/x/pkgsite/internal/vuln
@@ -2320,7 +2222,7 @@ golang.org/x/pkgsite/third_party
 ## explicit; go 1.17
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.10.0
+# golang.org/x/sys v0.11.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
@@ -2329,10 +2231,10 @@ golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/term v0.10.0
+# golang.org/x/term v0.11.0
 ## explicit; go 1.17
 golang.org/x/term
-# golang.org/x/text v0.11.0
+# golang.org/x/text v0.12.0
 ## explicit; go 1.17
 golang.org/x/text/cases
 golang.org/x/text/feature/plural
@@ -2358,7 +2260,7 @@ golang.org/x/text/width
 # golang.org/x/time v0.3.0
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.11.1
+# golang.org/x/tools v0.12.0
 ## explicit; go 1.18
 golang.org/x/tools/cmd/fiximports
 golang.org/x/tools/cmd/goimports
@@ -2502,11 +2404,7 @@ google.golang.org/appengine/urlfetch
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/cloud/location
 google.golang.org/genproto/googleapis/cloud/secretmanager/v1
-google.golang.org/genproto/googleapis/cloud/tasks/v2
-google.golang.org/genproto/googleapis/devtools/clouderrorreporting/v1beta1
 google.golang.org/genproto/googleapis/devtools/cloudtrace/v2
-google.golang.org/genproto/googleapis/logging/type
-google.golang.org/genproto/googleapis/longrunning
 google.golang.org/genproto/googleapis/monitoring/v3
 google.golang.org/genproto/googleapis/type/calendarperiod
 google.golang.org/genproto/googleapis/type/date

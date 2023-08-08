@@ -24,12 +24,11 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	"github.com/ghodss/yaml"
 	"golang.org/x/net/context/ctxhttp"
 	"golang.org/x/pkgsite/internal/derrors"
 	"golang.org/x/pkgsite/internal/log"
 	"golang.org/x/pkgsite/internal/secrets"
-	mrpb "google.golang.org/genproto/googleapis/api/monitoredres"
+	"gopkg.in/yaml.v3"
 )
 
 // GetEnv looks up the given key from the environment, returning its value if
@@ -151,7 +150,7 @@ type Config struct {
 	// "An object representing a resource that can be used for monitoring, logging,
 	// billing, or other purposes. Examples include virtual machine instances,
 	// databases, and storage devices such as disks.""
-	MonitoredResource *mrpb.MonitoredResource
+	MonitoredResource *MonitoredResource
 
 	// FallbackVersionLabel is used as the VersionLabel when not hosting on
 	// AppEngine.
@@ -159,7 +158,7 @@ type Config struct {
 
 	DBSecret, DBUser, DBHost, DBPort, DBName, DBSSL string
 	DBSecondaryHost                                 string // DB host to use if first one is down
-	DBPassword                                      string `json:"-"`
+	DBPassword                                      string `json:"-" yaml:"-"`
 
 	// Configuration for redis page cache.
 	RedisCacheHost, RedisBetaCacheHost, RedisCachePort string
@@ -178,6 +177,10 @@ type Config struct {
 	// dynamic configuration.
 	DynamicConfigLocation string
 
+	// DynamicExcludeLocation is the location (either a file or gs://bucket/object) for
+	// dynamic exclusion file.
+	DynamicExcludeLocation string
+
 	// ServeStats determines whether the server has an endpoint that serves statistics for
 	// benchmarking or other purposes.
 	ServeStats bool
@@ -187,6 +190,19 @@ type Config struct {
 
 	// VulnDB is the URL of the Go vulnerability DB.
 	VulnDB string
+}
+
+// MonitoredResource represents the resource that is running the current binary.
+// It might be a Google AppEngine app, a Cloud Run service, or a Kubernetes pod.
+// See https://cloud.google.com/monitoring/api/resources for more
+// details:
+// "An object representing a resource that can be used for monitoring, logging,
+// billing, or other purposes. Examples include virtual machine instances,
+// databases, and storage devices such as disks."
+type MonitoredResource struct {
+	Type string `yaml:"type,omitempty"`
+
+	Labels map[string]string `yaml:"labels,omitempty"`
 }
 
 // AppVersionLabel returns the version label for the current instance.  This is
@@ -327,25 +343,25 @@ func (c *Config) Application() string {
 
 // configOverride holds selected config settings that can be dynamically overridden.
 type configOverride struct {
-	DBHost          string
-	DBSecondaryHost string
-	DBName          string
-	Quota           QuotaSettings
+	DBHost          string        `yaml:"DBHost"`
+	DBSecondaryHost string        `yaml:"DBSecondaryHost"`
+	DBName          string        `yaml:"DBName"`
+	Quota           QuotaSettings `yaml:"Quota"`
 }
 
 // QuotaSettings is config for internal/middleware/quota.go
 type QuotaSettings struct {
-	Enable     bool
-	QPS        int // allowed queries per second, per IP block
-	Burst      int // maximum requests per second, per block; the size of the token bucket
-	MaxEntries int // maximum number of entries to keep track of
+	Enable     bool `yaml:"Enable"`
+	QPS        int  `yaml:"QPS"`        // allowed queries per second, per IP block
+	Burst      int  `yaml:"Burst"`      // maximum requests per second, per block; the size of the token bucket
+	MaxEntries int  `yaml:"MaxEntries"` // maximum number of entries to keep track of
 	// Record data about blocking, but do not actually block.
 	// This is a *bool, so we can distinguish "not present" from "false" in an override
-	RecordOnly *bool
+	RecordOnly *bool `yaml:"RecordOnly"`
 	// AuthValues is the set of values that could be set on the AuthHeader, in
 	// order to bypass checks by the quota server.
-	AuthValues []string
-	HMACKey    []byte `json:"-"` // key for obfuscating IPs
+	AuthValues []string `yaml:"AuthValues"`
+	HMACKey    []byte   `json:"-" yaml:"-"` // key for obfuscating IPs
 }
 
 // Init resolves all configuration values provided by the config package. It
@@ -409,14 +425,19 @@ func Init(ctx context.Context) (_ *Config, err error) {
 	log.SetLevel(cfg.LogLevel)
 
 	bucket := os.Getenv("GO_DISCOVERY_CONFIG_BUCKET")
-	object := os.Getenv("GO_DISCOVERY_CONFIG_DYNAMIC")
+	config := os.Getenv("GO_DISCOVERY_CONFIG_DYNAMIC")
+	exclude := os.Getenv("GO_DISCOVERY_EXCLUDED_FILENAME")
 	if bucket != "" {
-		if object == "" {
+		if config == "" {
 			return nil, errors.New("GO_DISCOVERY_CONFIG_DYNAMIC must be set if GO_DISCOVERY_CONFIG_BUCKET is")
 		}
-		cfg.DynamicConfigLocation = fmt.Sprintf("gs://%s/%s", bucket, object)
+		cfg.DynamicConfigLocation = fmt.Sprintf("gs://%s/%s", bucket, config)
+		if exclude != "" {
+			cfg.DynamicExcludeLocation = fmt.Sprintf("gs://%s/%s", bucket, exclude)
+		}
 	} else {
-		cfg.DynamicConfigLocation = object
+		cfg.DynamicConfigLocation = config
+		cfg.DynamicExcludeLocation = exclude
 	}
 	if cfg.OnGCP() {
 		// Zone is not available in the environment but can be queried via the metadata API.
@@ -435,7 +456,7 @@ func Init(ctx context.Context) (_ *Config, err error) {
 			// Use the gae_app monitored resource. It would be better to use the
 			// gae_instance monitored resource, but that's not currently supported:
 			// https://cloud.google.com/logging/docs/api/v2/resource-list#resource-types
-			cfg.MonitoredResource = &mrpb.MonitoredResource{
+			cfg.MonitoredResource = &MonitoredResource{
 				Type: "gae_app",
 				Labels: map[string]string{
 					"project_id": cfg.ProjectID,
@@ -445,7 +466,7 @@ func Init(ctx context.Context) (_ *Config, err error) {
 				},
 			}
 		case cfg.OnCloudRun():
-			cfg.MonitoredResource = &mrpb.MonitoredResource{
+			cfg.MonitoredResource = &MonitoredResource{
 				Type: "cloud_run_revision",
 				Labels: map[string]string{
 					"project_id":         cfg.ProjectID,
@@ -455,7 +476,7 @@ func Init(ctx context.Context) (_ *Config, err error) {
 				},
 			}
 		case cfg.OnGKE():
-			cfg.MonitoredResource = &mrpb.MonitoredResource{
+			cfg.MonitoredResource = &MonitoredResource{
 				Type: "k8s_container",
 				Labels: map[string]string{
 					"project_id":     cfg.ProjectID,
@@ -477,7 +498,7 @@ func Init(ctx context.Context) (_ *Config, err error) {
 			cfg.InstanceID = id
 		}
 	} else { // running locally, perhaps
-		cfg.MonitoredResource = &mrpb.MonitoredResource{
+		cfg.MonitoredResource = &MonitoredResource{
 			Type:   "global",
 			Labels: map[string]string{"project_id": cfg.ProjectID},
 		}

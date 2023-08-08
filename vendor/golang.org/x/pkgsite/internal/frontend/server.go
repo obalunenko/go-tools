@@ -21,8 +21,6 @@ import (
 	"sync"
 	"time"
 
-	"cloud.google.com/go/errorreporting"
-	"github.com/go-redis/redis/v8"
 	"github.com/google/safehtml"
 	"github.com/google/safehtml/template"
 	"golang.org/x/pkgsite/internal"
@@ -33,7 +31,7 @@ import (
 	"golang.org/x/pkgsite/internal/licenses"
 	"golang.org/x/pkgsite/internal/log"
 	"golang.org/x/pkgsite/internal/memory"
-	"golang.org/x/pkgsite/internal/middleware"
+	"golang.org/x/pkgsite/internal/middleware/stats"
 	"golang.org/x/pkgsite/internal/queue"
 	"golang.org/x/pkgsite/internal/static"
 	"golang.org/x/pkgsite/internal/version"
@@ -59,7 +57,7 @@ type Server struct {
 	appVersionLabel      string
 	googleTagManagerID   string
 	serveStats           bool
-	reportingClient      *errorreporting.Client
+	reporter             derrors.Reporter
 	fileMux              *http.ServeMux
 	vulnClient           *vuln.Client
 	versionID            string
@@ -84,7 +82,7 @@ type ServerConfig struct {
 	LocalMode            bool
 	LocalModules         []LocalModule
 	StaticPath           string // used only for dynamic loading in dev mode
-	ReportingClient      *errorreporting.Client
+	Reporter             derrors.Reporter
 	VulndbClient         *vuln.Client
 }
 
@@ -108,7 +106,7 @@ func NewServer(scfg ServerConfig) (_ *Server, err error) {
 		staticPath:           scfg.StaticPath,
 		templates:            ts,
 		taskIDChangeInterval: scfg.TaskIDChangeInterval,
-		reportingClient:      scfg.ReportingClient,
+		reporter:             scfg.Reporter,
 		fileMux:              http.NewServeMux(),
 		vulnClient:           scfg.VulndbClient,
 	}
@@ -127,24 +125,36 @@ func NewServer(scfg ServerConfig) (_ *Server, err error) {
 	return s, nil
 }
 
+// A Cacher is used to create request caches for http handlers.
+type Cacher interface {
+	// Cache returns a new middleware that caches every request.
+	// The name of the cache is used only for metrics.
+	// The expirer is a func that is used to map a new request to its TTL.
+	// authHeader is the header key used by the cache to know that a
+	// request should bypass the cache.
+	// authValues is the set of values that could be set on the authHeader in
+	// order to bypass the cache.
+	Cache(name string, expirer func(r *http.Request) time.Duration, authValues []string) func(http.Handler) http.Handler
+}
+
 // Install registers server routes using the given handler registration func.
 // authValues is the set of values that can be set on authHeader to bypass the
 // cache.
-func (s *Server) Install(handle func(string, http.Handler), redisClient *redis.Client, authValues []string) {
+func (s *Server) Install(handle func(string, http.Handler), cacher Cacher, authValues []string) {
 	var (
 		detailHandler http.Handler = s.errorHandler(s.serveDetails)
 		fetchHandler  http.Handler = s.errorHandler(s.serveFetch)
 		searchHandler http.Handler = s.errorHandler(s.serveSearch)
 		vulnHandler   http.Handler = s.errorHandler(s.serveVuln)
 	)
-	if redisClient != nil {
+	if cacher != nil {
 		// The cache middleware uses the URL string as the key for content served
 		// by the handlers it wraps. Be careful not to wrap the handler it returns
 		// with a handler that rewrites the URL in a way that could cause key
 		// collisions, like http.StripPrefix.
-		detailHandler = middleware.Cache("details", redisClient, detailsTTL, authValues)(detailHandler)
-		searchHandler = middleware.Cache("search", redisClient, searchTTL, authValues)(searchHandler)
-		vulnHandler = middleware.Cache("vuln", redisClient, vulnTTL, authValues)(vulnHandler)
+		detailHandler = cacher.Cache("details", detailsTTL, authValues)(detailHandler)
+		searchHandler = cacher.Cache("search", searchTTL, authValues)(searchHandler)
+		vulnHandler = cacher.Cache("vuln", vulnTTL, authValues)(vulnHandler)
 	}
 	// Each AppEngine instance is created in response to a start request, which
 	// is an empty HTTP GET request to /_ah/start when scaling is set to manual
@@ -187,9 +197,9 @@ func (s *Server) Install(handle func(string, http.Handler), redisClient *redis.C
 	handle("/", detailHandler)
 	if s.serveStats {
 		handle("/detail-stats/",
-			middleware.Stats()(http.StripPrefix("/detail-stats", s.errorHandler(s.serveDetails))))
+			stats.Stats()(http.StripPrefix("/detail-stats", s.errorHandler(s.serveDetails))))
 		handle("/search-stats/",
-			middleware.Stats()(http.StripPrefix("/search-stats", s.errorHandler(s.serveSearch))))
+			stats.Stats()(http.StripPrefix("/search-stats", s.errorHandler(s.serveSearch))))
 	}
 	handle("/robots.txt", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -577,7 +587,7 @@ func (s *Server) serveError(w http.ResponseWriter, r *http.Request, err error) {
 
 // reportError sends the error to the GCP Error Reporting service.
 func (s *Server) reportError(ctx context.Context, err error, w http.ResponseWriter, r *http.Request) {
-	if s.reportingClient == nil {
+	if s.reporter == nil {
 		return
 	}
 	// Extract the stack trace from the error if there is one.
@@ -585,11 +595,7 @@ func (s *Server) reportError(ctx context.Context, err error, w http.ResponseWrit
 	if serr := (*derrors.StackError)(nil); errors.As(err, &serr) {
 		stack = serr.Stack
 	}
-	s.reportingClient.Report(errorreporting.Entry{
-		Error: err,
-		Req:   r,
-		Stack: stack,
-	})
+	s.reporter.Report(err, r, stack)
 	log.Debugf(ctx, "reported error %v with stack size %d", err, len(stack))
 	// Bypass the error-reporting middleware.
 	w.Header().Set(config.BypassErrorReportingHeader, "true")
@@ -661,7 +667,7 @@ func (s *Server) renderErrorPage(ctx context.Context, status int, templateName s
 
 // servePage is used to execute all templates for a *Server.
 func (s *Server) servePage(ctx context.Context, w http.ResponseWriter, templateName string, page any) {
-	defer middleware.ElapsedStat(ctx, "servePage")()
+	defer stats.Elapsed(ctx, "servePage")()
 
 	buf, err := s.renderPage(ctx, templateName, page)
 	if err != nil {
@@ -677,7 +683,7 @@ func (s *Server) servePage(ctx context.Context, w http.ResponseWriter, templateN
 
 // renderPage executes the given templateName with page.
 func (s *Server) renderPage(ctx context.Context, templateName string, page any) ([]byte, error) {
-	defer middleware.ElapsedStat(ctx, "renderPage")()
+	defer stats.Elapsed(ctx, "renderPage")()
 
 	tmpl, err := s.findTemplate(templateName)
 	if err != nil {

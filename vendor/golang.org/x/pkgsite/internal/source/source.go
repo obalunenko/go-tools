@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"net/http"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -263,10 +264,6 @@ func ModuleInfo(ctx context.Context, client *Client, modulePath, v string) (info
 		return NewGitHubInfo("https://"+modulePath, "", v), nil
 	}
 
-	if modulePath == stdlib.ModulePath {
-		return newStdlibInfo(v)
-	}
-
 	repo, relativeModulePath, templates, transformCommit, err := matchStatic(modulePath)
 	if err != nil {
 		info, err = moduleInfoDynamic(ctx, client, modulePath, v)
@@ -296,8 +293,8 @@ func ModuleInfo(ctx context.Context, client *Client, modulePath, v string) (info
 	// in cmd/go/internal/get/vcs.go.
 }
 
-func newStdlibInfo(version string) (_ *Info, err error) {
-	defer derrors.Wrap(&err, "newStdlibInfo(%q)", version)
+func NewStdlibInfo(version string) (_ *Info, err error) {
+	defer derrors.Wrap(&err, "NewStdlibInfo(%q)", version)
 
 	commit, err := stdlib.TagForVersion(version)
 	if err != nil {
@@ -919,11 +916,11 @@ func NewGitHubInfo(repoURL, moduleDir, commit string) *Info {
 	}
 }
 
-// NewStdlibInfo returns a source.Info for the standard library at the given
+// NewStdlibInfoForTest returns a source.Info for the standard library at the given
 // semantic version. It panics if the version does not correspond to a Go release
 // tag. It is for testing only.
-func NewStdlibInfo(version string) *Info {
-	info, err := newStdlibInfo(version)
+func NewStdlibInfoForTest(version string) *Info {
+	info, err := NewStdlibInfo(version)
 	if err != nil {
 		panic(err)
 	}
@@ -937,7 +934,7 @@ func FilesInfo(dir string) *Info {
 	// http.FileServer redirects instead of serving the directory contents, with
 	// confusing results.
 	return &Info{
-		repoURL: path.Join("/files", dir),
+		repoURL: path.Join("/files", filepath.ToSlash(dir)),
 		templates: urlTemplates{
 			Repo:      "{repo}/",
 			Directory: "{repo}/{dir}/",

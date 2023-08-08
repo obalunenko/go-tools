@@ -88,6 +88,10 @@
   }
 }
 
+input[type='search']::-webkit-search-decoration {
+  display: none;
+}
+
 .Homepage-tips {
   margin: auto;
   max-width: 45.0625rem;
@@ -186,6 +190,10 @@ a.Homepage-helpLink {
   margin: 0 auto;
   max-width: 75.75rem;
   padding: 0 1.5rem;
+}
+
+.Questions-content a {
+  color: var(--color-bright-text-link);
 }
 
 .Questions-content ul {
