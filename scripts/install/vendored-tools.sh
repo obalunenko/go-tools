@@ -8,7 +8,6 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
 TOOLS_DIR="${REPO_ROOT}"
 
 echo "${SCRIPT_NAME} is running... "
-#echo "${GOOS}/${GOARCH}"
 
 cd "${TOOLS_DIR}" || exit 1
 
@@ -44,7 +43,7 @@ export -f check_status
 function install_deps() {
   tools_module="$(go list -m)"
   
-  go list -f '{{ join .Imports "\n" }}' -tags="tools" "${tools_module}" |
+  go list -e -f '{{ join .Imports "\n" }}' -tags="tools" "${tools_module}" |
    xargs -n 1 -P 0 -I {} bash -c 'install_dep "$@"' _ {}
 }
 
