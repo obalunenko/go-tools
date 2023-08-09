@@ -70,7 +70,7 @@ jobs:
 
   check-tools-vendor:
     runs-on: 'ubuntu-22.04'
-    name: Check releaser configs
+    name: Check tools
     steps:
       - name: Checkout
         uses: actions/checkout@v3
