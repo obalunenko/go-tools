@@ -10,7 +10,7 @@ echo "${SCRIPT_NAME} is running... "
 
 sync_vendor() {
   go mod tidy -v
-  go mod vendor
+  go mod download
   go mod verify
 }
 

@@ -35,7 +35,7 @@ sync-vendor:
 .PHONY: sync-vendor
 
 ## Install vendored tools.
-install-tools:
+install-tools: sync-vendor
 	./scripts/install/vendored-tools.sh
 .PHONY: install-tools
 
