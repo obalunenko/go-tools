@@ -56,7 +56,7 @@ jobs:
       - name: Set up go
         uses: actions/setup-go@v4.0.1
         with:
-          go-version: '1.20'
+          go-version: '1.21'
 
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v4
@@ -68,8 +68,32 @@ jobs:
           make check-releaser
         shell: bash
 
+  check-tools-vendor:
+    runs-on: 'ubuntu-22.04'
+    name: Check releaser configs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up go
+        uses: actions/setup-go@v4.0.1
+        with:
+          go-version: '1.21'
+
+      - name: Install tools
+        run: |
+          make install-tools
+        shell: bash
+
+      - name: Check tools
+        run: |
+          make check-tools
+        shell: bash
+
   build:
-    needs: [ lint-dockerfiles, check-release-config ]
+    needs: [ lint-dockerfiles, check-release-config, check-tools-vendor ]
     name: Build
     runs-on: "ubuntu-22.04"
     steps:
