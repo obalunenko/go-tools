@@ -39,6 +39,10 @@ install-tools:
 	./scripts/install/vendored-tools.sh
 .PHONY: install-tools
 
+check-tools:
+	./scripts/test/installed-tools.sh
+.PHONY: check-tools
+
 ## Issue new release.
 new-version: sync-vendor
 	./scripts/release/new-version.sh
