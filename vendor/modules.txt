@@ -2182,7 +2182,7 @@ golang.org/x/oauth2/google/internal/externalaccount
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/pkgsite v0.0.0-20230807185432-3918c8036035
+# golang.org/x/pkgsite v0.0.0-20230808223022-a3b12eae431a
 ## explicit; go 1.19
 golang.org/x/pkgsite/cmd/pkgsite
 golang.org/x/pkgsite/internal

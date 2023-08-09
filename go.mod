@@ -1,6 +1,6 @@
 module github.com/obalunenko/go-tools
 
-go 1.20
+go 1.21.0
 
 require (
 	github.com/abice/go-enum v0.5.7
@@ -15,7 +15,7 @@ require (
 	github.com/obalunenko/coverbadger v1.4.0
 	github.com/posener/goreadme v1.4.2
 	github.com/pressly/goose/v3 v3.14.0
-	golang.org/x/pkgsite v0.0.0-20230807185432-3918c8036035
+	golang.org/x/pkgsite v0.0.0-20230808223022-a3b12eae431a
 	golang.org/x/tools v0.12.0
 	golang.org/x/vuln v1.0.0
 	gotest.tools/gotestsum v1.10.1
