@@ -61,17 +61,16 @@ function require_clean_work_tree() {
 }
 
 function menu() {
+  PREV_VERSION=$(svu current)
   clear
+
+  echo "Current version: ${PREV_VERSION}"
   printf "Select what you want to update: \n"
   printf "1 - Major update\n"
   printf "2 - Minor update\n"
   printf "3 - Patch update\n"
   printf "4 - Exit\n"
   read -r selection
-
-  PREV_VERSION=$(svu current)
-
-  echo "Current version: ${PREV_VERSION}"
 
   case "$selection" in
   1)
