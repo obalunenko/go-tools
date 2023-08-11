@@ -4,6 +4,9 @@ VERSION ?= $(shell git describe --tags $(git rev-list --tags --max-count=1))
 APP_NAME?=go-tools
 SHELL := env APP_NAME=$(APP_NAME) $(SHELL)
 
+RELEASE_BRANCH?=master
+SHELL := env RELEASE_BRANCH=$(RELEASE_BRANCH) $(SHELL)
+
 TARGET_MAX_CHAR_NUM=20
 
 ## Show help
