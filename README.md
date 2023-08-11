@@ -1,36 +1,54 @@
-# go-tools
+[![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/obalunenko/go-tools)](https://github.com/obalunenko/go-tools/go.mod)
+[![Latest release artifacts](https://img.shields.io/github/v/release/obalunenko/go-tools)](https://github.com/obalunenko/go-tools/releases/latest)
 
-This repository contains common tools that I used over all projects.
+# Go Tools
 
-docker image could be pulled with command: ` docker pull ghcr.io/obalunenko/go-tools:latest`
+This repository, **go-tools**,
+includes a compilation of common tools used across various projects by the repository owner.
 
-## Installed tools
+These accompany a Docker image which you can swiftly pull using the following command: 
 
-	- github.com/axw/gocov/gocov v1.1.0
-	- github.com/golangci/golangci-lint/cmd/golangci-lint v1.52.1
-	- github.com/matm/gocov-html/cmd/gocov-html v1.3.1
-	- github.com/mattn/goveralls 0.0.12
-	- github.com/obalunenko/coverbadger/cmd/coverbadger v1.4.0
-	- golang.org/x/tools/cmd/goimports v0.8.0
-	- golang.org/x/tools/cmd/stringer v0.8.0
-	- golang.org/x/tools/cmd/fiximports v0.8.0
-	- gotest.tools/gotestsum v1.10.0
-    - github.com/posener/goreadme/cmd/goreadme v1.4.2
-	- github.com/goreleaser/goreleaser v1.17.2
-	- golang.org/x/vuln/cmd/govulncheck v0.1.0
-	- github.com/mfridman/tparse v0.12.1
-	- mvdan.cc/gofumpt v0.5.0
-	- github.com/pressly/goose/v3/cmd/goose v3.10.0
-	- github.com/abice/go-enum v0.5.6
-	- github.com/alvaroloes/enumer v1.1.2
-	- golang.org/x/pkgsite/cmd/pkgsite v0.0.0-20230427194420-bb799e479030
-	- github.com/go-swagger/go-swagger/cmd/swagger v0.30.4
+```shell
+docker pull ghcr.io/obalunenko/go-tools:latest
+```
 
-## Usage
+## Contents
 
-Pull image and run it with mounted volume with your code, then just execute needed command.
+Below is a full manifest of the tools available:
 
-https://github.com/obalunenko/go-tools/pkgs/container/go-tools
- 
- 
- 
+
+| Tool                                                       | Version                            | Description                                                                                                                                                                       |
+|------------------------------------------------------------|------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [go-enum](https://github.com/abice/go-enum)                | v0.5.7                             | An enum generator for go                                                                                                                                                          |
+| [enumer](https://github.com/alvaroloes/enumer)             | v1.1.2                             | A Go tool to auto generate methods for your enums                                                                                                                                 |
+| [gocov](https://github.com/axw/gocov)                      | v1.1.0                             | Coverage testing tool for The Go Programming Language                                                                                                                             |
+| [svu](https://github.com/caarlos0/svu)                     | v1.11.0                            | Semantic Version Util                                                                                                                                                             |
+| [swagger](https://github.com/go-swagger/go-swagger)        | v0.30.5                            | Client/Server from OpenAPI docs generation tool                                                                                                                                   |
+| [golangci-lint](https://github.com/golangci/golangci-lint) | v1.54.1                            | Fast linters Runner for Go                                                                                                                                                        |
+| [goreleaser](https://github.com/goreleaser/goreleaser)     | v1.20.0                            | Deliver Go binaries as fast and easily as possible                                                                                                                                |
+| [gocov-html](https://github.com/matm/gocov-html)           | v1.4.0                             | Make pretty HTML output from gocov, a coverage testing tool for Go                                                                                                                |
+| [goveralls](https://github.com/mattn/goveralls)            | v0.0.12                            | Go integration for Coveralls.io continuous code coverage tracking system.                                                                                                         |
+| [tparse](https://github.com/mfridman/tparse)               | v0.13.1                            | CLI tool for summarizing go test output. Pipe friendly. CI/CD friendly.                                                                                                           |
+| [coverbadger](https://github.com/obalunenko/coverbadger)   | v1.4.0                             | Generate coverage badge images for Markdown files using Go                                                                                                                        |
+| [goreadme](https://github.com/posener/goreadme)            | v1.4.2                             | Generate readme file from Go doc                                                                                                                                                  |
+| [goose](https://github.com/pressly/goose/v3/cmd/goose)     | v3.14.0                            | A database migration tool                                                                                                                                                         |
+| [pkgsite](https://golang.org/x/pkgsite/cmd/pkgsite)        | v0.0.0-20230810193958-82f79ed16e88 | Pkgsite extracts and generates documentation for Go programs. It runs as a web server and presents the documentation as a web page.                                               |
+| [fiximports](https://golang.org/x/tools/cmd/fiximports)    | v0.12.0                            | The fiximports command fixes import declarations to use the canonical import path for packages that have an "import comment" as defined by https://golang.org/s/go14customimport. |
+| [goimports](https://golang.org/x/tools/cmd/goimports)      | v0.12.0                            | Command goimports updates your Go import lines, adding missing ones and removing unreferenced ones                                                                                |
+| [stringer](https://golang.org/x/tools/cmd/stringer)        | v0.12.0                            | Stringer is a tool to automate the creation of methods that satisfy the fmt.Stringer interface.                                                                                   |
+| [govulncheck](https://golang.org/x/vuln/cmd/govulncheck)   | v1.0.0                             | Govulncheck reports known vulnerabilities that affect Go code.                                                                                                                    |
+| [gotestsum](https://gotest.tools/gotestsum)                | v1.10.1                            | 'go test' runner with output optimized for humans, JUnit XML for CI integration, and a summary of the test results.                                                               |
+| [gofumpt](https://mvdan.cc/gofumpt)                        | v0.5.0                             | A stricter gofmt                                                                                                                                                                  |
+
+
+## How to Use
+
+The go-tools Docker image is engineered to allow for seamless implementation with your code.
+
+ - Pull the image
+ - Run the image with your code mounted as a volume
+ - Execute the desired commands.
+
+This container is available at 
+[go-tools container on GitHub Packages](https://github.com/obalunenko/go-tools/pkgs/container/go-tools)
+
