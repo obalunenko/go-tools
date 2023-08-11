@@ -47,7 +47,7 @@ check-tools:
 .PHONY: check-tools
 
 ## Issue new release.
-new-version: sync-vendor
+new-version: install-tools
 	./scripts/release/new-version.sh
 .PHONY: new-release
 
