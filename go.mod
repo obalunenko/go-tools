@@ -15,7 +15,7 @@ require (
 	github.com/mfridman/tparse v0.13.1
 	github.com/obalunenko/coverbadger v1.4.0
 	github.com/posener/goreadme v1.4.2
-	github.com/pressly/goose/v3 v3.14.0
+	github.com/pressly/goose/v3 v3.15.0
 	golang.org/x/pkgsite v0.0.0-20230810193958-82f79ed16e88
 	golang.org/x/tools v0.12.0
 	golang.org/x/vuln v1.0.0
@@ -63,7 +63,7 @@ require (
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.1.0 // indirect
 	github.com/BurntSushi/toml v1.3.2 // indirect
 	github.com/ClickHouse/ch-go v0.57.0 // indirect
-	github.com/ClickHouse/clickhouse-go/v2 v2.10.1 // indirect
+	github.com/ClickHouse/clickhouse-go/v2 v2.13.0 // indirect
 	github.com/Djarvur/go-err113 v0.0.0-20210108212216-aea10b59be24 // indirect
 	github.com/GaijinEntertainment/go-exhaustruct/v3 v3.1.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
@@ -264,7 +264,7 @@ require (
 	github.com/invopop/jsonschema v0.7.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
-	github.com/jackc/pgx/v5 v5.4.1 // indirect
+	github.com/jackc/pgx/v5 v5.4.3 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jessevdk/go-flags v1.5.0 // indirect
 	github.com/jgautheron/goconst v1.5.1 // indirect
@@ -307,7 +307,7 @@ require (
 	github.com/mbilski/exhaustivestruct v1.2.0 // indirect
 	github.com/mgechev/revive v1.3.2 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.16 // indirect
-	github.com/microsoft/go-mssqldb v1.3.0 // indirect
+	github.com/microsoft/go-mssqldb v1.5.0 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
@@ -331,7 +331,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc4 // indirect
 	github.com/pascaldekloe/name v1.0.1 // indirect
-	github.com/paulmach/orb v0.9.2 // indirect
+	github.com/paulmach/orb v0.10.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.9 // indirect
 	github.com/pierrec/lz4/v4 v4.1.18 // indirect
@@ -407,7 +407,7 @@ require (
 	github.com/urfave/cli/v2 v2.25.7 // indirect
 	github.com/uudashr/gocognit v1.0.7 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
-	github.com/vertica/vertica-sql-go v1.3.2 // indirect
+	github.com/vertica/vertica-sql-go v1.3.3 // indirect
 	github.com/withfig/autocomplete-tools/integrations/cobra v1.2.1 // indirect
 	github.com/xanzy/go-gitlab v0.90.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
@@ -467,7 +467,7 @@ require (
 	modernc.org/mathutil v1.6.0 // indirect
 	modernc.org/memory v1.6.0 // indirect
 	modernc.org/opt v0.1.3 // indirect
-	modernc.org/sqlite v1.24.0 // indirect
+	modernc.org/sqlite v1.25.0 // indirect
 	modernc.org/strutil v1.1.3 // indirect
 	modernc.org/token v1.1.0 // indirect
 	mvdan.cc/interfacer v0.0.0-20180901003855-c20040233aed // indirect
