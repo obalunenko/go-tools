@@ -9,7 +9,7 @@ require (
 	github.com/caarlos0/svu v1.11.0
 	github.com/go-swagger/go-swagger v0.30.5
 	github.com/golangci/golangci-lint v1.54.2
-	github.com/goreleaser/goreleaser v1.21.1
+	github.com/goreleaser/goreleaser v1.21.2
 	github.com/matm/gocov-html v1.4.0
 	github.com/mattn/goveralls v0.0.12
 	github.com/mfridman/tparse v0.13.1
