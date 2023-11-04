@@ -8,7 +8,7 @@ require (
 	github.com/axw/gocov v1.1.0
 	github.com/caarlos0/svu v1.11.0
 	github.com/go-swagger/go-swagger v0.30.5
-	github.com/golangci/golangci-lint v1.55.1
+	github.com/golangci/golangci-lint v1.55.2
 	github.com/goreleaser/goreleaser v1.21.2
 	github.com/matm/gocov-html v1.4.0
 	github.com/mattn/goveralls v0.0.12
@@ -124,7 +124,7 @@ require (
 	github.com/breml/bidichk v0.2.7 // indirect
 	github.com/breml/errchkjson v0.3.6 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
-	github.com/butuzov/ireturn v0.2.1 // indirect
+	github.com/butuzov/ireturn v0.2.2 // indirect
 	github.com/butuzov/mirror v1.1.0 // indirect
 	github.com/caarlos0/ctrlc v1.2.0 // indirect
 	github.com/caarlos0/env/v9 v9.0.0 // indirect
@@ -332,7 +332,7 @@ require (
 	github.com/nakabonne/nestif v0.3.1 // indirect
 	github.com/nishanths/exhaustive v0.11.0 // indirect
 	github.com/nishanths/predeclared v0.2.2 // indirect
-	github.com/nunnatsa/ginkgolinter v0.14.0 // indirect
+	github.com/nunnatsa/ginkgolinter v0.14.1 // indirect
 	github.com/obalunenko/logger v0.5.1 // indirect
 	github.com/obalunenko/version v1.1.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
