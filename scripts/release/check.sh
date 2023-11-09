@@ -32,4 +32,4 @@ VERSION="${VERSION}-local"
 
 goreleaser check
 
-goreleaser build --clean --single-target --snapshot
+goreleaser build --clean --snapshot
