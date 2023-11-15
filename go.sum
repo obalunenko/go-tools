@@ -1060,8 +1060,8 @@ github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 h1:jWpvCLoY8Z/e3VKvls
 github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0/go.mod h1:QUyp042oQthUoa9bqDv0ER0wrtXnBruoNd7aNjkbP+k=
 github.com/mbilski/exhaustivestruct v1.2.0 h1:wCBmUnSYufAHO6J4AVWY6ff+oxWxsVFrwgOdMUQePUo=
 github.com/mbilski/exhaustivestruct v1.2.0/go.mod h1:OeTBVxQWoEmB2J2JCHmXWPJ0aksxSUOUy+nvtVEfzXc=
-github.com/mfridman/tparse v0.13.1 h1:zjuloCnjcZkrFIhdeXXl6sqvDjBSnZHVTsfgUloEznk=
-github.com/mfridman/tparse v0.13.1/go.mod h1:M8ljslbK8rTTVyLs9Ll9PYyr4tLrFLfQIvkDvKVgJOY=
+github.com/mfridman/tparse v0.13.2 h1:DJ9oH+WB0rGJTtzsr6x1TyQA8v01ydCu2RuxXK0eZXU=
+github.com/mfridman/tparse v0.13.2/go.mod h1:YwJalcRsgsZH0a6ajJDUga/Hml7gTh5s66A35bEUls0=
 github.com/mgechev/revive v1.3.4 h1:k/tO3XTaWY4DEHal9tWBkkUMJYO/dLDVyMmAQxmIMDc=
 github.com/mgechev/revive v1.3.4/go.mod h1:W+pZCMu9qj8Uhfs1iJMQsEFLRozUfvwFwqVvRbSNLVw=
 github.com/microcosm-cc/bluemonday v1.0.16 h1:kHmAq2t7WPWLjiGvzKa5o3HzSfahUKiOq7fAPUiMNIc=

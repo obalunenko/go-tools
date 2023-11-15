@@ -12,7 +12,7 @@ require (
 	github.com/goreleaser/goreleaser v1.22.1
 	github.com/matm/gocov-html v1.4.0
 	github.com/mattn/goveralls v0.0.12
-	github.com/mfridman/tparse v0.13.1
+	github.com/mfridman/tparse v0.13.2
 	github.com/obalunenko/coverbadger v1.4.0
 	github.com/posener/goreadme v1.4.2
 	github.com/pressly/goose/v3 v3.16.0
