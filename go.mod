@@ -6,7 +6,7 @@ require (
 	github.com/abice/go-enum v0.5.10
 	github.com/alvaroloes/enumer v1.1.2
 	github.com/axw/gocov v1.1.0
-	github.com/caarlos0/svu v1.11.0
+	github.com/caarlos0/svu v1.12.0
 	github.com/go-swagger/go-swagger v0.30.5
 	github.com/golangci/golangci-lint v1.55.2
 	github.com/goreleaser/goreleaser v1.22.1
