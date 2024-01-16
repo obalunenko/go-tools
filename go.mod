@@ -18,7 +18,7 @@ require (
 	github.com/pressly/goose/v3 v3.17.0
 	golang.org/x/pkgsite v0.0.0-20230810193958-82f79ed16e88
 	golang.org/x/tools v0.17.0
-	golang.org/x/vuln v1.0.1
+	golang.org/x/vuln v1.0.2
 	gotest.tools/gotestsum v1.11.0
 	mvdan.cc/gofumpt v0.5.0
 )
