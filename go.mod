@@ -15,7 +15,7 @@ require (
 	github.com/mfridman/tparse v0.13.2
 	github.com/obalunenko/coverbadger v1.4.0
 	github.com/posener/goreadme v1.4.2
-	github.com/pressly/goose/v3 v3.17.0
+	github.com/pressly/goose/v3 v3.18.0
 	golang.org/x/pkgsite v0.0.0-20230810193958-82f79ed16e88
 	golang.org/x/tools v0.17.0
 	golang.org/x/vuln v1.0.3
@@ -64,7 +64,7 @@ require (
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.0 // indirect
 	github.com/BurntSushi/toml v1.3.2 // indirect
 	github.com/ClickHouse/ch-go v0.58.2 // indirect
-	github.com/ClickHouse/clickhouse-go/v2 v2.16.0 // indirect
+	github.com/ClickHouse/clickhouse-go/v2 v2.17.1 // indirect
 	github.com/Djarvur/go-err113 v0.0.0-20210108212216-aea10b59be24 // indirect
 	github.com/GaijinEntertainment/go-exhaustruct/v3 v3.1.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
@@ -83,6 +83,7 @@ require (
 	github.com/alexkohler/prealloc v1.0.0 // indirect
 	github.com/alingse/asasalint v0.0.11 // indirect
 	github.com/andybalholm/brotli v1.0.6 // indirect
+	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230512164433-5d1fd1a340c9 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/ashanbrown/forbidigo v1.6.0 // indirect
 	github.com/ashanbrown/makezero v1.1.1 // indirect
@@ -274,7 +275,7 @@ require (
 	github.com/invopop/jsonschema v0.12.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
-	github.com/jackc/pgx/v5 v5.5.1 // indirect
+	github.com/jackc/pgx/v5 v5.5.2 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jessevdk/go-flags v1.5.0 // indirect
@@ -304,6 +305,7 @@ require (
 	github.com/ldez/tagliatelle v0.5.0 // indirect
 	github.com/leonklingele/grouper v1.1.1 // indirect
 	github.com/letsencrypt/boulder v0.0.0-20231026200631-000cd05d5491 // indirect
+	github.com/libsql/sqlite-antlr4-parser v0.0.0-20230802215326-5cb5bb604475 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/lufeee/execinquery v1.2.1 // indirect
 	github.com/macabu/inamedparam v0.1.2 // indirect
@@ -318,6 +320,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
 	github.com/mbilski/exhaustivestruct v1.2.0 // indirect
+	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/mgechev/revive v1.3.4 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.16 // indirect
 	github.com/microsoft/go-mssqldb v1.6.0 // indirect
@@ -416,6 +419,7 @@ require (
 	github.com/tommy-muehle/go-mnd/v2 v2.5.1 // indirect
 	github.com/tomnomnom/linkheader v0.0.0-20180905144013-02ca5825eb80 // indirect
 	github.com/toqueteos/webbrowser v1.2.0 // indirect
+	github.com/tursodatabase/libsql-client-go v0.0.0-20231216154754-8383a53d618f // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/ultraware/funlen v0.1.0 // indirect
 	github.com/ultraware/whitespace v0.0.5 // indirect
@@ -430,8 +434,8 @@ require (
 	github.com/xen0n/gosmopolitan v1.2.2 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	github.com/yagipy/maintidx v1.0.0 // indirect
-	github.com/ydb-platform/ydb-go-genproto v0.0.0-20231012155159-f85a672542fd // indirect
-	github.com/ydb-platform/ydb-go-sdk/v3 v3.54.2 // indirect
+	github.com/ydb-platform/ydb-go-genproto v0.0.0-20240126124512-dbb0e1720dbf // indirect
+	github.com/ydb-platform/ydb-go-sdk/v3 v3.55.1 // indirect
 	github.com/yeya24/promlinter v0.2.0 // indirect
 	github.com/ykadowak/zerologlint v0.1.3 // indirect
 	github.com/yuin/goldmark v1.4.13 // indirect
@@ -491,6 +495,7 @@ require (
 	mvdan.cc/interfacer v0.0.0-20180901003855-c20040233aed // indirect
 	mvdan.cc/lint v0.0.0-20170908181259-adc824a0674b // indirect
 	mvdan.cc/unparam v0.0.0-20230312165513-e84e2d14e3b8 // indirect
+	nhooyr.io/websocket v1.8.7 // indirect
 	sigs.k8s.io/kind v0.20.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
