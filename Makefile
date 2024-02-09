@@ -7,6 +7,8 @@ SHELL := env APP_NAME=$(APP_NAME) $(SHELL)
 RELEASE_BRANCH?=master
 SHELL := env RELEASE_BRANCH=$(RELEASE_BRANCH) $(SHELL)
 
+GOVERSION:=1.22
+
 TARGET_MAX_CHAR_NUM=20
 
 ## Show help
@@ -60,6 +62,10 @@ release:
 check-releaser:
 	./scripts/release/check.sh
 .PHONY: check-releaser
+
+bump-go-version:
+	./scripts/bump-go.sh $(GOVERSION)
+.PHONY: bump-go-version
 
 .DEFAULT_GOAL := help
 
