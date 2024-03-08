@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.22.1-alpine3.19.1 as builder
+FROM --platform=$BUILDPLATFORM golang:1.22.1-alpine3.19 as builder
 
 ARG APK_BASH_VERSION=~5
 ARG APK_GIT_VERSION=~2
