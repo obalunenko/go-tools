@@ -15,7 +15,7 @@ require (
 	github.com/mfridman/tparse v0.13.2
 	github.com/obalunenko/coverbadger v1.4.0
 	github.com/posener/goreadme v1.4.2
-	github.com/pressly/goose/v3 v3.18.0
+	github.com/pressly/goose/v3 v3.19.1
 	golang.org/x/pkgsite v0.0.0-20240305194412-ea43129276ed
 	golang.org/x/tools v0.19.0
 	golang.org/x/vuln v1.0.4
@@ -302,6 +302,7 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/maratori/testableexamples v1.0.0 // indirect
 	github.com/maratori/testpackage v1.1.1 // indirect
+	github.com/marcboeker/go-duckdb v1.5.6 // indirect
 	github.com/matoous/godox v0.0.0-20230222163458-006bad1f9d26 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
