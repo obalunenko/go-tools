@@ -44,7 +44,6 @@ The base image is built on top of the official image `golang:1.22.1-alpine3.19.1
 | [govulncheck](https://golang.org/x/vuln/cmd/govulncheck)   | v1.0.4                             | Govulncheck reports known vulnerabilities that affect Go code.                                                                                                                    |
 | [gotestsum](https://gotest.tools/gotestsum)                | v1.11.0                            | 'go test' runner with output optimized for humans, JUnit XML for CI integration, and a summary of the test results.                                                               |
 | [gofumpt](https://mvdan.cc/gofumpt)                        | v0.6.0                             | A stricter gofmt                                                                                                                                                                  |
-| [tbls](https://github.com/k1LoW/tbls)                      | v1.73.2                            | A CI-Friendly tool for document a database                                                                                                                                        |
 
 
 ## How to Use

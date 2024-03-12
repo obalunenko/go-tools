@@ -10,7 +10,6 @@ import (
 	_ "github.com/go-swagger/go-swagger/cmd/swagger"
 	_ "github.com/golangci/golangci-lint/cmd/golangci-lint"
 	_ "github.com/goreleaser/goreleaser"
-	_ "github.com/k1LoW/tbls"
 	_ "github.com/matm/gocov-html/cmd/gocov-html"
 	_ "github.com/mattn/goveralls"
 	_ "github.com/mfridman/tparse"
