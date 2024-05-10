@@ -9,7 +9,7 @@ require (
 	github.com/caarlos0/svu v1.12.0
 	github.com/go-swagger/go-swagger v0.30.5
 	github.com/golangci/golangci-lint v1.58.1
-	github.com/goreleaser/goreleaser v1.24.0
+	github.com/goreleaser/goreleaser v1.25.1
 	github.com/matm/gocov-html v1.4.0
 	github.com/mattn/goveralls v0.0.12
 	github.com/mfridman/tparse v0.13.3
@@ -84,7 +84,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/ashanbrown/forbidigo v1.6.0 // indirect
 	github.com/ashanbrown/makezero v1.1.1 // indirect
-	github.com/atc0005/go-teams-notify/v2 v2.9.0 // indirect
+	github.com/atc0005/go-teams-notify/v2 v2.10.0 // indirect
 	github.com/aws/aws-sdk-go v1.51.6 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.26.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.1 // indirect
@@ -150,14 +150,14 @@ require (
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/denis-tingaikin/go-header v0.5.0 // indirect
 	github.com/dghubble/go-twitter v0.0.0-20221104224141-912508c3888b // indirect
-	github.com/dghubble/oauth1 v0.7.2 // indirect
+	github.com/dghubble/oauth1 v0.7.3 // indirect
 	github.com/dghubble/sling v1.4.1 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/distribution/reference v0.5.0 // indirect
 	github.com/dnephin/pflag v1.0.7 // indirect
-	github.com/docker/cli v24.0.7+incompatible // indirect
+	github.com/docker/cli v25.0.4+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
-	github.com/docker/docker v24.0.9+incompatible // indirect
+	github.com/docker/docker v25.0.5+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.0 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
@@ -229,9 +229,9 @@ require (
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-containerregistry v0.19.1 // indirect
 	github.com/google/go-github/v31 v31.0.0 // indirect
-	github.com/google/go-github/v57 v57.0.0 // indirect
+	github.com/google/go-github/v61 v61.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
-	github.com/google/ko v0.15.1 // indirect
+	github.com/google/ko v0.15.2 // indirect
 	github.com/google/licensecheck v0.3.1 // indirect
 	github.com/google/rpmpack v0.6.0 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
@@ -245,7 +245,7 @@ require (
 	github.com/gordonklaus/ineffassign v0.1.0 // indirect
 	github.com/goreleaser/chglog v0.5.0 // indirect
 	github.com/goreleaser/fileglob v1.3.0 // indirect
-	github.com/goreleaser/nfpm/v2 v2.35.3 // indirect
+	github.com/goreleaser/nfpm/v2 v2.36.1 // indirect
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/gostaticanalysis/analysisutil v0.7.1 // indirect
@@ -283,7 +283,7 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/kisielk/errcheck v1.7.0 // indirect
 	github.com/kkHAIKE/contextcheck v1.1.5 // indirect
-	github.com/klauspost/compress v1.17.5 // indirect
+	github.com/klauspost/compress v1.17.7 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -384,7 +384,7 @@ require (
 	github.com/sivchari/containedctx v1.0.3 // indirect
 	github.com/sivchari/tenv v1.7.1 // indirect
 	github.com/skeema/knownhosts v1.2.1 // indirect
-	github.com/slack-go/slack v0.12.3 // indirect
+	github.com/slack-go/slack v0.12.5 // indirect
 	github.com/sonatard/noctx v0.0.2 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/sourcegraph/go-diff v0.7.0 // indirect
@@ -417,7 +417,6 @@ require (
 	github.com/uudashr/gocognit v1.1.2 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
 	github.com/vertica/vertica-sql-go v1.3.3 // indirect
-	github.com/withfig/autocomplete-tools/integrations/cobra v1.2.1 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/xanzy/go-gitlab v0.102.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
@@ -482,6 +481,6 @@ require (
 	mvdan.cc/unparam v0.0.0-20240427195214-063aff900ca1 // indirect
 	nhooyr.io/websocket v1.8.10 // indirect
 	rsc.io/markdown v0.0.0-20231214224604-88bb533a6020 // indirect
-	sigs.k8s.io/kind v0.20.0 // indirect
+	sigs.k8s.io/kind v0.22.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
