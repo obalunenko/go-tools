@@ -7,7 +7,7 @@ require (
 	github.com/alvaroloes/enumer v1.1.2
 	github.com/axw/gocov v1.1.0
 	github.com/caarlos0/svu v1.12.0
-	github.com/go-swagger/go-swagger v0.30.5
+	github.com/go-swagger/go-swagger v0.31.0
 	github.com/golangci/golangci-lint v1.58.1
 	github.com/goreleaser/goreleaser v1.26.0
 	github.com/matm/gocov-html v1.4.0
@@ -199,7 +199,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.23.0 // indirect
 	github.com/go-openapi/errors v0.22.0 // indirect
-	github.com/go-openapi/inflect v0.19.0 // indirect
+	github.com/go-openapi/inflect v0.21.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/loads v0.22.0 // indirect
@@ -258,7 +258,7 @@ require (
 	github.com/goreleaser/chglog v0.6.1 // indirect
 	github.com/goreleaser/fileglob v1.3.0 // indirect
 	github.com/goreleaser/nfpm/v2 v2.37.1 // indirect
-	github.com/gorilla/handlers v1.5.1 // indirect
+	github.com/gorilla/handlers v1.5.2 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/gostaticanalysis/analysisutil v0.7.1 // indirect
 	github.com/gostaticanalysis/comment v1.4.2 // indirect
