@@ -17,8 +17,8 @@ require (
 	github.com/posener/goreadme v1.4.2
 	github.com/pressly/goose/v3 v3.20.0
 	golang.org/x/pkgsite v0.0.0-20240305194412-ea43129276ed
-	golang.org/x/tools v0.21.0
-	golang.org/x/vuln v1.1.0
+	golang.org/x/tools v0.21.1-0.20240514024235-59d9797072e7
+	golang.org/x/vuln v1.1.1
 	gotest.tools/gotestsum v1.11.0
 	mvdan.cc/gofumpt v0.6.0
 )
