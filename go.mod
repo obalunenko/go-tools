@@ -18,7 +18,7 @@ require (
 	github.com/pressly/goose/v3 v3.20.0
 	golang.org/x/pkgsite v0.0.0-20240305194412-ea43129276ed
 	golang.org/x/tools v0.22.0
-	golang.org/x/vuln v1.1.1
+	golang.org/x/vuln v1.1.2
 	gotest.tools/gotestsum v1.12.0
 	mvdan.cc/gofumpt v0.6.0
 )
@@ -496,6 +496,7 @@ require (
 	golang.org/x/oauth2 v0.20.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
+	golang.org/x/telemetry v0.0.0-20240522233618-39ace7a40ae7 // indirect
 	golang.org/x/term v0.21.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
