@@ -15,7 +15,7 @@ require (
 	github.com/mfridman/tparse v0.13.3
 	github.com/obalunenko/coverbadger v1.4.0
 	github.com/posener/goreadme v1.4.2
-	github.com/pressly/goose/v3 v3.20.0
+	github.com/pressly/goose/v3 v3.21.1
 	golang.org/x/pkgsite v0.0.0-20240305194412-ea43129276ed
 	golang.org/x/tools v0.22.0
 	golang.org/x/vuln v1.1.2
@@ -341,7 +341,7 @@ require (
 	github.com/mfridman/buildversion v0.3.0 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/mgechev/revive v1.3.7 // indirect
-	github.com/microsoft/go-mssqldb v1.7.0 // indirect
+	github.com/microsoft/go-mssqldb v1.7.1 // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -450,7 +450,7 @@ require (
 	github.com/tommy-muehle/go-mnd/v2 v2.5.1 // indirect
 	github.com/tomnomnom/linkheader v0.0.0-20180905144013-02ca5825eb80 // indirect
 	github.com/toqueteos/webbrowser v1.2.0 // indirect
-	github.com/tursodatabase/libsql-client-go v0.0.0-20240411070317-a1138d155304 // indirect
+	github.com/tursodatabase/libsql-client-go v0.0.0-20240416075003-747366ff79c4 // indirect
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/ultraware/funlen v0.1.0 // indirect
 	github.com/ultraware/whitespace v0.1.1 // indirect
