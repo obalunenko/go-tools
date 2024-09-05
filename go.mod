@@ -16,6 +16,7 @@ require (
 	github.com/obalunenko/coverbadger v1.4.0
 	github.com/posener/goreadme v1.4.2
 	github.com/pressly/goose/v3 v3.22.0
+	github.com/swaggo/swag v1.16.3
 	golang.org/x/pkgsite v0.0.0-20240905030440-6b577b411ef5
 	golang.org/x/tools v0.24.0
 	golang.org/x/vuln v1.1.3
@@ -66,6 +67,7 @@ require (
 	github.com/Crocmagnon/fatcontext v0.4.0 // indirect
 	github.com/Djarvur/go-err113 v0.0.0-20210108212216-aea10b59be24 // indirect
 	github.com/GaijinEntertainment/go-exhaustruct/v3 v3.3.0 // indirect
+	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.3 // indirect
