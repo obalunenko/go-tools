@@ -26,7 +26,7 @@ function check_status() {
 function install_dep() {
   dep=$1
 
-  bin_out=$GOBIN/$(echo $dep | awk 'BEGIN { FS="/" } {print $NF}')
+  bin_out=$GOBIN/$(echo $dep | awk 'BEGIN { FS="/" } {for (i=NF; i>0; i--) if ($i !~ /^v[0-9]/) {print $i;exit}}')
 
   echo "[INFO]: Going to build ${dep} - ${bin_out}"
 
