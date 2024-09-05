@@ -16,6 +16,7 @@ import (
 	_ "github.com/obalunenko/coverbadger/cmd/coverbadger"
 	_ "github.com/posener/goreadme/cmd/goreadme"
 	_ "github.com/pressly/goose/v3/cmd/goose"
+	_ "github.com/swaggo/swag/cmd/swag"
 	_ "golang.org/x/pkgsite/cmd/pkgsite"
 	_ "golang.org/x/tools/cmd/fiximports"
 	_ "golang.org/x/tools/cmd/goimports"
