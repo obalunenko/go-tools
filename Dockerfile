@@ -43,7 +43,7 @@ ARG TARGETARCH
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
 
 
-FROM golang:1.23.0-alpine3.20 AS releaser
+FROM golang:1.23.1-alpine3.20 AS releaser
 
 ARG APK_BASH_VERSION=~5
 ARG APK_BUILDBASE_VERSION=~0
