@@ -5,7 +5,7 @@ set -eu
 SCRIPT_NAME="$(basename "$0")"
 SCRIPT_DIR="$(dirname "$0")"
 REPO_ROOT="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
-TOOLS_DIR="${REPO_ROOT}"
+TOOLS_DIR="${REPO_ROOT}/tools"
 
 echo "${SCRIPT_NAME} is running... "
 
@@ -41,10 +41,35 @@ export -f install_dep
 export -f check_status
 
 function install_deps() {
-  tools_module="$(go list -m)"
+  tools_module="$(grep '^module ' go.mod | awk '{print $2}')"
+
+  echo "[INFO]: Running install_deps for ${tools_module}"
   
   go list -e -f '{{ join .Imports "\n" }}' -tags="tools" "${tools_module}" |
    xargs -n 1 -P 0 -I {} bash -c 'install_dep "$@"' _ {}
 }
 
-install_deps
+function install_tools() {
+  declare -a tools_list
+
+  temp_file=$(mktemp) # создаем временный файл
+
+  go list -m > "$temp_file" # сохраняем вывод команды в файл
+
+  while IFS= read -r t; do
+    tools_list+=("$t")
+  done < "$temp_file" # читаем файл в массив
+
+  rm "$temp_file" # удаляем временный файл
+
+  for t in "${tools_list[@]}"; do
+    echo "In loop - current ${t}"
+
+    cd "${TOOLS_DIR}/${t}" || exit 1
+    install_deps
+    cd - || exit 1
+  done
+}
+
+
+install_tools

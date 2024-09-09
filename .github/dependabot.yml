@@ -1,7 +1,28 @@
 version: 2
 updates:
   - package-ecosystem: "gomod"
-    directory: "/"
+    directories:
+      - /tools/coverbadger
+      - /tools/enumer
+      - /tools/fiximports
+      - /tools/go-enum
+      - /tools/gocov
+      - /tools/gocov-html
+      - /tools/gofumpt
+      - /tools/goimports
+      - /tools/golangci-lint
+      - /tools/goose
+      - /tools/goreadme
+      - /tools/goreleaser
+      - /tools/gotestsum
+      - /tools/goveralls
+      - /tools/govulncheck
+      - /tools/pkgsite
+      - /tools/stringer
+      - /tools/svu
+      - /tools/swag
+      - /tools/swagger
+      - /tools/tparse
     schedule:
       interval: "daily"
     labels:
