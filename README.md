@@ -16,7 +16,7 @@ docker pull ghcr.io/obalunenko/go-tools:latest
 
 ### Go base image
 
-The base image is built on top of the official image `golang:1.23.0-alpine3.20` and includes the following tools:
+The base image is built on top of the official image `golang:1.23.1-alpine3.20` and includes the following tools:
 
 
 ##### Below is a full manifest of the tools available
