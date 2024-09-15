@@ -1,4 +1,3 @@
-[![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/obalunenko/go-tools)](https://github.com/obalunenko/go-tools/go.mod)
 [![Latest release artifacts](https://img.shields.io/github/v/release/obalunenko/go-tools)](https://github.com/obalunenko/go-tools/releases/latest)
 
 # Go Tools
@@ -16,7 +15,7 @@ docker pull ghcr.io/obalunenko/go-tools:latest
 
 ### Go base image
 
-The base image is built on top of the official image `golang:1.23.1-alpine3.20` and includes the following tools:
+The base image is built on top of the official image [golang:1.23.1-alpine3.20](https://hub.docker.com/_/golang) and includes the following tools:
 
 
 ##### Below is a full manifest of the tools available
