@@ -2,7 +2,7 @@ module goreleaser
 
 go 1.23.1
 
-require github.com/goreleaser/goreleaser/v2 v2.3.1
+require github.com/goreleaser/goreleaser/v2 v2.3.2
 
 require (
 	cloud.google.com/go v0.115.0 // indirect
@@ -143,7 +143,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-containerregistry v0.20.2 // indirect
-	github.com/google/go-github/v64 v64.0.0 // indirect
+	github.com/google/go-github/v65 v65.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/ko v0.16.0 // indirect
 	github.com/google/rpmpack v0.6.1-0.20240329070804-c2247cbb881a // indirect
