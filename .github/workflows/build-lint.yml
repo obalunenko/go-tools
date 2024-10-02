@@ -97,7 +97,7 @@ jobs:
             type=semver,pattern={{major}}
 
       - name: Build Docker image
-        uses: docker/bake-action@v5.8.0
+        uses: docker/bake-action@v5.9.0
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
           LABELS: ${{ steps.meta.outputs.labels }}
