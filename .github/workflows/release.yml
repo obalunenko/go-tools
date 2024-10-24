@@ -69,7 +69,7 @@ jobs:
     name: Release notes
     steps:
       - name: Set up go
-        uses: actions/setup-go@v5.0.2
+        uses: actions/setup-go@v5.1.0
         with:
           go-version: 1.23.x
 
