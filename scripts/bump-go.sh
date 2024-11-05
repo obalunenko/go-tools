@@ -15,6 +15,8 @@ function main() {
   local escapedGoVersion="$(echo "${goVersion}" | sed 's/\./\\./g')"
   echo " - New: ${goVersion}"
 
+  bumpModFile "${GO_MOD_FILE}" "${escapedCurrentGoVersion}" "${escapedGoVersion}"
+
   # bump mod files in all the modules
   for modFile in $(find "${ROOT_DIR}" -name "go.mod" -not -path "${ROOT_DIR}/vendor/*" -not -path "${ROOT_DIR}/.git/*"); do
     bumpModFile "${modFile}" "${escapedCurrentGoVersion}" "${escapedGoVersion}"
