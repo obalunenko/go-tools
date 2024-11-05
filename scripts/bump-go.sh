@@ -2,7 +2,7 @@
 
 readonly CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 readonly ROOT_DIR="$(dirname "$CURRENT_DIR")"
-readonly GO_MOD_FILE="${ROOT_DIR}/go.mod"
+readonly GO_MOD_FILE="${ROOT_DIR}/go.work"
 
 function main() {
   echo "Updating Go version:"
