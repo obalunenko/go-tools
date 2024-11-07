@@ -2,7 +2,7 @@
 
 readonly CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 readonly ROOT_DIR="$(dirname "$CURRENT_DIR")"
-readonly GO_MOD_FILE="${ROOT_DIR}/go.mod"
+readonly GO_MOD_FILE="${ROOT_DIR}/go.work"
 
 function main() {
   echo "Updating Go version:"
@@ -14,6 +14,8 @@ function main() {
   local goVersion="${1}"
   local escapedGoVersion="$(echo "${goVersion}" | sed 's/\./\\./g')"
   echo " - New: ${goVersion}"
+
+  bumpModFile "${GO_MOD_FILE}" "${escapedCurrentGoVersion}" "${escapedGoVersion}"
 
   # bump mod files in all the modules
   for modFile in $(find "${ROOT_DIR}" -name "go.mod" -not -path "${ROOT_DIR}/vendor/*" -not -path "${ROOT_DIR}/.git/*"); do

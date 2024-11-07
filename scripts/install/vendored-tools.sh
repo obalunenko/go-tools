@@ -1,75 +1,116 @@
 #!/bin/bash
 
-set -eu
+set -euo pipefail
 
+# Enable job control
+set -m
+
+# Define metadata variables and paths
 SCRIPT_NAME="$(basename "$0")"
-SCRIPT_DIR="$(dirname "$0")"
-REPO_ROOT="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(git -C "${SCRIPT_DIR}" rev-parse --show-toplevel)"
 TOOLS_DIR="${REPO_ROOT}/tools"
 
 echo "${SCRIPT_NAME} is running... "
 
-cd "${TOOLS_DIR}" || exit 1
+# Check and set GOBIN
+if [ -z "${GOBIN:-}" ]; then
+  GOBIN="$(go env GOPATH)/bin"
+  echo "[INFO]: GOBIN is not set. Using default: ${GOBIN}"
+fi
 
-function check_status() {
-  # first param is error message to print in case of error
-  if [ $? -ne 0 ]; then
-    if [ -n "$1" ]; then
-      echo "$1"
-    fi
+mkdir -p "${GOBIN}"
 
-    # Exit 255 to pass signal to xargs to abort process with code 1, in other cases xargs will complete with 0.
-    exit 255
+# Function to get the number of CPU cores
+function get_cpu_cores() {
+  if command -v nproc >/dev/null 2>&1; then
+    nproc
+  elif [[ "$(uname)" == "Darwin" ]]; then
+    sysctl -n hw.ncpu
+  else
+    # Attempt to use getconf
+    cores=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
+    echo "${cores}"
   fi
 }
 
-function install_dep() {
-  dep=$1
+# Function to install a module
+function install_module() {
+  local module_dir="$1"
 
-  bin_out=$GOBIN/$(echo $dep | awk 'BEGIN { FS="/" } {for (i=NF; i>0; i--) if ($i !~ /^v[0-9]/) {print $i;exit}}')
+  if [ ! -d "${module_dir}" ]; then
+    echo "[WARN]: ${module_dir} is not a directory. Skipping."
+    return
+  fi
 
-  echo "[INFO]: Going to build ${dep} - ${bin_out}"
+  if [ ! -f "${module_dir}/go.mod" ]; then
+    echo "[WARN]: go.mod not found in ${module_dir}. Skipping."
+    return
+  fi
 
-  go build -mod=readonly -o "${bin_out}" "${dep}"
+  echo "[INFO]: Processing module in directory ${module_dir}"
+  cd "${module_dir}" || exit 1
 
-  check_status "[FAIL]: build [${dep}] failed!"
+  local module_name
+  module_name=$(grep "^module " go.mod | awk '{print $2}')
+  echo "[INFO]: Installing dependencies for module ${module_name}"
 
-  echo "[SUCCESS]: build [${dep}] finished."
+  local deps
+  deps=$(go list -e -f '{{ join .Imports "\n" }}' -tags=tools "${module_name}")
+
+  if [ -z "${deps}" ]; then
+    echo "[INFO]: No dependencies found for module ${module_name}."
+    return
+  fi
+
+  while IFS= read -r dep; do
+    local bin_name
+    bin_name=$(echo $dep | awk 'BEGIN { FS="/" } {for (i=NF; i>0; i--) if ($i !~ /^v[0-9]/) {print $i;exit}}')
+    local bin_out="${GOBIN}/${bin_name}"
+    echo "[INFO]: Building ${dep} -> ${bin_out}"
+    if go build -mod=readonly -o "${bin_out}" "${dep}"; then
+      echo "[SUCCESS]: ${dep} built successfully."
+    else
+      echo "[ERROR]: Failed to build ${dep}"
+      return 1
+    fi
+  done <<< "${deps}"
 }
 
-export -f install_dep
-export -f check_status
-
-function install_deps() {
-  tools_module="$(grep '^module ' go.mod | awk '{print $2}')"
-
-  echo "[INFO]: Running install_deps for ${tools_module}"
-  
-  go list -e -f '{{ join .Imports "\n" }}' -tags="tools" "${tools_module}" |
-   xargs -n 1 -P 0 -I {} bash -c 'install_dep "$@"' _ {}
-}
-
+# Main function to install tools
 function install_tools() {
-  declare -a tools_list
+  echo "[INFO]: Starting tool installation"
 
-  temp_file=$(mktemp) # создаем временный файл
+  local max_jobs
+  max_jobs=$(get_cpu_cores)
+  echo "[INFO]: Using up to ${max_jobs} parallel tasks"
 
-  go list -m > "$temp_file" # сохраняем вывод команды в файл
-
-  while IFS= read -r t; do
-    tools_list+=("$t")
-  done < "$temp_file" # читаем файл в массив
-
-  rm "$temp_file" # удаляем временный файл
-
-  for t in "${tools_list[@]}"; do
-    echo "In loop - current ${t}"
-
-    cd "${TOOLS_DIR}/${t}" || exit 1
-    install_deps
-    cd - || exit 1
+  # Collect module directories
+  modules=()
+  for dir in "${TOOLS_DIR}"/*; do
+    if [ -d "${dir}" ]; then
+      modules+=("${dir}")
+    fi
   done
+
+  # Launch module installations with parallelism control
+  local i=0
+  local total_modules=${#modules[@]}
+  while [ $i -lt $total_modules ]; do
+    # Check the number of running background jobs
+    while [ "$(jobs -r -p | wc -l)" -ge "$max_jobs" ]; do
+      sleep 0.1  # Wait before rechecking
+    done
+
+    # Start module installation in the background
+    install_module "${modules[$i]}" &
+    ((i++))
+  done
+
+  wait  # Wait for all background jobs to finish
 }
 
-
+# Run the main function
 install_tools
+
+echo "[INFO]: ${SCRIPT_NAME} completed successfully."

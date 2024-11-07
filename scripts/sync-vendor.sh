@@ -12,6 +12,16 @@ sync_vendor() {
   echo "Syncing vendor..."
   go work sync
   go work vendor
+
+  for dir in $REPO_ROOT/tools/*; do
+    if [ -d "$dir" ] && [ -f "$dir/go.mod" ]; then
+      echo "Running 'go mod tidy' in $dir"
+      (
+        cd "$dir"
+        go mod tidy
+      )
+    fi
+  done
 }
 
 cd "${REPO_ROOT}" || exit 1
