@@ -2,7 +2,7 @@ module goreleaser
 
 go 1.23.1
 
-require github.com/goreleaser/goreleaser/v2 v2.4.3
+require github.com/goreleaser/goreleaser/v2 v2.4.4
 
 require (
 	cloud.google.com/go v0.115.1 // indirect
