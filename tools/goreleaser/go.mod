@@ -2,7 +2,7 @@ module goreleaser
 
 go 1.23.1
 
-require github.com/goreleaser/goreleaser/v2 v2.4.5
+require github.com/goreleaser/goreleaser/v2 v2.4.7
 
 require (
 	cel.dev/expr v0.16.1 // indirect
@@ -163,7 +163,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.13.0 // indirect
 	github.com/goreleaser/chglog v0.6.1 // indirect
 	github.com/goreleaser/fileglob v1.3.0 // indirect
-	github.com/goreleaser/nfpm/v2 v2.41.0 // indirect
+	github.com/goreleaser/nfpm/v2 v2.41.1 // indirect
 	github.com/goreleaser/quill v0.0.0-20241025150139-731751b4046d // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
