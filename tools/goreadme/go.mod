@@ -16,9 +16,9 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/posener/goaction v0.1.0 // indirect
 	github.com/posener/script v1.1.5 // indirect
-	github.com/stretchr/testify v1.9.0 // indirect
+	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/yuin/goldmark v1.6.0 // indirect
-	golang.org/x/crypto v0.26.0 // indirect
-	golang.org/x/oauth2 v0.22.0 // indirect
-	golang.org/x/tools v0.24.0 // indirect
+	golang.org/x/crypto v0.30.0 // indirect
+	golang.org/x/oauth2 v0.24.0 // indirect
+	golang.org/x/tools v0.28.0 // indirect
 )
