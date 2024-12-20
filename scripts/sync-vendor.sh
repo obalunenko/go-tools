@@ -11,6 +11,7 @@ echo "${SCRIPT_NAME} is running... "
 
 function sync_vendor() {
   echo "Syncing vendor..."
+  rm -rf vendor
   go mod tidy
   go mod vendor
 }

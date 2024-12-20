@@ -114,6 +114,9 @@ github.com/jackc/puddle/v2/internal/genstack
 # github.com/joeshaw/multierror v0.0.0-20140124173710-69b34d4ec901
 ## explicit
 github.com/joeshaw/multierror
+# github.com/joho/godotenv v1.5.1
+## explicit; go 1.12
+github.com/joho/godotenv
 # github.com/jonboulle/clockwork v0.4.0
 ## explicit; go 1.15
 github.com/jonboulle/clockwork
@@ -132,11 +135,11 @@ github.com/mattn/go-isatty
 # github.com/mfridman/interpolate v0.0.2
 ## explicit; go 1.19
 github.com/mfridman/interpolate
-# github.com/mfridman/xflag v0.0.0-20240825232106-efb77353e578
+# github.com/mfridman/xflag v0.1.0
 ## explicit; go 1.21.0
 github.com/mfridman/xflag
-# github.com/microsoft/go-mssqldb v1.7.2
-## explicit; go 1.17
+# github.com/microsoft/go-mssqldb v1.8.0
+## explicit; go 1.18
 github.com/microsoft/go-mssqldb
 github.com/microsoft/go-mssqldb/aecmk
 github.com/microsoft/go-mssqldb/integratedauth
@@ -169,12 +172,11 @@ github.com/pierrec/lz4/v4/internal/xxh32
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 ## explicit
-# github.com/pressly/goose/v3 v3.23.1
+# github.com/pressly/goose/v3 v3.24.0
 ## explicit; go 1.21.0
 github.com/pressly/goose/v3
 github.com/pressly/goose/v3/cmd/goose
 github.com/pressly/goose/v3/database
-github.com/pressly/goose/v3/internal/cfg
 github.com/pressly/goose/v3/internal/controller
 github.com/pressly/goose/v3/internal/dialect
 github.com/pressly/goose/v3/internal/dialect/dialectquery
@@ -252,7 +254,7 @@ github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Scripting
 github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Table
 github.com/ydb-platform/ydb-go-genproto/protos/Ydb_TableStats
 github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Topic
-# github.com/ydb-platform/ydb-go-sdk/v3 v3.92.6
+# github.com/ydb-platform/ydb-go-sdk/v3 v3.95.3
 ## explicit; go 1.21
 github.com/ydb-platform/ydb-go-sdk/v3
 github.com/ydb-platform/ydb-go-sdk/v3/balancers
@@ -272,7 +274,6 @@ github.com/ydb-platform/ydb-go-sdk/v3/internal/clone
 github.com/ydb-platform/ydb-go-sdk/v3/internal/closer
 github.com/ydb-platform/ydb-go-sdk/v3/internal/config
 github.com/ydb-platform/ydb-go-sdk/v3/internal/conn
-github.com/ydb-platform/ydb-go-sdk/v3/internal/connector
 github.com/ydb-platform/ydb-go-sdk/v3/internal/coordination
 github.com/ydb-platform/ydb-go-sdk/v3/internal/coordination/config
 github.com/ydb-platform/ydb-go-sdk/v3/internal/coordination/conversation
@@ -301,7 +302,6 @@ github.com/ydb-platform/ydb-go-sdk/v3/internal/pg
 github.com/ydb-platform/ydb-go-sdk/v3/internal/pool
 github.com/ydb-platform/ydb-go-sdk/v3/internal/query
 github.com/ydb-platform/ydb-go-sdk/v3/internal/query/config
-github.com/ydb-platform/ydb-go-sdk/v3/internal/query/conn
 github.com/ydb-platform/ydb-go-sdk/v3/internal/query/options
 github.com/ydb-platform/ydb-go-sdk/v3/internal/query/result
 github.com/ydb-platform/ydb-go-sdk/v3/internal/query/scanner
@@ -323,9 +323,6 @@ github.com/ydb-platform/ydb-go-sdk/v3/internal/stack
 github.com/ydb-platform/ydb-go-sdk/v3/internal/stats
 github.com/ydb-platform/ydb-go-sdk/v3/internal/table
 github.com/ydb-platform/ydb-go-sdk/v3/internal/table/config
-github.com/ydb-platform/ydb-go-sdk/v3/internal/table/conn
-github.com/ydb-platform/ydb-go-sdk/v3/internal/table/conn/badconn
-github.com/ydb-platform/ydb-go-sdk/v3/internal/table/conn/isolation
 github.com/ydb-platform/ydb-go-sdk/v3/internal/table/scanner
 github.com/ydb-platform/ydb-go-sdk/v3/internal/topic
 github.com/ydb-platform/ydb-go-sdk/v3/internal/topic/topicclientinternal
@@ -344,6 +341,11 @@ github.com/ydb-platform/ydb-go-sdk/v3/internal/xlist
 github.com/ydb-platform/ydb-go-sdk/v3/internal/xrand
 github.com/ydb-platform/ydb-go-sdk/v3/internal/xresolver
 github.com/ydb-platform/ydb-go-sdk/v3/internal/xslices
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/iface
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/legacy
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/legacy/badconn
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/propose
 github.com/ydb-platform/ydb-go-sdk/v3/internal/xstring
 github.com/ydb-platform/ydb-go-sdk/v3/internal/xsync
 github.com/ydb-platform/ydb-go-sdk/v3/log
@@ -395,8 +397,9 @@ go.uber.org/multierr
 ## explicit; go 1.20
 golang.org/x/crypto/md4
 golang.org/x/crypto/pbkdf2
-# golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
+# golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
 ## explicit; go 1.22.0
+golang.org/x/exp/constraints
 golang.org/x/exp/slices
 # golang.org/x/net v0.33.0
 ## explicit; go 1.18

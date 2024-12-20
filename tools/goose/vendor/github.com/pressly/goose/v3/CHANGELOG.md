@@ -7,6 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [v3.24.0]
+
+- Add support for loading environment variables from `.env` files, enabled by default.
+  - The default file name is `.env`, but can be changed with the `-env=<filename>` flag.
+  - To disable this feature, set `-env=none`.
+
+## [v3.23.1]
+
 - Store implementations can **optionally** implement the `TableExists` method to provide optimized
   table existence checks (#860)
   - Default postgres Store implementation updated to use `pg_tables` system catalog, more to follow
@@ -247,7 +255,9 @@ Here's a quick summary:
 - Add new `context.Context`-aware functions and methods, for both sql and go migrations.
 - Return error when no migration files found or dir is not a directory.
 
-[Unreleased]: https://github.com/pressly/goose/compare/v3.23.0...HEAD
+[Unreleased]: https://github.com/pressly/goose/compare/v3.24.0...HEAD
+[v3.24.0]: https://github.com/pressly/goose/compare/v3.23.1...v3.24.0
+[v3.23.1]: https://github.com/pressly/goose/compare/v3.23.0...v3.23.1
 [v3.23.0]: https://github.com/pressly/goose/compare/v3.22.1...v3.23.0
 [v3.22.1]: https://github.com/pressly/goose/compare/v3.22.0...v3.22.1
 [v3.22.0]: https://github.com/pressly/goose/compare/v3.21.1...v3.22.0

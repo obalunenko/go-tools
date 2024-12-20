@@ -174,7 +174,10 @@ func (c *Client) ExecuteScript(
 		),
 	}
 
-	request, grpcOpts := executeQueryScriptRequest(a, q, settings)
+	request, grpcOpts, err := executeQueryScriptRequest(a, q, settings)
+	if err != nil {
+		return op, xerrors.WithStackTrace(err)
+	}
 
 	op, err = executeScript(ctx, c.client, request, grpcOpts...)
 	if err != nil {
@@ -185,6 +188,10 @@ func (c *Client) ExecuteScript(
 }
 
 func (c *Client) Close(ctx context.Context) error {
+	if c == nil {
+		return xerrors.WithStackTrace(errNilClient)
+	}
+
 	close(c.done)
 
 	if err := c.pool.Close(ctx); err != nil {
