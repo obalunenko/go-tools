@@ -2,12 +2,13 @@ version: 2
 updates:
   - package-ecosystem: "gomod"
     directories:
+      - /tools/buf
       - /tools/coverbadger
       - /tools/enumer
       - /tools/fiximports
       - /tools/go-enum
-      - /tools/gocov
       - /tools/gocov-html
+      - /tools/gocov
       - /tools/gofumpt
       - /tools/goimports
       - /tools/golangci-lint

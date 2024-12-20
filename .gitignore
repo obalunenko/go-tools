@@ -19,5 +19,5 @@ bin/
 dist/
 coverage/
 .DS_Store
-vendor/
 tests-report.json
+tools_list.txt

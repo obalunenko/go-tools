@@ -3,8 +3,7 @@
 set -eu
 
 SCRIPT_NAME="$(basename "$0")"
-SCRIPT_DIR="$(dirname "$0")"
-REPO_ROOT="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
+REPO_ROOT="$(pwd)"
 TOOLS_DIR="${REPO_ROOT}/tools"
 
 echo "${SCRIPT_NAME} is running... "
@@ -30,7 +29,7 @@ function install_dep() {
 
   echo "[INFO]: Going to build ${dep} - ${bin_out}"
 
-  go build -mod=readonly -o "${bin_out}" "${dep}"
+  go build -mod=vendor -o "${bin_out}" "${dep}"
 
   check_status "[FAIL]: build [${dep}] failed!"
 
@@ -50,11 +49,13 @@ function install_deps() {
 }
 
 function install_tools() {
-  declare -a tools_list
+declare -a tools_list
 
-  temp_file=$(mktemp) # создаем временный файл
+  temp_file=./tools_list.txt # создаем временный файл
 
-  go list -m > "$temp_file" # сохраняем вывод команды в файл
+  touch "$temp_file" # создаем временный файл
+
+  ls -d ${TOOLS_DIR}/*/ > "$temp_file" # сохраняем вывод команды в файл
 
   while IFS= read -r t; do
     tools_list+=("$t")
@@ -65,7 +66,8 @@ function install_tools() {
   for t in "${tools_list[@]}"; do
     echo "In loop - current ${t}"
 
-    cd "${TOOLS_DIR}/${t}" || exit 1
+    tool=$(basename "${t}")
+    cd "${TOOLS_DIR}/${tool}" || exit 1
     install_deps
     cd - || exit 1
   done
