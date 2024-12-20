@@ -21,12 +21,12 @@ import (
 
 var (
 	// Regexp for example outputs.
-	exampleOutputRx = regexp.MustCompile(`(?i)//[[:space:]]*(unordered )?output:`)
+	// Keep consistent with outputPrefix in GOROOT/src/go/doc/example.go.
+	exampleOutputRx = regexp.MustCompile(`(?i)^[[:space:]]*//[[:space:]]*(unordered )?output:`)
 )
 
 type Renderer struct {
 	fset          *token.FileSet
-	headingIDs    headingIDs
 	pids          *packageIDs
 	packageURL    func(string) string
 	ctx           context.Context
@@ -66,7 +66,7 @@ var docDataTmpl = template.Must(template.New("").Parse(`
 {{end -}}
 {{- range .Elements -}}
   {{- if .IsHeading -}}
-    <h4 id="{{.ID}}">{{.Title}} <a class="Documentation-idLink" href="#{{.ID}}" aria-label="Go to {{.Title}}">¶</a></h4>
+    <h4 id="{{.ID}}">{{.Title}} <a class="Documentation-idLink" href="#{{.ID}}" title="Go to {{.Title}}" aria-label="Go to {{.Title}}">¶</a></h4>
   {{- else if .IsPreformat -}}
     <pre>{{.Body}}</pre>
   {{- else -}}
@@ -98,7 +98,6 @@ func New(ctx context.Context, fset *token.FileSet, pkg *doc.Package, opts *Optio
 
 	return &Renderer{
 		fset:          fset,
-		headingIDs:    headingIDs{},
 		pids:          pids,
 		packageURL:    packageURL,
 		docTmpl:       docDataTmpl,

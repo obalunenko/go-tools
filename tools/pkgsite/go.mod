@@ -1,8 +1,8 @@
 module pkgsite
 
-go 1.23.1
+go 1.23
 
-require golang.org/x/pkgsite v0.0.0-20240905131054-e0bd492bb79f
+require golang.org/x/pkgsite v0.0.0-20241216215327-06c6edf28e6c
 
 require (
 	github.com/google/licensecheck v0.3.1 // indirect

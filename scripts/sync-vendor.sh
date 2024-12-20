@@ -2,82 +2,66 @@
 
 set -eu
 
+# Constants
 SCRIPT_NAME="$(basename "$0")"
 SCRIPT_DIR="$(dirname "$0")"
 REPO_ROOT="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
 TOOLS_DIR="${REPO_ROOT}/tools"
 
-echo "${SCRIPT_NAME} is running... "
+echo "${SCRIPT_NAME} is running..."
 
-function sync_vendor() {
+# Function to sync the vendor directory
+sync_vendor() {
   echo "Syncing vendor..."
-  rm -rf vendor
+  rm -rf ./vendor
   go mod tidy
   go mod vendor
 }
 
-function check_status() {
-  # first param is error message to print in case of error
-  if [ $? -ne 0 ]; then
-    if [ -n "$1" ]; then
-      echo "$1"
-    fi
 
-    # Exit 255 to pass signal to xargs to abort process with code 1, in other cases xargs will complete with 0.
-    exit 255
-  fi
-}
-
-function sync_dep() {
-  dep=$1
-
-  echo "[INFO]: Going to sync ${dep}"
-
-  sync_vendor
-
-  check_status "[FAIL]: sync [${dep}] failed!"
-
-  echo "[SUCCESS]: sync [${dep}] finished."
-}
-
-export -f sync_dep
-export -f check_status
-export -f sync_vendor
-
-function sync_deps() {
+# Function to sync dependencies
+sync_deps() {
+  local tools_module
   tools_module="$(grep '^module ' go.mod | awk '{print $2}')"
 
   echo "[INFO]: Running install_deps for ${tools_module}"
 
-  go list -e -f '{{ join .Imports "\n" }}' -tags="tools" "${tools_module}" |
-   xargs -n 1 -P 0 -I {} bash -c 'sync_dep "$@"' _ {}
+  sync_vendor
 }
 
-function sync_tools() {
-  declare -a tools_list
+# Function to sync all tools in the TOOLS_DIR
+sync_tools() {
+  local tools_list=()
 
-  temp_file=./tools_list.txt # создаем временный файл
+  # Temporary file to store the list of tools
+  local temp_file="./tools_list.txt"
+  touch "${temp_file}"
 
-  touch "$temp_file" # создаем временный файл
+  # Save tools directories into the temporary file
+  ls -d "${TOOLS_DIR}"/*/ > "${temp_file}"
 
-  ls -d ${TOOLS_DIR}/*/ > "$temp_file" # сохраняем вывод команды в файл
+  # Read tools into an array
+  while IFS= read -r tool_dir; do
+    tools_list+=("${tool_dir}")
+  done < "${temp_file}"
 
-  while IFS= read -r t; do
-    tools_list+=("$t")
-  done < "$temp_file" # читаем файл в массив
+  # Remove the temporary file
+  rm "${temp_file}"
 
-  rm "$temp_file" # удаляем временный файл
+  # Loop through each tool directory and sync dependencies
+  for tool_path in "${tools_list[@]}"; do
+    echo "[INFO]: Processing tool directory: ${tool_path}"
 
-  for t in "${tools_list[@]}"; do
-    echo "In loop - current ${t}"
+    local tool
+    tool=$(basename "${tool_path}")
 
-    tool=$(basename "${t}")
     cd "${TOOLS_DIR}/${tool}" || exit 1
     sync_deps
-    cd - || exit 1
+    cd - > /dev/null || exit 1
   done
 }
 
+# Start the tool synchronization process
 sync_tools
 
-echo "${SCRIPT_NAME} done."
+echo "${SCRIPT_NAME} finished."
