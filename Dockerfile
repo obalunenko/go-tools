@@ -34,8 +34,6 @@ RUN echo "I am running on ${BUILDPLATFORM}, building for ${TARGETPLATFORM}" > ./
 COPY ./.git ./.git
 COPY ./scripts ./scripts
 COPY ./tools ./tools
-COPY go.work go.work
-COPY go.work.sum go.work.sum
 COPY Makefile Makefile
 
 ARG TARGETOS
