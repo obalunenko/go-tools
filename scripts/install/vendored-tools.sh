@@ -3,8 +3,7 @@
 set -eu
 
 SCRIPT_NAME="$(basename "$0")"
-SCRIPT_DIR="$(dirname "$0")"
-REPO_ROOT="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
+REPO_ROOT="$(pwd)"
 TOOLS_DIR="${REPO_ROOT}/tools"
 
 echo "${SCRIPT_NAME} is running... "

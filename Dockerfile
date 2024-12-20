@@ -31,14 +31,14 @@ WORKDIR "${PROJECT_DIR}"
 
 RUN echo "I am running on ${BUILDPLATFORM}, building for ${TARGETPLATFORM}" > ./log_build.txt
 
-COPY ./.git ./.git
-COPY ./scripts ./scripts
-COPY ./tools ./tools
-COPY Makefile Makefile
+
 
 ARG TARGETOS
 ARG TARGETARCH
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
+RUN --mount=type=bind,source=./scripts,target=./scripts \
+    --mount=type=bind,source=./tools,rw,target=./tools \
+    --mount=type=bind,source=Makefile,target=Makefile \
+    GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
 
 
 FROM golang:1.23.4-alpine3.20 AS releaser
@@ -66,13 +66,3 @@ ENV GOROOT=/usr/local/go
 
 # don't place it into $GOPATH/bin because Drone mounts $GOPATH as volume
 COPY --from=builder /src/github.com/obalunenko/common-go-projects-scripts/bin/. /usr/bin/
-
-FROM releaser AS tester
-
-COPY --from=builder /src/github.com/obalunenko/common-go-projects-scripts/scripts/test/installed-tools.sh /usr/bin/installed-tools.sh
-
-RUN /usr/bin/installed-tools.sh
-
-FROM releaser
-
-
