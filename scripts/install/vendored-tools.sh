@@ -62,7 +62,7 @@ declare -a tools_list
     tools_list+=("$t")
   done < "$temp_file" # читаем файл в массив
 
-  #rm "$temp_file" # удаляем временный файл
+  rm "$temp_file" # удаляем временный файл
 
   for t in "${tools_list[@]}"; do
     echo "In loop - current ${t}"
