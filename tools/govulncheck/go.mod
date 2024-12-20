@@ -1,6 +1,6 @@
 module govulncheck
 
-go 1.23.1
+go 1.23
 
 require golang.org/x/vuln v1.1.3
 
