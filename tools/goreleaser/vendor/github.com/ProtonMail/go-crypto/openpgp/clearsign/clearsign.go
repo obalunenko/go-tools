@@ -52,6 +52,8 @@ var end = []byte("\n-----END PGP SIGNATURE-----")
 var crlf = []byte("\r\n")
 var lf = byte('\n')
 
+const hashHeader string = "Hash"
+
 // getLine returns the first \r\n or \n delineated line from the given byte
 // array. The line does not include the \r\n or \n. The remainder of the byte
 // array (also not including the new line bytes) is also returned and this will
@@ -109,7 +111,7 @@ func Decode(data []byte) (b *Block, rest []byte) {
 			return nil, data
 		}
 		// An empty line marks the end of the headers.
-		if line, rest = getLine(rest); len(line) == 0 {
+		if line, rest = getLine(rest); len(strings.TrimSpace(string(line))) == 0 {
 			break
 		}
 
@@ -127,12 +129,14 @@ func Decode(data []byte) (b *Block, rest []byte) {
 
 		key, val := string(line[0:i]), string(line[i+1:])
 		key = strings.TrimSpace(key)
-		if key != "Hash" {
+		if key == hashHeader {
+			for _, val := range strings.Split(val, ",") {
+				val = strings.TrimSpace(val)
+				b.Headers.Add(key, val)
+			}
+		} else {
+			// Only "Hash" headers are allowed.
 			return nil, data
-		}
-		for _, val := range strings.Split(val, ",") {
-			val = strings.TrimSpace(val)
-			b.Headers.Add(key, val)
 		}
 	}
 
@@ -169,6 +173,7 @@ func Decode(data []byte) (b *Block, rest []byte) {
 		b.Plaintext = append(b.Plaintext, line...)
 		b.Plaintext = append(b.Plaintext, lf)
 	}
+	b.Plaintext = b.Plaintext[:len(b.Plaintext)-1]
 
 	// We want to find the extent of the armored data (including any newlines at
 	// the end).
@@ -199,10 +204,12 @@ func Decode(data []byte) (b *Block, rest []byte) {
 // When closed, an armored signature is created and written to complete the
 // message.
 type dashEscaper struct {
-	buffered *bufio.Writer
-	hashers  []hash.Hash // one per key in privateKeys
-	hashType crypto.Hash
-	toHash   io.Writer // writes to all the hashes in hashers
+	buffered    *bufio.Writer
+	hashers     []hash.Hash // one per key in privateKeys
+	hashType    crypto.Hash
+	toHash      io.Writer         // writes to all the hashes in hashers
+	salts       [][]byte          // salts for the signatures if v6
+	armorHeader map[string]string // Armor headers
 
 	atBeginningOfLine bool
 	isFirstLine       bool
@@ -222,7 +229,9 @@ func (d *dashEscaper) Write(data []byte) (n int, err error) {
 			// The final CRLF isn't included in the hash so we have to wait
 			// until this point (the start of the next line) before writing it.
 			if !d.isFirstLine {
-				d.toHash.Write(crlf)
+				if _, err = d.toHash.Write(crlf); err != nil {
+					return
+				}
 			}
 			d.isFirstLine = false
 		}
@@ -243,12 +252,16 @@ func (d *dashEscaper) Write(data []byte) (n int, err error) {
 				if _, err = d.buffered.Write(dashEscape); err != nil {
 					return
 				}
-				d.toHash.Write(d.byteBuf)
+				if _, err = d.toHash.Write(d.byteBuf); err != nil {
+					return
+				}
 				d.atBeginningOfLine = false
 			} else if b == '\n' {
 				// Nothing to do because we delay writing CRLF to the hash.
 			} else {
-				d.toHash.Write(d.byteBuf)
+				if _, err = d.toHash.Write(d.byteBuf); err != nil {
+					return
+				}
 				d.atBeginningOfLine = false
 			}
 			if err = d.buffered.WriteByte(b); err != nil {
@@ -269,13 +282,17 @@ func (d *dashEscaper) Write(data []byte) (n int, err error) {
 				// Any buffered whitespace wasn't at the end of the line so
 				// we need to write it out.
 				if len(d.whitespace) > 0 {
-					d.toHash.Write(d.whitespace)
+					if _, err = d.toHash.Write(d.whitespace); err != nil {
+						return
+					}
 					if _, err = d.buffered.Write(d.whitespace); err != nil {
 						return
 					}
 					d.whitespace = d.whitespace[:0]
 				}
-				d.toHash.Write(d.byteBuf)
+				if _, err = d.toHash.Write(d.byteBuf); err != nil {
+					return
+				}
 				if err = d.buffered.WriteByte(b); err != nil {
 					return
 				}
@@ -288,20 +305,27 @@ func (d *dashEscaper) Write(data []byte) (n int, err error) {
 }
 
 func (d *dashEscaper) Close() (err error) {
-	if !d.atBeginningOfLine {
-		if err = d.buffered.WriteByte(lf); err != nil {
-			return
+	if d.atBeginningOfLine {
+		if !d.isFirstLine {
+			if _, err := d.toHash.Write(crlf); err != nil {
+				return err
+			}
 		}
 	}
+	if err = d.buffered.WriteByte(lf); err != nil {
+		return
+	}
 
-	out, err := armor.Encode(d.buffered, "PGP SIGNATURE", nil)
+	out, err := armor.EncodeWithChecksumOption(d.buffered, "PGP SIGNATURE", d.armorHeader, false)
 	if err != nil {
 		return
 	}
 
 	t := d.config.Now()
+	indexSalt := 0
 	for i, k := range d.privateKeys {
 		sig := new(packet.Signature)
+		sig.Version = k.Version
 		sig.SigType = packet.SigTypeText
 		sig.PubKeyAlgo = k.PubKeyAlgo
 		sig.Hash = d.hashType
@@ -311,7 +335,12 @@ func (d *dashEscaper) Close() (err error) {
 		sig.Notations = d.config.Notations()
 		sigLifetimeSecs := d.config.SigLifetime()
 		sig.SigLifetimeSecs = &sigLifetimeSecs
-
+		if k.Version == 6 {
+			if err = sig.SetSalt(d.salts[indexSalt]); err != nil {
+				return
+			}
+			indexSalt++
+		}
 		if err = sig.Sign(d.hashers[i], k, d.config); err != nil {
 			return
 		}
@@ -335,10 +364,25 @@ func Encode(w io.Writer, privateKey *packet.PrivateKey, config *packet.Config) (
 	return EncodeMulti(w, []*packet.PrivateKey{privateKey}, config)
 }
 
+// EncodeWithHeader returns a WriteCloser which will clear-sign a message with privateKey
+// and write it to w. If config is nil, sensible defaults are used.
+// Additionally provides a headers argument for custom headers.
+func EncodeWithHeader(w io.Writer, privateKey *packet.PrivateKey, config *packet.Config, headers map[string]string) (plaintext io.WriteCloser, err error) {
+	return EncodeMultiWithHeader(w, []*packet.PrivateKey{privateKey}, config, headers)
+}
+
 // EncodeMulti returns a WriteCloser which will clear-sign a message with all the
 // private keys indicated and write it to w. If config is nil, sensible defaults
 // are used.
 func EncodeMulti(w io.Writer, privateKeys []*packet.PrivateKey, config *packet.Config) (plaintext io.WriteCloser, err error) {
+	return EncodeMultiWithHeader(w, privateKeys, config, nil)
+}
+
+// EncodeMultiWithHeader returns a WriteCloser which will clear-sign a message with all the
+// private keys indicated and write it to w. If config is nil, sensible defaults
+// are used.
+// Additionally provides a headers argument for custom headers.
+func EncodeMultiWithHeader(w io.Writer, privateKeys []*packet.PrivateKey, config *packet.Config, headers map[string]string) (plaintext io.WriteCloser, err error) {
 	for _, k := range privateKeys {
 		if k.Encrypted {
 			return nil, errors.InvalidArgumentError(fmt.Sprintf("signing key %s is encrypted", k.KeyIdString()))
@@ -356,8 +400,21 @@ func EncodeMulti(w io.Writer, privateKeys []*packet.PrivateKey, config *packet.C
 	}
 	var hashers []hash.Hash
 	var ws []io.Writer
-	for range privateKeys {
+	var salts [][]byte
+	for _, sk := range privateKeys {
 		h := hashType.New()
+		if sk.Version == 6 {
+			// generate salt
+			var salt []byte
+			salt, err = packet.SignatureSaltForHash(hashType, config.Random())
+			if err != nil {
+				return
+			}
+			if _, err = h.Write(salt); err != nil {
+				return
+			}
+			salts = append(salts, salt)
+		}
 		hashers = append(hashers, h)
 		ws = append(ws, h)
 	}
@@ -371,24 +428,28 @@ func EncodeMulti(w io.Writer, privateKeys []*packet.PrivateKey, config *packet.C
 	if err = buffered.WriteByte(lf); err != nil {
 		return
 	}
-	if _, err = buffered.WriteString("Hash: "); err != nil {
-		return
-	}
-	if _, err = buffered.WriteString(name); err != nil {
-		return
-	}
-	if err = buffered.WriteByte(lf); err != nil {
-		return
+	// write headers
+	nonV6 := len(salts) < len(hashers)
+	// Crypto refresh: Headers SHOULD NOT be emitted
+	if nonV6 { // Emit header if non v6 signatures are present for compatibility
+		if _, err = buffered.WriteString(fmt.Sprintf("%s: %s", hashHeader, name)); err != nil {
+			return
+		}
+		if err = buffered.WriteByte(lf); err != nil {
+			return
+		}
 	}
 	if err = buffered.WriteByte(lf); err != nil {
 		return
 	}
 
 	plaintext = &dashEscaper{
-		buffered: buffered,
-		hashers:  hashers,
-		hashType: hashType,
-		toHash:   toHash,
+		buffered:    buffered,
+		hashers:     hashers,
+		hashType:    hashType,
+		toHash:      toHash,
+		salts:       salts,
+		armorHeader: headers,
 
 		atBeginningOfLine: true,
 		isFirstLine:       true,
@@ -405,20 +466,8 @@ func EncodeMulti(w io.Writer, privateKeys []*packet.PrivateKey, config *packet.C
 // VerifySignature checks a clearsigned message signature, and checks that the
 // hash algorithm in the header matches the hash algorithm in the signature.
 func (b *Block) VerifySignature(keyring openpgp.KeyRing, config *packet.Config) (signer *openpgp.Entity, err error) {
-	var expectedHashes []crypto.Hash
-	for _, v := range b.Headers {
-		for _, name := range v {
-			expectedHash := nameToHash(name)
-			if uint8(expectedHash) == 0 {
-				return nil, errors.StructuralError("unknown hash algorithm in cleartext message headers")
-			}
-			expectedHashes = append(expectedHashes, expectedHash)
-		}
-	}
-	if len(expectedHashes) == 0 {
-		expectedHashes = append(expectedHashes, crypto.MD5)
-	}
-	return openpgp.CheckDetachedSignatureAndHash(keyring, bytes.NewBuffer(b.Bytes), b.ArmoredSignature.Body, expectedHashes, config)
+	_, signer, err = openpgp.VerifyDetachedSignature(keyring, bytes.NewBuffer(b.Bytes), b.ArmoredSignature.Body, config)
+	return
 }
 
 // nameOfHash returns the OpenPGP name for the given hash, or the empty string
@@ -439,26 +488,4 @@ func nameOfHash(h crypto.Hash) string {
 		return "SHA3-512"
 	}
 	return ""
-}
-
-// nameToHash returns a hash for a given OpenPGP name, or 0
-// if the name isn't known. See RFC 4880, section 9.4.
-func nameToHash(h string) crypto.Hash {
-	switch h {
-	case "SHA1":
-		return crypto.SHA1
-	case "SHA224":
-		return crypto.SHA224
-	case "SHA256":
-		return crypto.SHA256
-	case "SHA384":
-		return crypto.SHA384
-	case "SHA512":
-		return crypto.SHA512
-	case "SHA3-256":
-		return crypto.SHA3_256
-	case "SHA3-512":
-		return crypto.SHA3_512
-	}
-	return crypto.Hash(0)
 }
