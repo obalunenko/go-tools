@@ -31,7 +31,7 @@ help:
 
 ## Build docker images.
 build:
-	docker buildx bake
+	IMAGE_DESCRIPTION="$$(cat README.md)" docker buildx bake
 .PHONY: build
 
 ## Sync vendor.
