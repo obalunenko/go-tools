@@ -49,7 +49,7 @@ check-tools:
 .PHONY: check-tools
 
 ## Issue new release.
-new-version: install-tools
+new-version: install-tools build check-releaser
 	./scripts/release/new-version.sh
 .PHONY: new-release
 
