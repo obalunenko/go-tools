@@ -104,7 +104,7 @@ jobs:
         with:
           files: |
             ./docker-bake.hcl
-            cwd://${{ env.TAGS }}
+            cwd://${{ env.LABELS }}
           push: false
           pull: true
 
