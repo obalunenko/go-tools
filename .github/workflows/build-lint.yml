@@ -99,11 +99,12 @@ jobs:
       - name: Build Docker image
         uses: docker/bake-action@v6.3.0
         env:
-          TAGS: ${{ steps.meta.outputs.tags }}
-          LABELS: ${{ steps.meta.outputs.labels }}
+          TAGS: ${{ steps.meta.outputs.bake-file-tags }}
+          LABELS: ${{ steps.meta.outputs.bake-file-labels }}
         with:
           files: |
             ./docker-bake.hcl
+            cwd://${{ env.TAGS }}
             cwd://${{ env.LABELS }}
           push: false
           pull: true
