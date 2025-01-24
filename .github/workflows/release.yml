@@ -12,7 +12,7 @@ env:
 jobs:
   bake-images:
     name: Build and push
-    runs-on: 'ubuntu-22.04'
+    runs-on: 'ubuntu-24.04'
     permissions:
       contents: read
       packages: write
@@ -56,17 +56,19 @@ jobs:
         env:
           TAGS: ${{ steps.meta.outputs.bake-file-tags }}
           LABELS: ${{ steps.meta.outputs.bake-file-labels }}
+          ANNOTATIONS: ${{ steps.meta.outputs.bake-file-annotations }}
         with:
           files: |
             ./docker-bake.hcl
             cwd://${{ env.TAGS }}
             cwd://${{ env.LABELS }}
+            cwd://${{ env.ANNOTATIONS }}
           push: ${{ github.event_name != 'pull_request' }}
           pull: true
 
   release-notes:
     needs: [ bake-images ]
-    runs-on: 'ubuntu-22.04'
+    runs-on: 'ubuntu-24.04'
     name: Release notes
     steps:
       - name: Set up go
