@@ -30,7 +30,10 @@ target "gotools-latest" {
     inherits = ["docker-metadata-action"]
     dockerfile = "Dockerfile"
     context    = "."
-    platforms = ["linux/amd64", "linux/arm64"]
+    platforms = [
+        "linux/amd64",
+        "linux/arm64"
+    ]
     labels = {
         "org.opencontainers.image.title"       = "${IMAGE_TITLE}"
         "org.opencontainers.image.description" = "${IMAGE_DESCRIPTION}"

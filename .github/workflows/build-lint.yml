@@ -29,7 +29,7 @@ jobs:
           [
             "Dockerfile",
           ]
-    runs-on: "ubuntu-22.04"
+    runs-on: "ubuntu-24.04"
     name: Lint ${{ matrix.dockerfile }}
     steps:
       - name: Checkout
@@ -45,7 +45,7 @@ jobs:
           error_level: 2
 
   check-release-config:
-    runs-on: 'ubuntu-22.04'
+    runs-on: 'ubuntu-24.04'
     name: Check releaser configs
     steps:
       - name: Checkout
@@ -71,7 +71,7 @@ jobs:
   build:
     needs: [ lint-dockerfiles, check-release-config ]
     name: Build
-    runs-on: "ubuntu-22.04"
+    runs-on: "ubuntu-24.04"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -97,14 +97,17 @@ jobs:
             type=semver,pattern={{major}}
 
       - name: Build Docker image
-        uses: docker/bake-action@v5.11.0
+        uses: docker/bake-action@v6.3.0
         env:
-          TAGS: ${{ steps.meta.outputs.tags }}
-          LABELS: ${{ steps.meta.outputs.labels }}
+          TAGS: ${{ steps.meta.outputs.bake-file-tags }}
+          LABELS: ${{ steps.meta.outputs.bake-file-labels }}
+          ANNOTATIONS: ${{ steps.meta.outputs.bake-file-annotations }}
         with:
           files: |
             ./docker-bake.hcl
-            ${{ steps.meta.outputs.bake-file }}
+            cwd://${{ env.TAGS }}
+            cwd://${{ env.LABELS }}
+            cwd://${{ env.ANNOTATIONS }}
           push: false
           pull: true
 
