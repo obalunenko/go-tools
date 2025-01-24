@@ -60,7 +60,6 @@ jobs:
           files: |
             ./docker-bake.hcl
             cwd://${{ env.TAGS }}
-            cwd://${{ env.LABELS }}
           push: ${{ github.event_name != 'pull_request' }}
           pull: true
 
