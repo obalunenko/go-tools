@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ func ParseFileType(s string) (FileType, error) {
 // .proto file, license file, or documentation file.
 //
 // Note that license and documentation files must be at the root, and cannot be in subdirectories. That is,
-// subdir/LICENSE will not be classified as a FileTypeLicnese, but LICENSE will be.
+// subdir/LICENSE will not be classified as a FileTypeLicense, but LICENSE will be.
 func FileTypeForPath(path string) (FileType, error) {
 	if normalpath.Ext(path) == ".proto" {
 		return FileTypeProto, nil

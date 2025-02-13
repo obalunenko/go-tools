@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -316,17 +316,17 @@ func replaceReadObjectCloserPath(readObjectCloser ReadObjectCloser, path string)
 }
 
 func replaceWriteObjectCloserExternalAndLocalPathsNotSupported(writeObjectCloser WriteObjectCloser) WriteObjectCloser {
-	return writeObjectCloserExternalAndLocalPathsNotSuppoted{writeObjectCloser}
+	return writeObjectCloserExternalAndLocalPathsNotSupported{writeObjectCloser}
 }
 
-type writeObjectCloserExternalAndLocalPathsNotSuppoted struct {
+type writeObjectCloserExternalAndLocalPathsNotSupported struct {
 	io.WriteCloser
 }
 
-func (writeObjectCloserExternalAndLocalPathsNotSuppoted) SetExternalPath(string) error {
+func (writeObjectCloserExternalAndLocalPathsNotSupported) SetExternalPath(string) error {
 	return ErrSetExternalPathUnsupported
 }
 
-func (writeObjectCloserExternalAndLocalPathsNotSuppoted) SetLocalPath(string) error {
+func (writeObjectCloserExternalAndLocalPathsNotSupported) SetLocalPath(string) error {
 	return ErrSetLocalPathUnsupported
 }

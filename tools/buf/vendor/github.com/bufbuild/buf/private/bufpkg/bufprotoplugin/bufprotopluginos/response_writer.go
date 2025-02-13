@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -126,7 +126,7 @@ func (w *responseWriter) Close() error {
 			// whereas others aren't.
 			//
 			// Regardless, we stop at the first error so that
-			// we don't unncessarily write more results.
+			// we don't unnecessarily write more results.
 			return err
 		}
 	}

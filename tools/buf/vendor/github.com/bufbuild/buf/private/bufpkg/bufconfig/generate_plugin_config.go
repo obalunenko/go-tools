@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -330,7 +330,7 @@ func newGeneratePluginConfigFromExternalV1(
 			externalConfig.Revision,
 		)
 	}
-	// At this point the plugin must be local, regardless whehter it's specified
+	// At this point the plugin must be local, regardless whether it's specified
 	// by key 'plugin' or 'name'.
 	if len(path) > 0 {
 		return newLocalGeneratePluginConfig(

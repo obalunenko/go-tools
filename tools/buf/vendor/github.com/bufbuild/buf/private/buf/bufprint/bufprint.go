@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -274,9 +274,9 @@ func NewPluginEntity(plugin *pluginv1beta1.Plugin, pluginFullName bufparse.FullN
 // NewUserEntity returns a new user entity to print.
 func NewUserEntity(user *registryv1alpha1.User) Entity {
 	return outputUser{
-		Username: user.Username,
+		Username: user.GetUsername(),
 		// We use the Username as the full name for the user when printing.
-		FullName: user.Username,
+		FullName: user.GetUsername(),
 	}
 }
 

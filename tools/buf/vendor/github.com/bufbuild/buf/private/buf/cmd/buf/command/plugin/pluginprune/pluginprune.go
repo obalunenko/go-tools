@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ func prune(
 	}
 	var prunedBufLockPluginKeys []bufplugin.PluginKey
 	for _, existingRemotePluginKey := range existingRemotePluginKeys {
-		// Check if an existing plugin key from the buf.lock is confiugred in the buf.yaml.
+		// Check if an existing plugin key from the buf.lock is configured in the buf.yaml.
 		if _, ok := bufYAMLRemotePluginNames[existingRemotePluginKey.FullName().String()]; ok {
 			// If yes, then we keep it for the updated buf.lock.
 			prunedBufLockPluginKeys = append(prunedBufLockPluginKeys, existingRemotePluginKey)

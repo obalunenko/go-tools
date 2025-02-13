@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -144,7 +144,6 @@ func copyPaths(
 	var count atomic.Int64
 	jobs := make([]func(context.Context) error, len(paths))
 	for i, path := range paths {
-		path := path
 		jobs[i] = func(ctx context.Context) error {
 			if err := copyPath(ctx, from, path, to, path, copyExternalAndLocalPaths, atomicOpt); err != nil {
 				return err

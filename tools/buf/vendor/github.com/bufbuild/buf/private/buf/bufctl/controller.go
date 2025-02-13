@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1085,8 +1085,8 @@ func (c *controller) getImageForMessageRef(
 	}
 
 	if functionOptions.imageExcludeSourceInfo {
-		for _, fileDescriptorProto := range protoImage.File {
-			fileDescriptorProto.SourceCodeInfo = nil
+		for _, fileDescriptorProto := range protoImage.GetFile() {
+			fileDescriptorProto.ClearSourceCodeInfo()
 		}
 	}
 
@@ -1315,7 +1315,7 @@ func bootstrapResolver(
 	if err := unmarshaler.Unmarshal(data, firstProtoImage); err != nil {
 		return nil, err
 	}
-	return protoencoding.NewResolver(firstProtoImage.File...)
+	return protoencoding.NewResolver(firstProtoImage.GetFile()...)
 }
 
 // WE DO NOT FILTER IF WE ALREADY FILTERED ON BUILDING OF A WORKSPACE

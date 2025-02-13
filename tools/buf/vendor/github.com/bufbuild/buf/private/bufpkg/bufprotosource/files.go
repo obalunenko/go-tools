@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -56,7 +56,6 @@ func newFiles[F InputFile](
 	jobs := make([]func(context.Context) error, len(chunks))
 	var lock sync.Mutex
 	for i, indexedInputFileChunk := range chunks {
-		indexedInputFileChunk := indexedInputFileChunk
 		jobs[i] = func(ctx context.Context) error {
 			iIndexedFiles := make([]slicesext.Indexed[File], 0, len(indexedInputFileChunk))
 			for _, indexedInputFile := range indexedInputFileChunk {

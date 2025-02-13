@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,8 +42,8 @@ const (
 )
 
 var (
-	// allVisibiltyStrings are the possible options that a user can set the visibility flag with.
-	allVisibiltyStrings = []string{
+	// allVisibilityStrings are the possible options that a user can set the visibility flag with.
+	allVisibilityStrings = []string{
 		publicVisibility,
 		privateVisibility,
 	}
@@ -153,7 +153,7 @@ func BindVisibility(flagSet *pflag.FlagSet, addr *string, flagName string, empty
 		addr,
 		flagName,
 		defaultVisibility,
-		fmt.Sprintf(`The module's visibility setting. Must be one of %s`, stringutil.SliceToString(allVisibiltyStrings)),
+		fmt.Sprintf(`The module's visibility setting. Must be one of %s`, stringutil.SliceToString(allVisibilityStrings)),
 	)
 }
 
@@ -164,7 +164,7 @@ func BindCreateVisibility(flagSet *pflag.FlagSet, addr *string, flagName string,
 		addr,
 		flagName,
 		privateVisibility,
-		fmt.Sprintf(`The module's visibility setting, if created. Can only be set with --%s. Must be one of %s`, createFlagName, stringutil.SliceToString(allVisibiltyStrings)),
+		fmt.Sprintf(`The module's visibility setting, if created. Can only be set with --%s. Must be one of %s`, createFlagName, stringutil.SliceToString(allVisibilityStrings)),
 	)
 }
 

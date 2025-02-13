@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import (
 //
 // Tamper-proofing is done as part of every function.
 type PluginData interface {
-	// PluginKey used to downoad this PluginData.
+	// PluginKey used to download this PluginData.
 	//
 	// The Digest from this PluginKey is used for tamper-proofing. It will be checked
 	// against the actual data downloaded before Data() returns.

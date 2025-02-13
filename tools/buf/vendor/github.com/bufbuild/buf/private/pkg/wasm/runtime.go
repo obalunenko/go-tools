@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ func newRuntime(ctx context.Context, options ...RuntimeOption) (*runtime, error)
 	}
 	// The maximum memory size is limited to 4 GiB. Sizes less than the page
 	// size (64 KiB) are truncated. memoryLimitPages is guaranteed to be
-	// below 2^16 as the maxium uint32 value is 2^32 - 1.
+	// below 2^16 as the maximum uint32 value is 2^32 - 1.
 	// NOTE: The option represented as a uint32 restricts the max number of
 	// pages to 2^16-1, one less the the actual max value of 2^16. But this
 	// is a nicer API then specifying the max number of pages directly.

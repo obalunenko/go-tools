@@ -7,7 +7,6 @@ import (
 	"go/token"
 	"maps"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -16,8 +15,8 @@ import (
 	"github.com/caarlos0/log"
 	"github.com/goreleaser/goreleaser/v2/internal/artifact"
 	"github.com/goreleaser/goreleaser/v2/internal/builders/buildtarget"
+	"github.com/goreleaser/goreleaser/v2/internal/builders/common"
 	"github.com/goreleaser/goreleaser/v2/internal/experimental"
-	"github.com/goreleaser/goreleaser/v2/internal/gio"
 	"github.com/goreleaser/goreleaser/v2/internal/logext"
 	"github.com/goreleaser/goreleaser/v2/internal/tmpl"
 	api "github.com/goreleaser/goreleaser/v2/pkg/build"
@@ -34,6 +33,7 @@ var Default = &Builder{}
 var (
 	_ api.Builder          = &Builder{}
 	_ api.DependingBuilder = &Builder{}
+	_ api.TargetFixer      = &Builder{}
 )
 
 //nolint:gochecknoinits
@@ -166,6 +166,11 @@ func (*Builder) WithDefaults(build config.Build) (config.Build, error) {
 	return build, nil
 }
 
+// FixTarget implements build.TargetFixer.
+func (b *Builder) FixTarget(target string) string {
+	return fixTarget(target)
+}
+
 func fixTarget(target string) string {
 	if strings.HasSuffix(target, "_amd64") {
 		return target + "_v1"
@@ -287,20 +292,22 @@ func (*Builder) Build(ctx *context.Context, build config.Build, options api.Opti
 	// used for unit testing only
 	testEnvs := []string{}
 	env = append(env, ctx.Env.Strings()...)
-	for _, e := range details.Env {
-		ee, err := tmpl.New(ctx).WithEnvS(env).WithArtifact(a).Apply(e)
-		if err != nil {
-			return err
-		}
-		log.Debugf("env %q evaluated to %q", e, ee)
-		if ee != "" {
-			env = append(env, ee)
-			if strings.HasPrefix(e, "TEST_") {
-				testEnvs = append(testEnvs, ee)
-			}
+
+	tpl := tmpl.New(ctx).
+		WithBuildOptions(options).
+		WithEnvS(env).
+		WithArtifact(a)
+
+	tenv, err := common.TemplateEnv(details.Env, tpl)
+	if err != nil {
+		return err
+	}
+	for _, e := range tenv {
+		if strings.HasPrefix(e, "TEST_") {
+			testEnvs = append(testEnvs, e)
 		}
 	}
-
+	env = append(env, tenv...)
 	env = append(env, t.env()...)
 	if v := os.Getenv("GOCACHEPROG"); v != "" {
 		env = append(env, "GOCACHEPROG="+v)
@@ -315,15 +322,11 @@ func (*Builder) Build(ctx *context.Context, build config.Build, options api.Opti
 		return err
 	}
 
-	if err := run(ctx, cmd, env, build.Dir); err != nil {
-		return fmt.Errorf("failed to build for %s: %w", options.Target, err)
-	}
-
-	modTimestamp, err := tmpl.New(ctx).WithEnvS(env).WithArtifact(a).Apply(build.ModTimestamp)
-	if err != nil {
+	if err := common.Exec(ctx, cmd, env, build.Dir); err != nil {
 		return err
 	}
-	if err := gio.Chtimes(options.Path, modTimestamp); err != nil {
+
+	if err := common.ChTimes(build, tpl, a); err != nil {
 		return err
 	}
 
@@ -442,22 +445,6 @@ func validateUniqueFlags(details config.BuildDetails) {
 			log.WithField("flag", flag).WithField("buildmode", details.Buildmode).Warn("buildmode is defined twice")
 		}
 	}
-}
-
-func run(ctx *context.Context, command, env []string, dir string) error {
-	/* #nosec */
-	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
-	cmd.Env = env
-	cmd.Dir = dir
-	log.Debug("running")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%w: %s", err, string(out))
-	}
-	if s := buildOutput(out); s != "" {
-		log.WithField("cmd", command).Info(s)
-	}
-	return nil
 }
 
 func buildOutput(out []byte) string {

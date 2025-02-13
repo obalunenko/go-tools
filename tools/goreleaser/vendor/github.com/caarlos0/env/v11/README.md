@@ -3,6 +3,12 @@
   <p align="center">A simple, zero-dependencies library to parse environment variables into structs.</p>
 </p>
 
+###### Installation
+
+```bash
+go get github.com/caarlos0/env/v11
+```
+
 ###### Getting started
 
 ```go
@@ -18,8 +24,7 @@ err := env.Parse(&cfg)
 cfg, err := env.ParseAs[config]()
 ```
 
-You can see the full documentation and list of examples at
-[pkg.go.dev](https://pkg.go.dev/github.com/caarlos0/env/v11).
+You can see the full documentation and list of examples at [pkg.go.dev](https://pkg.go.dev/github.com/caarlos0/env/v11).
 
 ---
 
@@ -27,7 +32,7 @@ You can see the full documentation and list of examples at
 
 <p>
   <a href="https://encore.dev">
-    <img src="https://user-images.githubusercontent.com/78424526/214602214-52e0483a-b5fc-4d4c-b03e-0b7b23e012df.svg" width="120px" alt="encore icon"></img>
+    <img src="https://user-images.githubusercontent.com/78424526/214602214-52e0483a-b5fc-4d4c-b03e-0b7b23e012df.svg" width="120px" alt="encore icon" />
   </a>
   <br/>
   <br/>
@@ -48,19 +53,15 @@ You can see the full documentation and list of examples at
 
 - `Parse`: parse the current environment into a type
 - `ParseAs`: parse the current environment into a type using generics
-- `ParseWithOptions`: parse the current environment into a type with custom
-  options
-- `ParseAsithOptions`: parse the current environment into a type with custom
-  options and using generics
+- `ParseWithOptions`: parse the current environment into a type with custom options
+- `ParseAsWithOptions`: parse the current environment into a type with custom options and using generics
 - `Must`: can be used to wrap `Parse.*` calls to panic on error
 - `GetFieldParams`: get the `env` parsed options for a type
-- `GetFieldParamsWithOptions`: get the `env` parsed options for a type with
-  custom options
+- `GetFieldParamsWithOptions`: get the `env` parsed options for a type with custom options
 
 ### Supported types
 
-Out of the box all built-in types are supported, plus a few others that
-are commonly used.
+Out of the box all built-in types are supported, plus a few others that are commonly used.
 
 Complete list:
 
@@ -79,11 +80,11 @@ Complete list:
 - `uint8`
 - `uint`
 - `time.Duration`
+- `time.Location`
 - `encoding.TextUnmarshaler`
 - `url.URL`
 
-Pointers, slices and slices of pointers, and maps of those types are also
-supported.
+Pointers, slices and slices of pointers, and maps of those types are also supported.
 
 You may also add custom parsers for your types.
 
@@ -91,15 +92,11 @@ You may also add custom parsers for your types.
 
 The following tags are provided:
 
-- `env`: sets the environment variable name and optionally takes the tag options
-  described below
+- `env`: sets the environment variable name and optionally takes the tag options described below
 - `envDefault`: sets the default value for the field
-- `envPrefix`: can be used in a field that is a complex type to set a prefix to
-  all environment variables used in it
-- `envSeparator`: sets the character to be used to separate items in slices and
-  maps (default: `,`)
-- `envKeyValSeparator`: sets the character to be used to separate keys and their
-  values in maps (default: `:`)
+- `envPrefix`: can be used in a field that is a complex type to set a prefix to all environment variables used in it
+- `envSeparator`: sets the character to be used to separate items in slices and maps (default: `,`)
+- `envKeyValSeparator`: sets the character to be used to separate keys and their values in maps (default: `:`)
 
 ### `env` tag options
 
@@ -118,20 +115,27 @@ There are a few options available in the functions that end with `WithOptions`:
 
 - `Environment`: keys and values to be used instead of `os.Environ()`
 - `TagName`: specifies another tag name to use rather than the default `env`
-- `RequiredIfNoDef`: set all `env` fields as required if they do not declare
-  `envDefault`
-- `OnSet`: allows to hook into the `env` parsing and do something when a value
-  is set
+- `PrefixTagName`: specifies another prefix tag name to use rather than the default `envPrefix`
+- `DefaultValueTagName`: specifies another default tag name to use rather than the default `envDefault`
+- `RequiredIfNoDef`: set all `env` fields as required if they do not declare `envDefault`
+- `OnSet`: allows to hook into the `env` parsing and do something when a value is set
 - `Prefix`: prefix to be used in all environment variables
 - `UseFieldNameByDefault`: defines whether or not `env` should use the field name by default if the `env` key is missing
 - `FuncMap`: custom parse functions for custom types
 
 ### Documentation and examples
 
-Examples are live in
-[pkg.go.dev](https://pkg.go.dev/github.com/caarlos0/env/v11),
-and also in the
-[example test file](./example_test.go).
+Examples are live in [pkg.go.dev](https://pkg.go.dev/github.com/caarlos0/env/v11),
+and also in the [example test file](./example_test.go).
+
+## Current state
+
+`env` is considered feature-complete.
+
+I do not intent to add any new features unless they really make sense, and are
+requested by many people.
+
+Eventual bug fixes will keep being merged.
 
 ## Badges
 

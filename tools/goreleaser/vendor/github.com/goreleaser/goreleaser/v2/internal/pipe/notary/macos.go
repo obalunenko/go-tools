@@ -5,6 +5,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/anchore/quill/quill"
+	"github.com/anchore/quill/quill/notary"
+	"github.com/anchore/quill/quill/pki/load"
 	"github.com/caarlos0/log"
 	"github.com/goreleaser/goreleaser/v2/internal/artifact"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe"
@@ -13,9 +16,6 @@ import (
 	"github.com/goreleaser/goreleaser/v2/internal/tmpl"
 	"github.com/goreleaser/goreleaser/v2/pkg/config"
 	"github.com/goreleaser/goreleaser/v2/pkg/context"
-	"github.com/goreleaser/quill/quill"
-	"github.com/goreleaser/quill/quill/notary"
-	"github.com/goreleaser/quill/quill/pki/load"
 )
 
 type MacOS struct{}
@@ -61,6 +61,7 @@ func signAndNotarize(ctx *context.Context, cfg config.MacOSSignNotarize) error {
 	if err := tmpl.New(ctx).ApplyAll(
 		&cfg.Sign.Certificate,
 		&cfg.Sign.Password,
+		&cfg.Sign.Entitlements,
 		&cfg.Notarize.Key,
 		&cfg.Notarize.KeyID,
 		&cfg.Notarize.IssuerID,
@@ -93,7 +94,8 @@ func signAndNotarize(ctx *context.Context, cfg config.MacOSSignNotarize) error {
 		if err != nil {
 			return fmt.Errorf("notarize: macos: %s: %w", bin.Path, err)
 		}
-		signCfg = signCfg.WithTimestampServer("http://timestamp.apple.com/ts01")
+		signCfg = signCfg.WithTimestampServer("http://timestamp.apple.com/ts01").
+			WithEntitlements(cfg.Sign.Entitlements)
 
 		log.WithField("binary", bin.Path).Info("signing")
 		if err := quill.Sign(*signCfg); err != nil {

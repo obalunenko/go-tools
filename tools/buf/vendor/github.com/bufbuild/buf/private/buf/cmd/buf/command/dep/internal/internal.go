@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -113,7 +113,7 @@ func Prune(
 	return workspaceDepManager.UpdateBufLockFile(ctx, depModuleKeys, existingRemotePluginKeys)
 }
 
-// LogUnusedConfiugredDepsForWorkspace takes a workspace and logs the unused configured
+// LogUnusedConfiguredDepsForWorkspace takes a workspace and logs the unused configured
 // dependencies as warnings to the user.
 func LogUnusedConfiguredDepsForWorkspace(
 	workspace bufworkspace.Workspace,

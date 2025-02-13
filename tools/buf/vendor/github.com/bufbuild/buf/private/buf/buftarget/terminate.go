@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ func TerminateAtControllingWorkspace(
 }
 
 // TerminateAtV1Module is a special terminate func that returns a controlling workspace with
-// a v1 module confiugration if found at the given prefix.
+// a v1 module configuration if found at the given prefix.
 func TerminateAtV1Module(
 	ctx context.Context,
 	bucket storage.ReadBucket,

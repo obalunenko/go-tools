@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Buf Technologies, Inc.
+// Copyright 2023-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,12 +51,6 @@ const (
 	UploadServiceUploadProcedure = "/buf.registry.module.v1.UploadService/Upload"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	uploadServiceServiceDescriptor      = v1.File_buf_registry_module_v1_upload_service_proto.Services().ByName("UploadService")
-	uploadServiceUploadMethodDescriptor = uploadServiceServiceDescriptor.Methods().ByName("Upload")
-)
-
 // UploadServiceClient is a client for the buf.registry.module.v1.UploadService service.
 type UploadServiceClient interface {
 	// Upload contents for given set of Modules.
@@ -74,11 +68,12 @@ type UploadServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewUploadServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) UploadServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	uploadServiceMethods := v1.File_buf_registry_module_v1_upload_service_proto.Services().ByName("UploadService").Methods()
 	return &uploadServiceClient{
 		upload: connect.NewClient[v1.UploadRequest, v1.UploadResponse](
 			httpClient,
 			baseURL+UploadServiceUploadProcedure,
-			connect.WithSchema(uploadServiceUploadMethodDescriptor),
+			connect.WithSchema(uploadServiceMethods.ByName("Upload")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -108,10 +103,11 @@ type UploadServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewUploadServiceHandler(svc UploadServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	uploadServiceMethods := v1.File_buf_registry_module_v1_upload_service_proto.Services().ByName("UploadService").Methods()
 	uploadServiceUploadHandler := connect.NewUnaryHandler(
 		UploadServiceUploadProcedure,
 		svc.Upload,
-		connect.WithSchema(uploadServiceUploadMethodDescriptor),
+		connect.WithSchema(uploadServiceMethods.ByName("Upload")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/buf.registry.module.v1.UploadService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

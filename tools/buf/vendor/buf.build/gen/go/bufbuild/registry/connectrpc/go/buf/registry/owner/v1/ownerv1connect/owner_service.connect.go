@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Buf Technologies, Inc.
+// Copyright 2023-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,12 +51,6 @@ const (
 	OwnerServiceGetOwnersProcedure = "/buf.registry.owner.v1.OwnerService/GetOwners"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	ownerServiceServiceDescriptor         = v1.File_buf_registry_owner_v1_owner_service_proto.Services().ByName("OwnerService")
-	ownerServiceGetOwnersMethodDescriptor = ownerServiceServiceDescriptor.Methods().ByName("GetOwners")
-)
-
 // OwnerServiceClient is a client for the buf.registry.owner.v1.OwnerService service.
 type OwnerServiceClient interface {
 	// Get Users or Organizations by id or name.
@@ -72,11 +66,12 @@ type OwnerServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewOwnerServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) OwnerServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	ownerServiceMethods := v1.File_buf_registry_owner_v1_owner_service_proto.Services().ByName("OwnerService").Methods()
 	return &ownerServiceClient{
 		getOwners: connect.NewClient[v1.GetOwnersRequest, v1.GetOwnersResponse](
 			httpClient,
 			baseURL+OwnerServiceGetOwnersProcedure,
-			connect.WithSchema(ownerServiceGetOwnersMethodDescriptor),
+			connect.WithSchema(ownerServiceMethods.ByName("GetOwners")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -105,10 +100,11 @@ type OwnerServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewOwnerServiceHandler(svc OwnerServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	ownerServiceMethods := v1.File_buf_registry_owner_v1_owner_service_proto.Services().ByName("OwnerService").Methods()
 	ownerServiceGetOwnersHandler := connect.NewUnaryHandler(
 		OwnerServiceGetOwnersProcedure,
 		svc.GetOwners,
-		connect.WithSchema(ownerServiceGetOwnersMethodDescriptor),
+		connect.WithSchema(ownerServiceMethods.ByName("GetOwners")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)

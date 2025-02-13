@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 )
 
 // Version is the version of github.com/protocolbuffers/protobuf used to extract the Well-Known Types.
-const Version = "29.1"
+const Version = "29.3"
 
 var (
 	// ReadBucket is the storage.ReadBucket with the static data generated for this package.

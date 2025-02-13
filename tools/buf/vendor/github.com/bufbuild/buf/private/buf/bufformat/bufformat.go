@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,7 +49,6 @@ func FormatBucket(ctx context.Context, bucket storage.ReadBucket) (_ storage.Rea
 	}
 	jobs := make([]func(context.Context) error, len(paths))
 	for i, path := range paths {
-		path := path
 		jobs[i] = func(ctx context.Context) (retErr error) {
 			readObjectCloser, err := bucket.Get(ctx, path)
 			if err != nil {

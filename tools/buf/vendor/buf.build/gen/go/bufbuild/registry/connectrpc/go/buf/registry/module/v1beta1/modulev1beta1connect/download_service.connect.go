@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Buf Technologies, Inc.
+// Copyright 2023-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,12 +52,6 @@ const (
 	DownloadServiceDownloadProcedure = "/buf.registry.module.v1beta1.DownloadService/Download"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	downloadServiceServiceDescriptor        = v1beta1.File_buf_registry_module_v1beta1_download_service_proto.Services().ByName("DownloadService")
-	downloadServiceDownloadMethodDescriptor = downloadServiceServiceDescriptor.Methods().ByName("Download")
-)
-
 // DownloadServiceClient is a client for the buf.registry.module.v1beta1.DownloadService service.
 type DownloadServiceClient interface {
 	// Download the contents of multiple Modules, Labels, or Commits.
@@ -75,11 +69,12 @@ type DownloadServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewDownloadServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) DownloadServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	downloadServiceMethods := v1beta1.File_buf_registry_module_v1beta1_download_service_proto.Services().ByName("DownloadService").Methods()
 	return &downloadServiceClient{
 		download: connect.NewClient[v1beta1.DownloadRequest, v1beta1.DownloadResponse](
 			httpClient,
 			baseURL+DownloadServiceDownloadProcedure,
-			connect.WithSchema(downloadServiceDownloadMethodDescriptor),
+			connect.WithSchema(downloadServiceMethods.ByName("Download")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -111,10 +106,11 @@ type DownloadServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewDownloadServiceHandler(svc DownloadServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	downloadServiceMethods := v1beta1.File_buf_registry_module_v1beta1_download_service_proto.Services().ByName("DownloadService").Methods()
 	downloadServiceDownloadHandler := connect.NewUnaryHandler(
 		DownloadServiceDownloadProcedure,
 		svc.Download,
-		connect.WithSchema(downloadServiceDownloadMethodDescriptor),
+		connect.WithSchema(downloadServiceMethods.ByName("Download")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)

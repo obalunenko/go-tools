@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Buf Technologies, Inc.
+// Copyright 2023-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,16 +59,6 @@ const (
 	UserServiceDeleteUsersProcedure = "/buf.registry.owner.v1.UserService/DeleteUsers"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	userServiceServiceDescriptor           = v1.File_buf_registry_owner_v1_user_service_proto.Services().ByName("UserService")
-	userServiceGetUsersMethodDescriptor    = userServiceServiceDescriptor.Methods().ByName("GetUsers")
-	userServiceListUsersMethodDescriptor   = userServiceServiceDescriptor.Methods().ByName("ListUsers")
-	userServiceCreateUsersMethodDescriptor = userServiceServiceDescriptor.Methods().ByName("CreateUsers")
-	userServiceUpdateUsersMethodDescriptor = userServiceServiceDescriptor.Methods().ByName("UpdateUsers")
-	userServiceDeleteUsersMethodDescriptor = userServiceServiceDescriptor.Methods().ByName("DeleteUsers")
-)
-
 // UserServiceClient is a client for the buf.registry.owner.v1.UserService service.
 type UserServiceClient interface {
 	// Get Users by id or name.
@@ -101,39 +91,40 @@ type UserServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewUserServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) UserServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	userServiceMethods := v1.File_buf_registry_owner_v1_user_service_proto.Services().ByName("UserService").Methods()
 	return &userServiceClient{
 		getUsers: connect.NewClient[v1.GetUsersRequest, v1.GetUsersResponse](
 			httpClient,
 			baseURL+UserServiceGetUsersProcedure,
-			connect.WithSchema(userServiceGetUsersMethodDescriptor),
+			connect.WithSchema(userServiceMethods.ByName("GetUsers")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		listUsers: connect.NewClient[v1.ListUsersRequest, v1.ListUsersResponse](
 			httpClient,
 			baseURL+UserServiceListUsersProcedure,
-			connect.WithSchema(userServiceListUsersMethodDescriptor),
+			connect.WithSchema(userServiceMethods.ByName("ListUsers")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		createUsers: connect.NewClient[v1.CreateUsersRequest, v1.CreateUsersResponse](
 			httpClient,
 			baseURL+UserServiceCreateUsersProcedure,
-			connect.WithSchema(userServiceCreateUsersMethodDescriptor),
+			connect.WithSchema(userServiceMethods.ByName("CreateUsers")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		updateUsers: connect.NewClient[v1.UpdateUsersRequest, v1.UpdateUsersResponse](
 			httpClient,
 			baseURL+UserServiceUpdateUsersProcedure,
-			connect.WithSchema(userServiceUpdateUsersMethodDescriptor),
+			connect.WithSchema(userServiceMethods.ByName("UpdateUsers")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		deleteUsers: connect.NewClient[v1.DeleteUsersRequest, v1.DeleteUsersResponse](
 			httpClient,
 			baseURL+UserServiceDeleteUsersProcedure,
-			connect.WithSchema(userServiceDeleteUsersMethodDescriptor),
+			connect.WithSchema(userServiceMethods.ByName("DeleteUsers")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
@@ -203,38 +194,39 @@ type UserServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewUserServiceHandler(svc UserServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	userServiceMethods := v1.File_buf_registry_owner_v1_user_service_proto.Services().ByName("UserService").Methods()
 	userServiceGetUsersHandler := connect.NewUnaryHandler(
 		UserServiceGetUsersProcedure,
 		svc.GetUsers,
-		connect.WithSchema(userServiceGetUsersMethodDescriptor),
+		connect.WithSchema(userServiceMethods.ByName("GetUsers")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	userServiceListUsersHandler := connect.NewUnaryHandler(
 		UserServiceListUsersProcedure,
 		svc.ListUsers,
-		connect.WithSchema(userServiceListUsersMethodDescriptor),
+		connect.WithSchema(userServiceMethods.ByName("ListUsers")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	userServiceCreateUsersHandler := connect.NewUnaryHandler(
 		UserServiceCreateUsersProcedure,
 		svc.CreateUsers,
-		connect.WithSchema(userServiceCreateUsersMethodDescriptor),
+		connect.WithSchema(userServiceMethods.ByName("CreateUsers")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	userServiceUpdateUsersHandler := connect.NewUnaryHandler(
 		UserServiceUpdateUsersProcedure,
 		svc.UpdateUsers,
-		connect.WithSchema(userServiceUpdateUsersMethodDescriptor),
+		connect.WithSchema(userServiceMethods.ByName("UpdateUsers")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	userServiceDeleteUsersHandler := connect.NewUnaryHandler(
 		UserServiceDeleteUsersProcedure,
 		svc.DeleteUsers,
-		connect.WithSchema(userServiceDeleteUsersMethodDescriptor),
+		connect.WithSchema(userServiceMethods.ByName("DeleteUsers")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)

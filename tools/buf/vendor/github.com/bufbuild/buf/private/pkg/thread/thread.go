@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ var (
 	globalLock        sync.RWMutex
 )
 
-// Parallelism returns the current parellism.
+// Parallelism returns the current parallelism.
 //
 // This defaults to the number of CPUs.
 func Parallelism() int {

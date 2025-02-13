@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Buf Technologies, Inc.
+// Copyright 2023-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,16 +64,6 @@ const (
 	OrganizationServiceDeleteOrganizationsProcedure = "/buf.registry.owner.v1.OrganizationService/DeleteOrganizations"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	organizationServiceServiceDescriptor                   = v1.File_buf_registry_owner_v1_organization_service_proto.Services().ByName("OrganizationService")
-	organizationServiceGetOrganizationsMethodDescriptor    = organizationServiceServiceDescriptor.Methods().ByName("GetOrganizations")
-	organizationServiceListOrganizationsMethodDescriptor   = organizationServiceServiceDescriptor.Methods().ByName("ListOrganizations")
-	organizationServiceCreateOrganizationsMethodDescriptor = organizationServiceServiceDescriptor.Methods().ByName("CreateOrganizations")
-	organizationServiceUpdateOrganizationsMethodDescriptor = organizationServiceServiceDescriptor.Methods().ByName("UpdateOrganizations")
-	organizationServiceDeleteOrganizationsMethodDescriptor = organizationServiceServiceDescriptor.Methods().ByName("DeleteOrganizations")
-)
-
 // OrganizationServiceClient is a client for the buf.registry.owner.v1.OrganizationService service.
 type OrganizationServiceClient interface {
 	// Get Organizations by id or name.
@@ -103,39 +93,40 @@ type OrganizationServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewOrganizationServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) OrganizationServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	organizationServiceMethods := v1.File_buf_registry_owner_v1_organization_service_proto.Services().ByName("OrganizationService").Methods()
 	return &organizationServiceClient{
 		getOrganizations: connect.NewClient[v1.GetOrganizationsRequest, v1.GetOrganizationsResponse](
 			httpClient,
 			baseURL+OrganizationServiceGetOrganizationsProcedure,
-			connect.WithSchema(organizationServiceGetOrganizationsMethodDescriptor),
+			connect.WithSchema(organizationServiceMethods.ByName("GetOrganizations")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		listOrganizations: connect.NewClient[v1.ListOrganizationsRequest, v1.ListOrganizationsResponse](
 			httpClient,
 			baseURL+OrganizationServiceListOrganizationsProcedure,
-			connect.WithSchema(organizationServiceListOrganizationsMethodDescriptor),
+			connect.WithSchema(organizationServiceMethods.ByName("ListOrganizations")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		createOrganizations: connect.NewClient[v1.CreateOrganizationsRequest, v1.CreateOrganizationsResponse](
 			httpClient,
 			baseURL+OrganizationServiceCreateOrganizationsProcedure,
-			connect.WithSchema(organizationServiceCreateOrganizationsMethodDescriptor),
+			connect.WithSchema(organizationServiceMethods.ByName("CreateOrganizations")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		updateOrganizations: connect.NewClient[v1.UpdateOrganizationsRequest, v1.UpdateOrganizationsResponse](
 			httpClient,
 			baseURL+OrganizationServiceUpdateOrganizationsProcedure,
-			connect.WithSchema(organizationServiceUpdateOrganizationsMethodDescriptor),
+			connect.WithSchema(organizationServiceMethods.ByName("UpdateOrganizations")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		deleteOrganizations: connect.NewClient[v1.DeleteOrganizationsRequest, v1.DeleteOrganizationsResponse](
 			httpClient,
 			baseURL+OrganizationServiceDeleteOrganizationsProcedure,
-			connect.WithSchema(organizationServiceDeleteOrganizationsMethodDescriptor),
+			connect.WithSchema(organizationServiceMethods.ByName("DeleteOrganizations")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
@@ -203,38 +194,39 @@ type OrganizationServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewOrganizationServiceHandler(svc OrganizationServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	organizationServiceMethods := v1.File_buf_registry_owner_v1_organization_service_proto.Services().ByName("OrganizationService").Methods()
 	organizationServiceGetOrganizationsHandler := connect.NewUnaryHandler(
 		OrganizationServiceGetOrganizationsProcedure,
 		svc.GetOrganizations,
-		connect.WithSchema(organizationServiceGetOrganizationsMethodDescriptor),
+		connect.WithSchema(organizationServiceMethods.ByName("GetOrganizations")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	organizationServiceListOrganizationsHandler := connect.NewUnaryHandler(
 		OrganizationServiceListOrganizationsProcedure,
 		svc.ListOrganizations,
-		connect.WithSchema(organizationServiceListOrganizationsMethodDescriptor),
+		connect.WithSchema(organizationServiceMethods.ByName("ListOrganizations")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	organizationServiceCreateOrganizationsHandler := connect.NewUnaryHandler(
 		OrganizationServiceCreateOrganizationsProcedure,
 		svc.CreateOrganizations,
-		connect.WithSchema(organizationServiceCreateOrganizationsMethodDescriptor),
+		connect.WithSchema(organizationServiceMethods.ByName("CreateOrganizations")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	organizationServiceUpdateOrganizationsHandler := connect.NewUnaryHandler(
 		OrganizationServiceUpdateOrganizationsProcedure,
 		svc.UpdateOrganizations,
-		connect.WithSchema(organizationServiceUpdateOrganizationsMethodDescriptor),
+		connect.WithSchema(organizationServiceMethods.ByName("UpdateOrganizations")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	organizationServiceDeleteOrganizationsHandler := connect.NewUnaryHandler(
 		OrganizationServiceDeleteOrganizationsProcedure,
 		svc.DeleteOrganizations,
-		connect.WithSchema(organizationServiceDeleteOrganizationsMethodDescriptor),
+		connect.WithSchema(organizationServiceMethods.ByName("DeleteOrganizations")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)

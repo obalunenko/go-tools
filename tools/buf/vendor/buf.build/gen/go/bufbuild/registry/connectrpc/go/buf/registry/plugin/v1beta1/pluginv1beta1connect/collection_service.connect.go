@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Buf Technologies, Inc.
+// Copyright 2023-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,14 +58,6 @@ const (
 	CollectionServiceGetPluginCollectionAssociationsProcedure = "/buf.registry.plugin.v1beta1.CollectionService/GetPluginCollectionAssociations"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	collectionServiceServiceDescriptor                               = v1beta1.File_buf_registry_plugin_v1beta1_collection_service_proto.Services().ByName("CollectionService")
-	collectionServiceGetCollectionsMethodDescriptor                  = collectionServiceServiceDescriptor.Methods().ByName("GetCollections")
-	collectionServiceListCollectionsMethodDescriptor                 = collectionServiceServiceDescriptor.Methods().ByName("ListCollections")
-	collectionServiceGetPluginCollectionAssociationsMethodDescriptor = collectionServiceServiceDescriptor.Methods().ByName("GetPluginCollectionAssociations")
-)
-
 // CollectionServiceClient is a client for the buf.registry.plugin.v1beta1.CollectionService
 // service.
 type CollectionServiceClient interface {
@@ -87,25 +79,26 @@ type CollectionServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewCollectionServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) CollectionServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	collectionServiceMethods := v1beta1.File_buf_registry_plugin_v1beta1_collection_service_proto.Services().ByName("CollectionService").Methods()
 	return &collectionServiceClient{
 		getCollections: connect.NewClient[v1beta1.GetCollectionsRequest, v1beta1.GetCollectionsResponse](
 			httpClient,
 			baseURL+CollectionServiceGetCollectionsProcedure,
-			connect.WithSchema(collectionServiceGetCollectionsMethodDescriptor),
+			connect.WithSchema(collectionServiceMethods.ByName("GetCollections")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		listCollections: connect.NewClient[v1beta1.ListCollectionsRequest, v1beta1.ListCollectionsResponse](
 			httpClient,
 			baseURL+CollectionServiceListCollectionsProcedure,
-			connect.WithSchema(collectionServiceListCollectionsMethodDescriptor),
+			connect.WithSchema(collectionServiceMethods.ByName("ListCollections")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		getPluginCollectionAssociations: connect.NewClient[v1beta1.GetPluginCollectionAssociationsRequest, v1beta1.GetPluginCollectionAssociationsResponse](
 			httpClient,
 			baseURL+CollectionServiceGetPluginCollectionAssociationsProcedure,
-			connect.WithSchema(collectionServiceGetPluginCollectionAssociationsMethodDescriptor),
+			connect.WithSchema(collectionServiceMethods.ByName("GetPluginCollectionAssociations")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -152,24 +145,25 @@ type CollectionServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewCollectionServiceHandler(svc CollectionServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	collectionServiceMethods := v1beta1.File_buf_registry_plugin_v1beta1_collection_service_proto.Services().ByName("CollectionService").Methods()
 	collectionServiceGetCollectionsHandler := connect.NewUnaryHandler(
 		CollectionServiceGetCollectionsProcedure,
 		svc.GetCollections,
-		connect.WithSchema(collectionServiceGetCollectionsMethodDescriptor),
+		connect.WithSchema(collectionServiceMethods.ByName("GetCollections")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	collectionServiceListCollectionsHandler := connect.NewUnaryHandler(
 		CollectionServiceListCollectionsProcedure,
 		svc.ListCollections,
-		connect.WithSchema(collectionServiceListCollectionsMethodDescriptor),
+		connect.WithSchema(collectionServiceMethods.ByName("ListCollections")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	collectionServiceGetPluginCollectionAssociationsHandler := connect.NewUnaryHandler(
 		CollectionServiceGetPluginCollectionAssociationsProcedure,
 		svc.GetPluginCollectionAssociations,
-		connect.WithSchema(collectionServiceGetPluginCollectionAssociationsMethodDescriptor),
+		connect.WithSchema(collectionServiceMethods.ByName("GetPluginCollectionAssociations")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)

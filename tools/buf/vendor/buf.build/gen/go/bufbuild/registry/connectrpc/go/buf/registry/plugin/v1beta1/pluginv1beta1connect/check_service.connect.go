@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Buf Technologies, Inc.
+// Copyright 2023-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,13 +54,6 @@ const (
 	CheckServiceListCategoriesProcedure = "/buf.registry.plugin.v1beta1.CheckService/ListCategories"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	checkServiceServiceDescriptor              = v1beta1.File_buf_registry_plugin_v1beta1_check_service_proto.Services().ByName("CheckService")
-	checkServiceListRulesMethodDescriptor      = checkServiceServiceDescriptor.Methods().ByName("ListRules")
-	checkServiceListCategoriesMethodDescriptor = checkServiceServiceDescriptor.Methods().ByName("ListCategories")
-)
-
 // CheckServiceClient is a client for the buf.registry.plugin.v1beta1.CheckService service.
 type CheckServiceClient interface {
 	// List Rules for a given Plugin, Label, or Commit.
@@ -78,18 +71,19 @@ type CheckServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewCheckServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) CheckServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	checkServiceMethods := v1beta1.File_buf_registry_plugin_v1beta1_check_service_proto.Services().ByName("CheckService").Methods()
 	return &checkServiceClient{
 		listRules: connect.NewClient[v1beta1.ListRulesRequest, v1beta1.ListRulesResponse](
 			httpClient,
 			baseURL+CheckServiceListRulesProcedure,
-			connect.WithSchema(checkServiceListRulesMethodDescriptor),
+			connect.WithSchema(checkServiceMethods.ByName("ListRules")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		listCategories: connect.NewClient[v1beta1.ListCategoriesRequest, v1beta1.ListCategoriesResponse](
 			httpClient,
 			baseURL+CheckServiceListCategoriesProcedure,
-			connect.WithSchema(checkServiceListCategoriesMethodDescriptor),
+			connect.WithSchema(checkServiceMethods.ByName("ListCategories")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -126,17 +120,18 @@ type CheckServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewCheckServiceHandler(svc CheckServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	checkServiceMethods := v1beta1.File_buf_registry_plugin_v1beta1_check_service_proto.Services().ByName("CheckService").Methods()
 	checkServiceListRulesHandler := connect.NewUnaryHandler(
 		CheckServiceListRulesProcedure,
 		svc.ListRules,
-		connect.WithSchema(checkServiceListRulesMethodDescriptor),
+		connect.WithSchema(checkServiceMethods.ByName("ListRules")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	checkServiceListCategoriesHandler := connect.NewUnaryHandler(
 		CheckServiceListCategoriesProcedure,
 		svc.ListCategories,
-		connect.WithSchema(checkServiceListCategoriesMethodDescriptor),
+		connect.WithSchema(checkServiceMethods.ByName("ListCategories")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)

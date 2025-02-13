@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -156,7 +156,7 @@ func DigestWithDigestType(digestType DigestType) DigestOption {
 // ParseDigest parses a Digest from its string representation.
 //
 // A Digest string is of the form typeString:hexValue.
-// The string is expected to be non-empty, If not, an error is treutned.
+// The string is expected to be non-empty, If not, an error is returned.
 //
 // This reverses Digest.String().
 //

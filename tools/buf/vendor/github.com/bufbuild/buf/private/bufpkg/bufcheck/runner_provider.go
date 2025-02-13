@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -129,7 +129,7 @@ func (r *remoteWasmPluginRunner) loadRunnerOnce(ctx context.Context) (pluginrpc.
 		runner, err := r.loadRunner(ctx)
 		if err != nil {
 			// The error isn't stored to avoid ctx cancellation issues. On the next call,
-			// the runner will be reloaded instead of returning the erorr.
+			// the runner will be reloaded instead of returning the error.
 			return nil, err
 		}
 		r.runner = runner

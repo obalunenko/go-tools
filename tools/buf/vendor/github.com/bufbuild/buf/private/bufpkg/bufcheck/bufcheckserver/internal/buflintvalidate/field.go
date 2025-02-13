@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -277,7 +277,7 @@ func checkConstraintsForField(
 	case boolRulesFieldNumber:
 		// Bool rules only have `const` and does not need validating.
 	case stringRulesFieldNumber:
-		return checkStringRules(adder, fieldConstraints.GetString_())
+		return checkStringRules(adder, fieldConstraints.GetString())
 	case bytesRulesFieldNumber:
 		return checkBytesRules(adder, fieldConstraints.GetBytes())
 	case enumRulesFieldNumber:
@@ -889,7 +889,7 @@ func checkExampleValues(
 					exampleValue,
 				)
 			default:
-				return syserror.Newf("expected key or value as sythetic field name for map entry's field name, got %q", fieldDescriptor.Name())
+				return syserror.Newf("expected key or value as synthetic field name for map entry's field name, got %q", fieldDescriptor.Name())
 			}
 			messageToValidate.Set(parentMapFieldDescriptor, protoreflect.ValueOfMap(mapEntry))
 		case fieldDescriptor.Enum() != nil:
