@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,10 +32,11 @@ import (
 )
 
 const (
-	pageSizeFlagName  = "page-size"
-	pageTokenFlagName = "page-token"
-	reverseFlagName   = "reverse"
-	formatFlagName    = "format"
+	pageSizeFlagName          = "page-size"
+	pageTokenFlagName         = "page-token"
+	reverseFlagName           = "reverse"
+	formatFlagName            = "format"
+	digestChangesOnlyFlagName = "digest-changes-only"
 
 	defaultPageSize = 10
 )
@@ -67,10 +68,11 @@ If no reference is specified, it lists all commits in this module.
 }
 
 type flags struct {
-	Format    string
-	PageSize  uint32
-	PageToken string
-	Reverse   bool
+	Format            string
+	PageSize          uint32
+	PageToken         string
+	Reverse           bool
+	DigestChangesOnly bool
 }
 
 func newFlags() *flags {
@@ -98,6 +100,12 @@ func (f *flags) Bind(flagSet *pflag.FlagSet) {
 		formatFlagName,
 		bufprint.FormatText.String(),
 		fmt.Sprintf(`The output format to use. Must be one of %s`, bufprint.AllFormatsString),
+	)
+	flagSet.BoolVar(
+		&f.DigestChangesOnly,
+		digestChangesOnlyFlagName,
+		false,
+		`Only commits that have changed digests. By default, all commits are listed`,
 	)
 }
 
@@ -229,7 +237,8 @@ func run(
 						},
 					},
 				},
-				Order: labelHistoryOrder,
+				Order:                         labelHistoryOrder,
+				OnlyCommitsWithChangedDigests: flags.DigestChangesOnly,
 			},
 		),
 	)

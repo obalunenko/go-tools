@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -362,7 +362,7 @@ func (b *moduleReadBucket) WalkFileInfos(
 	if !walkFileInfosOptions.onlyTargetFiles {
 		// We only want to call trackModule if we are walking all the files, not just
 		// the target files. By not calling trackModule outside of this if statement,
-		// we will not produce NoProtoFilesErrors, per the documention on trackModule.
+		// we will not produce NoProtoFilesErrors, per the documentation on trackModule.
 		protoFileTracker.trackModule(b.module)
 		if err := bucket.Walk(
 			ctx,

@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ func NewCommand(
 type flags struct {
 	Format       string
 	Visibility   string
-	DefautlLabel string
+	DefaultLabel string
 }
 
 func newFlags() *flags {
@@ -77,7 +77,7 @@ func (f *flags) Bind(flagSet *pflag.FlagSet) {
 		fmt.Sprintf(`The output format to use. Must be one of %s`, bufprint.AllFormatsString),
 	)
 	flagSet.StringVar(
-		&f.DefautlLabel,
+		&f.DefaultLabel,
 		defaultLabeFlagName,
 		defaultDefaultLabel,
 		"The default label name of the module",
@@ -120,7 +120,7 @@ func run(
 						},
 						Name:             moduleFullName.Name(),
 						Visibility:       visibility,
-						DefaultLabelName: flags.DefautlLabel,
+						DefaultLabelName: flags.DefaultLabel,
 					},
 				},
 			},

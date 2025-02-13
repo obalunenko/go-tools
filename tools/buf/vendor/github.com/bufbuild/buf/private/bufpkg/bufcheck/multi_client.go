@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,7 +61,6 @@ func (c *multiClient) Check(ctx context.Context, request check.Request) ([]*anno
 	var jobs []func(context.Context) error
 	var lock sync.Mutex
 	for i, delegate := range c.checkClientSpecs {
-		delegate := delegate
 		// This is all ruleIDs for this client.
 		allDelegateRuleIDs := chunkedRuleIDs[i]
 		// This is the specific requested ruleIDs for this client

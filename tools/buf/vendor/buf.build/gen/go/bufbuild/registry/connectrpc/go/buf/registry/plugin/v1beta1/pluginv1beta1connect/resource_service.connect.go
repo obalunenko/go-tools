@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Buf Technologies, Inc.
+// Copyright 2023-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,12 +52,6 @@ const (
 	ResourceServiceGetResourcesProcedure = "/buf.registry.plugin.v1beta1.ResourceService/GetResources"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	resourceServiceServiceDescriptor            = v1beta1.File_buf_registry_plugin_v1beta1_resource_service_proto.Services().ByName("ResourceService")
-	resourceServiceGetResourcesMethodDescriptor = resourceServiceServiceDescriptor.Methods().ByName("GetResources")
-)
-
 // ResourceServiceClient is a client for the buf.registry.plugin.v1beta1.ResourceService service.
 type ResourceServiceClient interface {
 	// Get Resources.
@@ -73,11 +67,12 @@ type ResourceServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewResourceServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) ResourceServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	resourceServiceMethods := v1beta1.File_buf_registry_plugin_v1beta1_resource_service_proto.Services().ByName("ResourceService").Methods()
 	return &resourceServiceClient{
 		getResources: connect.NewClient[v1beta1.GetResourcesRequest, v1beta1.GetResourcesResponse](
 			httpClient,
 			baseURL+ResourceServiceGetResourcesProcedure,
-			connect.WithSchema(resourceServiceGetResourcesMethodDescriptor),
+			connect.WithSchema(resourceServiceMethods.ByName("GetResources")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -107,10 +102,11 @@ type ResourceServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewResourceServiceHandler(svc ResourceServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	resourceServiceMethods := v1beta1.File_buf_registry_plugin_v1beta1_resource_service_proto.Services().ByName("ResourceService").Methods()
 	resourceServiceGetResourcesHandler := connect.NewUnaryHandler(
 		ResourceServiceGetResourcesProcedure,
 		svc.GetResources,
-		connect.WithSchema(resourceServiceGetResourcesMethodDescriptor),
+		connect.WithSchema(resourceServiceMethods.ByName("GetResources")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)

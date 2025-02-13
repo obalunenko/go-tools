@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ const (
 	gitCommand      = "git"
 	tagsPrefix      = "refs/tags/"
 	headsPrefix     = "refs/heads/"
-	psuedoRefSuffix = "^{}"
+	pseudoRefSuffix = "^{}"
 )
 
 var (
@@ -104,6 +104,8 @@ type CloneToBucketOptions struct {
 	Matcher           storage.Matcher
 	Name              Name
 	RecurseSubmodules bool
+	SubDir            string
+	Filter            string
 }
 
 // NewCloner returns a new Cloner.
@@ -341,7 +343,7 @@ func GetRefsForGitCommitAndRemote(
 			ref = strings.TrimSpace(ref)
 			if tag, isTag := strings.CutPrefix(ref, tagsPrefix); isTag {
 				// Remove the ^{} suffix for pseudo-ref tags
-				tag, _ = strings.CutSuffix(tag, psuedoRefSuffix)
+				tag, _ = strings.CutSuffix(tag, pseudoRefSuffix)
 				refs = append(refs, tag)
 				continue
 			}

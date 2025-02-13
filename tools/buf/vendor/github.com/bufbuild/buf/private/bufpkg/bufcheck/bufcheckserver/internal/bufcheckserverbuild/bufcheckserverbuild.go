@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -255,7 +255,7 @@ var (
 		Type:    check.RuleTypeBreaking,
 		Handler: bufcheckserverhandle.HandleBreakingFileNoDelete,
 	}
-	// BreakingFileSameCsharpNamesapceRuleSpecBuilder is a rule spec builder.
+	// BreakingFileSameCsharpNamespaceRuleSpecBuilder is a rule spec builder.
 	BreakingFileSameCsharpNamespaceRuleSpecBuilder = &bufcheckserverutil.RuleSpecBuilder{
 		ID:      "FILE_SAME_CSHARP_NAMESPACE",
 		Purpose: "Checks that files have the same value for the csharp_namespace option.",

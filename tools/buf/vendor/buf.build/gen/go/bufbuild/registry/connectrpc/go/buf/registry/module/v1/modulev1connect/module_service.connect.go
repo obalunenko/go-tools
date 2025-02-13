@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Buf Technologies, Inc.
+// Copyright 2023-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,16 +64,6 @@ const (
 	ModuleServiceDeleteModulesProcedure = "/buf.registry.module.v1.ModuleService/DeleteModules"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	moduleServiceServiceDescriptor             = v1.File_buf_registry_module_v1_module_service_proto.Services().ByName("ModuleService")
-	moduleServiceGetModulesMethodDescriptor    = moduleServiceServiceDescriptor.Methods().ByName("GetModules")
-	moduleServiceListModulesMethodDescriptor   = moduleServiceServiceDescriptor.Methods().ByName("ListModules")
-	moduleServiceCreateModulesMethodDescriptor = moduleServiceServiceDescriptor.Methods().ByName("CreateModules")
-	moduleServiceUpdateModulesMethodDescriptor = moduleServiceServiceDescriptor.Methods().ByName("UpdateModules")
-	moduleServiceDeleteModulesMethodDescriptor = moduleServiceServiceDescriptor.Methods().ByName("DeleteModules")
-)
-
 // ModuleServiceClient is a client for the buf.registry.module.v1.ModuleService service.
 type ModuleServiceClient interface {
 	// Get Modules by id or name.
@@ -82,8 +72,7 @@ type ModuleServiceClient interface {
 	ListModules(context.Context, *connect.Request[v1.ListModulesRequest]) (*connect.Response[v1.ListModulesResponse], error)
 	// Create new Modules.
 	//
-	// When a Module is created, a Branch representing the release Branch
-	// is created as well.
+	// New modules are created with a default Label named "main".
 	//
 	// This operation is atomic. Either all Modules are created or an error is returned.
 	CreateModules(context.Context, *connect.Request[v1.CreateModulesRequest]) (*connect.Response[v1.CreateModulesResponse], error)
@@ -106,39 +95,40 @@ type ModuleServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewModuleServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) ModuleServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	moduleServiceMethods := v1.File_buf_registry_module_v1_module_service_proto.Services().ByName("ModuleService").Methods()
 	return &moduleServiceClient{
 		getModules: connect.NewClient[v1.GetModulesRequest, v1.GetModulesResponse](
 			httpClient,
 			baseURL+ModuleServiceGetModulesProcedure,
-			connect.WithSchema(moduleServiceGetModulesMethodDescriptor),
+			connect.WithSchema(moduleServiceMethods.ByName("GetModules")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		listModules: connect.NewClient[v1.ListModulesRequest, v1.ListModulesResponse](
 			httpClient,
 			baseURL+ModuleServiceListModulesProcedure,
-			connect.WithSchema(moduleServiceListModulesMethodDescriptor),
+			connect.WithSchema(moduleServiceMethods.ByName("ListModules")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		createModules: connect.NewClient[v1.CreateModulesRequest, v1.CreateModulesResponse](
 			httpClient,
 			baseURL+ModuleServiceCreateModulesProcedure,
-			connect.WithSchema(moduleServiceCreateModulesMethodDescriptor),
+			connect.WithSchema(moduleServiceMethods.ByName("CreateModules")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		updateModules: connect.NewClient[v1.UpdateModulesRequest, v1.UpdateModulesResponse](
 			httpClient,
 			baseURL+ModuleServiceUpdateModulesProcedure,
-			connect.WithSchema(moduleServiceUpdateModulesMethodDescriptor),
+			connect.WithSchema(moduleServiceMethods.ByName("UpdateModules")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		deleteModules: connect.NewClient[v1.DeleteModulesRequest, v1.DeleteModulesResponse](
 			httpClient,
 			baseURL+ModuleServiceDeleteModulesProcedure,
-			connect.WithSchema(moduleServiceDeleteModulesMethodDescriptor),
+			connect.WithSchema(moduleServiceMethods.ByName("DeleteModules")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
@@ -187,8 +177,7 @@ type ModuleServiceHandler interface {
 	ListModules(context.Context, *connect.Request[v1.ListModulesRequest]) (*connect.Response[v1.ListModulesResponse], error)
 	// Create new Modules.
 	//
-	// When a Module is created, a Branch representing the release Branch
-	// is created as well.
+	// New modules are created with a default Label named "main".
 	//
 	// This operation is atomic. Either all Modules are created or an error is returned.
 	CreateModules(context.Context, *connect.Request[v1.CreateModulesRequest]) (*connect.Response[v1.CreateModulesResponse], error)
@@ -208,38 +197,39 @@ type ModuleServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewModuleServiceHandler(svc ModuleServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	moduleServiceMethods := v1.File_buf_registry_module_v1_module_service_proto.Services().ByName("ModuleService").Methods()
 	moduleServiceGetModulesHandler := connect.NewUnaryHandler(
 		ModuleServiceGetModulesProcedure,
 		svc.GetModules,
-		connect.WithSchema(moduleServiceGetModulesMethodDescriptor),
+		connect.WithSchema(moduleServiceMethods.ByName("GetModules")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	moduleServiceListModulesHandler := connect.NewUnaryHandler(
 		ModuleServiceListModulesProcedure,
 		svc.ListModules,
-		connect.WithSchema(moduleServiceListModulesMethodDescriptor),
+		connect.WithSchema(moduleServiceMethods.ByName("ListModules")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	moduleServiceCreateModulesHandler := connect.NewUnaryHandler(
 		ModuleServiceCreateModulesProcedure,
 		svc.CreateModules,
-		connect.WithSchema(moduleServiceCreateModulesMethodDescriptor),
+		connect.WithSchema(moduleServiceMethods.ByName("CreateModules")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	moduleServiceUpdateModulesHandler := connect.NewUnaryHandler(
 		ModuleServiceUpdateModulesProcedure,
 		svc.UpdateModules,
-		connect.WithSchema(moduleServiceUpdateModulesMethodDescriptor),
+		connect.WithSchema(moduleServiceMethods.ByName("UpdateModules")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	moduleServiceDeleteModulesHandler := connect.NewUnaryHandler(
 		ModuleServiceDeleteModulesProcedure,
 		svc.DeleteModules,
-		connect.WithSchema(moduleServiceDeleteModulesMethodDescriptor),
+		connect.WithSchema(moduleServiceMethods.ByName("DeleteModules")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)

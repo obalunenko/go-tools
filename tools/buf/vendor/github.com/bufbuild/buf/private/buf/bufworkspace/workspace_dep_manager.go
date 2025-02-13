@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ import (
 type WorkspaceDepManager interface {
 	// BufLockFileDigestType returns the DigestType that the buf.lock file expects.
 	BufLockFileDigestType() bufmodule.DigestType
-	// ExisingBufLockFileDepModuleKeys returns the ModuleKeys from the buf.lock file.
+	// ExistingBufLockFileDepModuleKeys returns the ModuleKeys from the buf.lock file.
 	ExistingBufLockFileDepModuleKeys(ctx context.Context) ([]bufmodule.ModuleKey, error)
 	// ExistingBufLockFileRemotePluginKeys returns the PluginKeys from the buf.lock file.
 	ExistingBufLockFileRemotePluginKeys(ctx context.Context) ([]bufplugin.PluginKey, error)

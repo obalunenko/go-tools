@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -207,6 +207,8 @@ type GitRef interface {
 	RecurseSubmodules() bool
 	// Will be empty instead of "." for root directory
 	SubDirPath() string
+	// Filter spec to use, see the --filter option in git rev-list.
+	Filter() string
 	gitRef()
 }
 
@@ -217,8 +219,9 @@ func NewGitRef(
 	depth uint32,
 	recurseSubmodules bool,
 	subDirPath string,
+	filter string,
 ) (GitRef, error) {
-	return newGitRef("", path, gitName, depth, recurseSubmodules, subDirPath)
+	return newGitRef("", path, gitName, depth, recurseSubmodules, subDirPath, filter)
 }
 
 // ModuleRef is a module reference.
@@ -353,6 +356,7 @@ func NewDirectParsedGitRef(
 	recurseSubmodules bool,
 	depth uint32,
 	subDirPath string,
+	filter string,
 ) ParsedGitRef {
 	return newDirectGitRef(
 		format,
@@ -362,6 +366,7 @@ func NewDirectParsedGitRef(
 		recurseSubmodules,
 		depth,
 		subDirPath,
+		filter,
 	)
 }
 
@@ -410,7 +415,7 @@ type BucketExtender interface {
 	// SubDirPath is the subdir within the Bucket of the actual asset.
 	//
 	// This will be set if a terminate file was found. If so, the actual Bucket will be
-	// the directory that contained this terminate file, and the subDirPath will be the sub-direftory of
+	// the directory that contained this terminate file, and the subDirPath will be the sub-directory of
 	// the actual asset relative to the terminate file.
 	SubDirPath() string
 }
@@ -557,6 +562,9 @@ type RawRef struct {
 	// requested GitRef will be included when cloning the requested branch
 	// (or the repo's default branch if GitBranch is empty).
 	GitDepth uint32
+	// Only set for git formats.
+	// The filter spec to use, see the --filter option in git rev-list.
+	GitFilter string
 	// Only set for archive formats.
 	ArchiveStripComponents uint32
 	// Only set for proto file ref format.

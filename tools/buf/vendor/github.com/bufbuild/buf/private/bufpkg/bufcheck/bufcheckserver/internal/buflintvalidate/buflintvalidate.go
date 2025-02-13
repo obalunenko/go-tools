@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 )
 
 // https://buf.build/bufbuild/protovalidate/docs/v0.5.1:buf.validate#buf.validate.MessageConstraints
-const disabledFieldNumberInMesageConstraints = 1
+const disabledFieldNumberInMessageConstraints = 1
 
 // CheckMessage validates that all rules on the message are valid, and any CEL expressions compile.
 // It also checks all predefined rule extensions on the messages.
@@ -39,7 +39,7 @@ func CheckMessage(
 	if messageConstraints.GetDisabled() && len(messageConstraints.GetCel()) > 0 {
 		addAnnotationFunc(
 			message,
-			message.OptionExtensionLocation(validate.E_Message, disabledFieldNumberInMesageConstraints),
+			message.OptionExtensionLocation(validate.E_Message, disabledFieldNumberInMessageConstraints),
 			nil,
 			"Message %q has (buf.validate.message).disabled, therefore other rules in (buf.validate.message) are not applied and should be removed.",
 			message.Name(),

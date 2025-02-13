@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Buf Technologies, Inc.
+// Copyright 2023-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,12 +51,6 @@ const (
 	GraphServiceGetGraphProcedure = "/buf.registry.module.v1.GraphService/GetGraph"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	graphServiceServiceDescriptor        = v1.File_buf_registry_module_v1_graph_service_proto.Services().ByName("GraphService")
-	graphServiceGetGraphMethodDescriptor = graphServiceServiceDescriptor.Methods().ByName("GetGraph")
-)
-
 // GraphServiceClient is a client for the buf.registry.module.v1.GraphService service.
 type GraphServiceClient interface {
 	// Get a dependency graph that includes the given Commits.
@@ -77,11 +71,12 @@ type GraphServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewGraphServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) GraphServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	graphServiceMethods := v1.File_buf_registry_module_v1_graph_service_proto.Services().ByName("GraphService").Methods()
 	return &graphServiceClient{
 		getGraph: connect.NewClient[v1.GetGraphRequest, v1.GetGraphResponse](
 			httpClient,
 			baseURL+GraphServiceGetGraphProcedure,
-			connect.WithSchema(graphServiceGetGraphMethodDescriptor),
+			connect.WithSchema(graphServiceMethods.ByName("GetGraph")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -115,10 +110,11 @@ type GraphServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewGraphServiceHandler(svc GraphServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	graphServiceMethods := v1.File_buf_registry_module_v1_graph_service_proto.Services().ByName("GraphService").Methods()
 	graphServiceGetGraphHandler := connect.NewUnaryHandler(
 		GraphServiceGetGraphProcedure,
 		svc.GetGraph,
-		connect.WithSchema(graphServiceGetGraphMethodDescriptor),
+		connect.WithSchema(graphServiceMethods.ByName("GetGraph")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)

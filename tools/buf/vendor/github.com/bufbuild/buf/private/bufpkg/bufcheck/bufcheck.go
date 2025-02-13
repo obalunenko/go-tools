@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -256,7 +256,7 @@ func PrintRulesWithJSON() PrintRulesOption {
 	}
 }
 
-// PrintRulesWithDeprecated returns a new PrintRulesOption that resullts in deprecated rules  being printed.
+// PrintRulesWithDeprecated returns a new PrintRulesOption that results in deprecated rules  being printed.
 func PrintRulesWithDeprecated() PrintRulesOption {
 	return func(printRulesOptions *printRulesOptions) {
 		printRulesOptions.includeDeprecated = true

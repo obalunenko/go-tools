@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ type PluginKey interface {
 // NewPluginKey returns a new PluginKey.
 //
 // The Digest will be loaded lazily if needed. Note this means that NewPluginKey does
-// *not* validate the digest. If you need to validate the digset, call Digest() and evaluate
+// *not* validate the digest. If you need to validate the digest, call Digest() and evaluate
 // the returned error.
 func NewPluginKey(
 	pluginFullName bufparse.FullName,

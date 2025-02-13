@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ const (
 	privateVisibility = "private"
 )
 
-var allVisibiltyStrings = []string{
+var allVisibilityStrings = []string{
 	publicVisibility,
 	privateVisibility,
 }
@@ -122,7 +122,7 @@ func (f *flags) Bind(flagSet *pflag.FlagSet) {
 		&f.Visibility,
 		visibilityFlagName,
 		"",
-		fmt.Sprintf(`The plugin's visibility setting. Must be one of %s`, stringutil.SliceToString(allVisibiltyStrings)),
+		fmt.Sprintf(`The plugin's visibility setting. Must be one of %s`, stringutil.SliceToString(allVisibilityStrings)),
 	)
 	_ = appcmd.MarkFlagRequired(flagSet, visibilityFlagName)
 }
@@ -239,12 +239,12 @@ func run(
 	latestPluginResp, err := service.GetLatestCuratedPlugin(
 		ctx,
 		connect.NewRequest(
-			&registryv1alpha1.GetLatestCuratedPluginRequest{
+			registryv1alpha1.GetLatestCuratedPluginRequest_builder{
 				Owner:    pluginConfig.Name.Owner(),
 				Name:     pluginConfig.Name.Plugin(),
 				Version:  pluginConfig.PluginVersion,
 				Revision: 0, // get latest revision for the plugin version.
-			},
+			}.Build(),
 		),
 	)
 	var currentImageDigest string
@@ -255,8 +255,8 @@ func run(
 		}
 		nextRevision = 1
 	} else {
-		nextRevision = latestPluginResp.Msg.Plugin.Revision + 1
-		currentImageDigest = latestPluginResp.Msg.Plugin.ContainerImageDigest
+		nextRevision = latestPluginResp.Msg.GetPlugin().GetRevision() + 1
+		currentImageDigest = latestPluginResp.Msg.GetPlugin().GetContainerImageDigest()
 	}
 	machine, err := netrc.GetMachineForName(container, pluginConfig.Name.Remote())
 	if err != nil {
@@ -307,9 +307,9 @@ func run(
 			slog.String("name", pluginConfig.Name.IdentityString()),
 			slog.String("digest", plugin.ContainerImageDigest()),
 		)
-		curatedPlugin = latestPluginResp.Msg.Plugin
+		curatedPlugin = latestPluginResp.Msg.GetPlugin()
 	} else {
-		curatedPlugin = createPluginResp.Msg.Configuration
+		curatedPlugin = createPluginResp.Msg.GetConfiguration()
 	}
 	return bufprint.NewCuratedPluginPrinter(container.Stdout()).PrintCuratedPlugin(ctx, format, curatedPlugin)
 }
@@ -328,7 +328,7 @@ func createCuratedPluginRequest(
 	if err != nil {
 		return nil, err
 	}
-	return &registryv1alpha1.CreateCuratedPluginRequest{
+	return registryv1alpha1.CreateCuratedPluginRequest_builder{
 		Owner:                pluginConfig.Name.Owner(),
 		Name:                 pluginConfig.Name.Plugin(),
 		RegistryType:         bufremoteplugin.PluginToProtoPluginRegistryType(plugin),
@@ -345,7 +345,7 @@ func createCuratedPluginRequest(
 		Visibility:           visibility,
 		IntegrationGuideUrl:  pluginConfig.IntegrationGuideURL,
 		Deprecated:           pluginConfig.Deprecated,
-	}, nil
+	}.Build(), nil
 }
 
 func pushImage(
@@ -536,7 +536,7 @@ func visibilityFlagToVisibility(visibility string) (registryv1alpha1.CuratedPlug
 	case privateVisibility:
 		return registryv1alpha1.CuratedPluginVisibility_CURATED_PLUGIN_VISIBILITY_PRIVATE, nil
 	default:
-		return 0, fmt.Errorf("invalid visibility: %s, expected one of %s", visibility, stringutil.SliceToString(allVisibiltyStrings))
+		return 0, fmt.Errorf("invalid visibility: %s, expected one of %s", visibility, stringutil.SliceToString(allVisibilityStrings))
 	}
 }
 

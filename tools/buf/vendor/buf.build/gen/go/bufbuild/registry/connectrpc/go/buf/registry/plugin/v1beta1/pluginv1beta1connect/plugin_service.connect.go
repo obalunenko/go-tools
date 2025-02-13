@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Buf Technologies, Inc.
+// Copyright 2023-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,16 +64,6 @@ const (
 	PluginServiceDeletePluginsProcedure = "/buf.registry.plugin.v1beta1.PluginService/DeletePlugins"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	pluginServiceServiceDescriptor             = v1beta1.File_buf_registry_plugin_v1beta1_plugin_service_proto.Services().ByName("PluginService")
-	pluginServiceGetPluginsMethodDescriptor    = pluginServiceServiceDescriptor.Methods().ByName("GetPlugins")
-	pluginServiceListPluginsMethodDescriptor   = pluginServiceServiceDescriptor.Methods().ByName("ListPlugins")
-	pluginServiceCreatePluginsMethodDescriptor = pluginServiceServiceDescriptor.Methods().ByName("CreatePlugins")
-	pluginServiceUpdatePluginsMethodDescriptor = pluginServiceServiceDescriptor.Methods().ByName("UpdatePlugins")
-	pluginServiceDeletePluginsMethodDescriptor = pluginServiceServiceDescriptor.Methods().ByName("DeletePlugins")
-)
-
 // PluginServiceClient is a client for the buf.registry.plugin.v1beta1.PluginService service.
 type PluginServiceClient interface {
 	// Get Plugins by id or name.
@@ -103,39 +93,40 @@ type PluginServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewPluginServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) PluginServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	pluginServiceMethods := v1beta1.File_buf_registry_plugin_v1beta1_plugin_service_proto.Services().ByName("PluginService").Methods()
 	return &pluginServiceClient{
 		getPlugins: connect.NewClient[v1beta1.GetPluginsRequest, v1beta1.GetPluginsResponse](
 			httpClient,
 			baseURL+PluginServiceGetPluginsProcedure,
-			connect.WithSchema(pluginServiceGetPluginsMethodDescriptor),
+			connect.WithSchema(pluginServiceMethods.ByName("GetPlugins")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		listPlugins: connect.NewClient[v1beta1.ListPluginsRequest, v1beta1.ListPluginsResponse](
 			httpClient,
 			baseURL+PluginServiceListPluginsProcedure,
-			connect.WithSchema(pluginServiceListPluginsMethodDescriptor),
+			connect.WithSchema(pluginServiceMethods.ByName("ListPlugins")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		createPlugins: connect.NewClient[v1beta1.CreatePluginsRequest, v1beta1.CreatePluginsResponse](
 			httpClient,
 			baseURL+PluginServiceCreatePluginsProcedure,
-			connect.WithSchema(pluginServiceCreatePluginsMethodDescriptor),
+			connect.WithSchema(pluginServiceMethods.ByName("CreatePlugins")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		updatePlugins: connect.NewClient[v1beta1.UpdatePluginsRequest, v1beta1.UpdatePluginsResponse](
 			httpClient,
 			baseURL+PluginServiceUpdatePluginsProcedure,
-			connect.WithSchema(pluginServiceUpdatePluginsMethodDescriptor),
+			connect.WithSchema(pluginServiceMethods.ByName("UpdatePlugins")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		deletePlugins: connect.NewClient[v1beta1.DeletePluginsRequest, v1beta1.DeletePluginsResponse](
 			httpClient,
 			baseURL+PluginServiceDeletePluginsProcedure,
-			connect.WithSchema(pluginServiceDeletePluginsMethodDescriptor),
+			connect.WithSchema(pluginServiceMethods.ByName("DeletePlugins")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
@@ -203,38 +194,39 @@ type PluginServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewPluginServiceHandler(svc PluginServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	pluginServiceMethods := v1beta1.File_buf_registry_plugin_v1beta1_plugin_service_proto.Services().ByName("PluginService").Methods()
 	pluginServiceGetPluginsHandler := connect.NewUnaryHandler(
 		PluginServiceGetPluginsProcedure,
 		svc.GetPlugins,
-		connect.WithSchema(pluginServiceGetPluginsMethodDescriptor),
+		connect.WithSchema(pluginServiceMethods.ByName("GetPlugins")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	pluginServiceListPluginsHandler := connect.NewUnaryHandler(
 		PluginServiceListPluginsProcedure,
 		svc.ListPlugins,
-		connect.WithSchema(pluginServiceListPluginsMethodDescriptor),
+		connect.WithSchema(pluginServiceMethods.ByName("ListPlugins")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	pluginServiceCreatePluginsHandler := connect.NewUnaryHandler(
 		PluginServiceCreatePluginsProcedure,
 		svc.CreatePlugins,
-		connect.WithSchema(pluginServiceCreatePluginsMethodDescriptor),
+		connect.WithSchema(pluginServiceMethods.ByName("CreatePlugins")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	pluginServiceUpdatePluginsHandler := connect.NewUnaryHandler(
 		PluginServiceUpdatePluginsProcedure,
 		svc.UpdatePlugins,
-		connect.WithSchema(pluginServiceUpdatePluginsMethodDescriptor),
+		connect.WithSchema(pluginServiceMethods.ByName("UpdatePlugins")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	pluginServiceDeletePluginsHandler := connect.NewUnaryHandler(
 		PluginServiceDeletePluginsProcedure,
 		svc.DeletePlugins,
-		connect.WithSchema(pluginServiceDeletePluginsMethodDescriptor),
+		connect.WithSchema(pluginServiceMethods.ByName("DeletePlugins")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)

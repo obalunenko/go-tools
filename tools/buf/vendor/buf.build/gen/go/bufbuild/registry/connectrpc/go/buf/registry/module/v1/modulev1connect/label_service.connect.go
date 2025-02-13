@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Buf Technologies, Inc.
+// Copyright 2023-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -65,17 +65,6 @@ const (
 	LabelServiceUnarchiveLabelsProcedure = "/buf.registry.module.v1.LabelService/UnarchiveLabels"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	labelServiceServiceDescriptor                    = v1.File_buf_registry_module_v1_label_service_proto.Services().ByName("LabelService")
-	labelServiceGetLabelsMethodDescriptor            = labelServiceServiceDescriptor.Methods().ByName("GetLabels")
-	labelServiceListLabelsMethodDescriptor           = labelServiceServiceDescriptor.Methods().ByName("ListLabels")
-	labelServiceListLabelHistoryMethodDescriptor     = labelServiceServiceDescriptor.Methods().ByName("ListLabelHistory")
-	labelServiceCreateOrUpdateLabelsMethodDescriptor = labelServiceServiceDescriptor.Methods().ByName("CreateOrUpdateLabels")
-	labelServiceArchiveLabelsMethodDescriptor        = labelServiceServiceDescriptor.Methods().ByName("ArchiveLabels")
-	labelServiceUnarchiveLabelsMethodDescriptor      = labelServiceServiceDescriptor.Methods().ByName("UnarchiveLabels")
-)
-
 // LabelServiceClient is a client for the buf.registry.module.v1.LabelService service.
 type LabelServiceClient interface {
 	// Get Labels by id or name.
@@ -112,46 +101,47 @@ type LabelServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewLabelServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) LabelServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	labelServiceMethods := v1.File_buf_registry_module_v1_label_service_proto.Services().ByName("LabelService").Methods()
 	return &labelServiceClient{
 		getLabels: connect.NewClient[v1.GetLabelsRequest, v1.GetLabelsResponse](
 			httpClient,
 			baseURL+LabelServiceGetLabelsProcedure,
-			connect.WithSchema(labelServiceGetLabelsMethodDescriptor),
+			connect.WithSchema(labelServiceMethods.ByName("GetLabels")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		listLabels: connect.NewClient[v1.ListLabelsRequest, v1.ListLabelsResponse](
 			httpClient,
 			baseURL+LabelServiceListLabelsProcedure,
-			connect.WithSchema(labelServiceListLabelsMethodDescriptor),
+			connect.WithSchema(labelServiceMethods.ByName("ListLabels")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		listLabelHistory: connect.NewClient[v1.ListLabelHistoryRequest, v1.ListLabelHistoryResponse](
 			httpClient,
 			baseURL+LabelServiceListLabelHistoryProcedure,
-			connect.WithSchema(labelServiceListLabelHistoryMethodDescriptor),
+			connect.WithSchema(labelServiceMethods.ByName("ListLabelHistory")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		createOrUpdateLabels: connect.NewClient[v1.CreateOrUpdateLabelsRequest, v1.CreateOrUpdateLabelsResponse](
 			httpClient,
 			baseURL+LabelServiceCreateOrUpdateLabelsProcedure,
-			connect.WithSchema(labelServiceCreateOrUpdateLabelsMethodDescriptor),
+			connect.WithSchema(labelServiceMethods.ByName("CreateOrUpdateLabels")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		archiveLabels: connect.NewClient[v1.ArchiveLabelsRequest, v1.ArchiveLabelsResponse](
 			httpClient,
 			baseURL+LabelServiceArchiveLabelsProcedure,
-			connect.WithSchema(labelServiceArchiveLabelsMethodDescriptor),
+			connect.WithSchema(labelServiceMethods.ByName("ArchiveLabels")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		unarchiveLabels: connect.NewClient[v1.UnarchiveLabelsRequest, v1.UnarchiveLabelsResponse](
 			httpClient,
 			baseURL+LabelServiceUnarchiveLabelsProcedure,
-			connect.WithSchema(labelServiceUnarchiveLabelsMethodDescriptor),
+			connect.WithSchema(labelServiceMethods.ByName("UnarchiveLabels")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
@@ -231,45 +221,46 @@ type LabelServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewLabelServiceHandler(svc LabelServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	labelServiceMethods := v1.File_buf_registry_module_v1_label_service_proto.Services().ByName("LabelService").Methods()
 	labelServiceGetLabelsHandler := connect.NewUnaryHandler(
 		LabelServiceGetLabelsProcedure,
 		svc.GetLabels,
-		connect.WithSchema(labelServiceGetLabelsMethodDescriptor),
+		connect.WithSchema(labelServiceMethods.ByName("GetLabels")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	labelServiceListLabelsHandler := connect.NewUnaryHandler(
 		LabelServiceListLabelsProcedure,
 		svc.ListLabels,
-		connect.WithSchema(labelServiceListLabelsMethodDescriptor),
+		connect.WithSchema(labelServiceMethods.ByName("ListLabels")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	labelServiceListLabelHistoryHandler := connect.NewUnaryHandler(
 		LabelServiceListLabelHistoryProcedure,
 		svc.ListLabelHistory,
-		connect.WithSchema(labelServiceListLabelHistoryMethodDescriptor),
+		connect.WithSchema(labelServiceMethods.ByName("ListLabelHistory")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	labelServiceCreateOrUpdateLabelsHandler := connect.NewUnaryHandler(
 		LabelServiceCreateOrUpdateLabelsProcedure,
 		svc.CreateOrUpdateLabels,
-		connect.WithSchema(labelServiceCreateOrUpdateLabelsMethodDescriptor),
+		connect.WithSchema(labelServiceMethods.ByName("CreateOrUpdateLabels")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	labelServiceArchiveLabelsHandler := connect.NewUnaryHandler(
 		LabelServiceArchiveLabelsProcedure,
 		svc.ArchiveLabels,
-		connect.WithSchema(labelServiceArchiveLabelsMethodDescriptor),
+		connect.WithSchema(labelServiceMethods.ByName("ArchiveLabels")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	labelServiceUnarchiveLabelsHandler := connect.NewUnaryHandler(
 		LabelServiceUnarchiveLabelsProcedure,
 		svc.UnarchiveLabels,
-		connect.WithSchema(labelServiceUnarchiveLabelsMethodDescriptor),
+		connect.WithSchema(labelServiceMethods.ByName("UnarchiveLabels")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)

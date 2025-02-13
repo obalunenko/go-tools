@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,15 +93,15 @@ func (s *server) Initialize(
 
 	// The LSP protocol library doesn't actually provide SemanticTokensOptions
 	// correctly.
-	type SematicTokensLegend struct {
+	type SemanticTokensLegend struct {
 		TokenTypes     []string `json:"tokenTypes"`
 		TokenModifiers []string `json:"tokenModifiers"`
 	}
 	type SemanticTokensOptions struct {
 		protocol.WorkDoneProgressOptions
 
-		Legend SematicTokensLegend `json:"legend"`
-		Full   bool                `json:"full"`
+		Legend SemanticTokensLegend `json:"legend"`
+		Full   bool                 `json:"full"`
 	}
 
 	return &protocol.InitializeResult{
@@ -125,7 +125,7 @@ func (s *server) Initialize(
 			HoverProvider:              true,
 			SemanticTokensProvider: &SemanticTokensOptions{
 				WorkDoneProgressOptions: protocol.WorkDoneProgressOptions{WorkDoneProgress: true},
-				Legend: SematicTokensLegend{
+				Legend: SemanticTokensLegend{
 					TokenTypes:     semanticTypeLegend,
 					TokenModifiers: semanticModifierLegend,
 				},
@@ -142,7 +142,12 @@ func (s *server) Initialized(
 	ctx context.Context,
 	params *protocol.InitializedParams,
 ) error {
-	if s.initParams.Load().Capabilities.Workspace.DidChangeConfiguration.DynamicRegistration {
+	workspaceCapabilities := s.initParams.Load().Capabilities.Workspace
+	if workspaceCapabilities == nil {
+		return nil
+	}
+	didChangeConfiguration := workspaceCapabilities.DidChangeConfiguration
+	if didChangeConfiguration != nil && didChangeConfiguration.DynamicRegistration {
 		// The error is logged for us by the client wrapper.
 		_ = s.client.RegisterCapability(ctx, &protocol.RegistrationParams{
 			Registrations: []protocol.Registration{

@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Buf Technologies, Inc.
+// Copyright 2023-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,13 +55,6 @@ const (
 	CommitServiceListCommitsProcedure = "/buf.registry.module.v1beta1.CommitService/ListCommits"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	commitServiceServiceDescriptor           = v1beta1.File_buf_registry_module_v1beta1_commit_service_proto.Services().ByName("CommitService")
-	commitServiceGetCommitsMethodDescriptor  = commitServiceServiceDescriptor.Methods().ByName("GetCommits")
-	commitServiceListCommitsMethodDescriptor = commitServiceServiceDescriptor.Methods().ByName("ListCommits")
-)
-
 // CommitServiceClient is a client for the buf.registry.module.v1beta1.CommitService service.
 type CommitServiceClient interface {
 	// Get Commits.
@@ -79,18 +72,19 @@ type CommitServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewCommitServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) CommitServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	commitServiceMethods := v1beta1.File_buf_registry_module_v1beta1_commit_service_proto.Services().ByName("CommitService").Methods()
 	return &commitServiceClient{
 		getCommits: connect.NewClient[v1beta1.GetCommitsRequest, v1beta1.GetCommitsResponse](
 			httpClient,
 			baseURL+CommitServiceGetCommitsProcedure,
-			connect.WithSchema(commitServiceGetCommitsMethodDescriptor),
+			connect.WithSchema(commitServiceMethods.ByName("GetCommits")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		listCommits: connect.NewClient[v1beta1.ListCommitsRequest, v1beta1.ListCommitsResponse](
 			httpClient,
 			baseURL+CommitServiceListCommitsProcedure,
-			connect.WithSchema(commitServiceListCommitsMethodDescriptor),
+			connect.WithSchema(commitServiceMethods.ByName("ListCommits")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -128,17 +122,18 @@ type CommitServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewCommitServiceHandler(svc CommitServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	commitServiceMethods := v1beta1.File_buf_registry_module_v1beta1_commit_service_proto.Services().ByName("CommitService").Methods()
 	commitServiceGetCommitsHandler := connect.NewUnaryHandler(
 		CommitServiceGetCommitsProcedure,
 		svc.GetCommits,
-		connect.WithSchema(commitServiceGetCommitsMethodDescriptor),
+		connect.WithSchema(commitServiceMethods.ByName("GetCommits")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	commitServiceListCommitsHandler := connect.NewUnaryHandler(
 		CommitServiceListCommitsProcedure,
 		svc.ListCommits,
-		connect.WithSchema(commitServiceListCommitsMethodDescriptor),
+		connect.WithSchema(commitServiceMethods.ByName("ListCommits")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)

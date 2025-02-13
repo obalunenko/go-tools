@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -264,7 +264,7 @@ func (a *uploader) Upload(
 
 	// A sorted slice of unique registries for the RemoteDeps.
 	remoteDepRegistries := slicesext.MapKeysToSortedSlice(
-		// A map from registry to RemoteDeps for that reigsry.
+		// A map from registry to RemoteDeps for that registry.
 		slicesext.ToValuesMap(
 			remoteDeps,
 			func(remoteDep bufmodule.RemoteDep) string {
@@ -335,7 +335,6 @@ func (a *uploader) Upload(
 	}
 	commits := make([]bufmodule.Commit, len(universalProtoCommits))
 	for i, universalProtoCommit := range universalProtoCommits {
-		universalProtoCommit := universalProtoCommit
 		// This is how we get the FullName without calling the ModuleService or OwnerService.
 		//
 		// We've maintained ordering throughout this function, so we can do this.

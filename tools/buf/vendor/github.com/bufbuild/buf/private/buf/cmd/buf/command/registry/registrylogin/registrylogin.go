@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -209,7 +209,7 @@ func inner(
 		// an unauthenticated error.
 		return fmt.Errorf("invalid token provided for %s", remote)
 	}
-	user := resp.Msg.User
+	user := resp.Msg.GetUser()
 	if user == nil {
 		return syserror.New("no user found for registry login token")
 	}
@@ -217,7 +217,7 @@ func inner(
 		container,
 		netrc.NewMachine(
 			remote,
-			user.Username,
+			user.GetUsername(),
 			token,
 		),
 	); err != nil {
@@ -230,7 +230,7 @@ func inner(
 	if err != nil {
 		return err
 	}
-	loggedInMessage := fmt.Sprintf("Logged in as %s. Credentials saved to %s.\n", user.Username, netrcFilePath)
+	loggedInMessage := fmt.Sprintf("Logged in as %s. Credentials saved to %s.\n", user.GetUsername(), netrcFilePath)
 	// Unless we did not prompt at all, print a newline first
 	if !flags.TokenStdin {
 		loggedInMessage = "\n" + loggedInMessage

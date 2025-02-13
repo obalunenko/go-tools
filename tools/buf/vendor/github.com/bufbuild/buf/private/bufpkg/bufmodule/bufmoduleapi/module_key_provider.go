@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -108,7 +108,6 @@ func (a *moduleKeyProvider) getIndexedModuleKeysForRegistryAndIndexedModuleRefs(
 	}
 	indexedModuleKeys := make([]slicesext.Indexed[bufmodule.ModuleKey], len(indexedModuleRefs))
 	for i, universalProtoCommit := range universalProtoCommits {
-		universalProtoCommit := universalProtoCommit
 		commitID, err := uuidutil.FromDashless(universalProtoCommit.ID)
 		if err != nil {
 			return nil, err

@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Buf Technologies, Inc.
+// Copyright 2020-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ func run(
 	if err != nil {
 		return appcmd.WrapInvalidArgumentError(err)
 	}
-	archiveStatusFitler, err := bufcli.ArchiveStatusFlagToModuleArchiveStatusFilter(flags.ArchiveStatus)
+	archiveStatusFilter, err := bufcli.ArchiveStatusFlagToModuleArchiveStatusFilter(flags.ArchiveStatus)
 	if err != nil {
 		return appcmd.WrapInvalidArgumentError(err)
 	}
@@ -147,7 +147,7 @@ func run(
 					},
 				},
 				Order:         order,
-				ArchiveFilter: archiveStatusFitler,
+				ArchiveFilter: archiveStatusFilter,
 			},
 		),
 	)
