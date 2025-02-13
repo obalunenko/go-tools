@@ -12,6 +12,7 @@ import (
 	"github.com/caarlos0/log"
 	"github.com/goreleaser/goreleaser/v2/internal/deprecate"
 	"github.com/goreleaser/goreleaser/v2/internal/ids"
+	"github.com/goreleaser/goreleaser/v2/internal/pipe"
 	"github.com/goreleaser/goreleaser/v2/internal/semerrgroup"
 	"github.com/goreleaser/goreleaser/v2/internal/shell"
 	"github.com/goreleaser/goreleaser/v2/internal/skips"
@@ -21,6 +22,8 @@ import (
 	"github.com/goreleaser/goreleaser/v2/pkg/context"
 
 	// langs to init.
+	_ "github.com/goreleaser/goreleaser/v2/internal/builders/bun"
+	_ "github.com/goreleaser/goreleaser/v2/internal/builders/deno"
 	_ "github.com/goreleaser/goreleaser/v2/internal/builders/golang"
 	_ "github.com/goreleaser/goreleaser/v2/internal/builders/rust"
 	_ "github.com/goreleaser/goreleaser/v2/internal/builders/zig"
@@ -122,9 +125,12 @@ func buildWithDefaults(ctx *context.Context, build config.Build) (config.Build, 
 }
 
 func runPipeOnBuild(ctx *context.Context, g semerrgroup.Group, build config.Build) {
-	for _, target := range filter(ctx, build.Targets) {
+	for _, target := range filter(ctx, build) {
 		g.Go(func() error {
-			return buildTarget(ctx, build, target)
+			if err := buildTarget(ctx, build, target); err != nil {
+				return pipe.NewDetailedError(err, "target", target)
+			}
+			return nil
 		})
 	}
 }
@@ -135,19 +141,26 @@ func buildTarget(ctx *context.Context, build config.Build, target string) error 
 		return err
 	}
 
+	if err := os.MkdirAll(filepath.Dir(opts.Path), 0o755); err != nil {
+		return fmt.Errorf("create target directory: %w", err)
+	}
+
 	if !skips.Any(ctx, skips.PreBuildHooks) {
 		if err := runHook(ctx, *opts, build.Env, build.Hooks.Pre); err != nil {
 			return fmt.Errorf("pre hook failed: %w", err)
 		}
 	}
+
 	if err := doBuild(ctx, build, *opts); err != nil {
-		return fmt.Errorf("build failed: %w\ntarget: %s", err, target)
+		return fmt.Errorf("build failed: %w", err)
 	}
+
 	if !skips.Any(ctx, skips.PostBuildHooks) {
 		if err := runHook(ctx, *opts, build.Env, build.Hooks.Post); err != nil {
 			return fmt.Errorf("post hook failed: %w", err)
 		}
 	}
+
 	return nil
 }
 

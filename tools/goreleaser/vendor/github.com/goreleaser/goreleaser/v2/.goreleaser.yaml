@@ -185,7 +185,7 @@ archives:
       {{- if .Arm }}v{{ .Arm }}{{ end -}}
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
     builds_info:
       group: root
       owner: root
@@ -229,6 +229,8 @@ brews:
       - name: rustup
         type: optional
       - name: zig
+        type: optional
+      - name: deno
         type: optional
       - name: git
     conflicts:
@@ -319,27 +321,33 @@ nfpms:
     vendor: GoReleaser
     bindir: /usr/bin
     section: utils
+    mtime: "{{ .CommitDate }}"
     contents:
       - src: ./completions/goreleaser.bash
         dst: /usr/share/bash-completion/completions/goreleaser
         file_info:
           mode: 0644
+          mtime: "{{ .CommitDate }}"
       - src: ./completions/goreleaser.fish
         dst: /usr/share/fish/vendor_completions.d/goreleaser.fish
         file_info:
           mode: 0644
+          mtime: "{{ .CommitDate }}"
       - src: ./completions/goreleaser.zsh
         dst: /usr/share/zsh/vendor-completions/_goreleaser
         file_info:
           mode: 0644
+          mtime: "{{ .CommitDate }}"
       - src: ./manpages/goreleaser.1.gz
         dst: /usr/share/man/man1/goreleaser.1.gz
         file_info:
           mode: 0644
+          mtime: "{{ .CommitDate }}"
       - src: ./LICENSE.md
         dst: /usr/share/doc/goreleaser/copyright
         file_info:
           mode: 0644
+          mtime: "{{ .CommitDate }}"
     formats:
       - apk
       - deb
@@ -347,10 +355,14 @@ nfpms:
       - archlinux
     dependencies:
       - git
-    recommends:
-      - golang
-      - rustup
-      - zig
+    overrides:
+      deb:
+        suggests:
+          - golang
+          - rustup
+          - zig
+          - deno
+          - bun
     deb:
       lintian_overrides:
         - statically-linked-binary
@@ -425,10 +437,6 @@ release:
     {{ end }}
 
 announce:
-  twitter:
-    enabled: false
-    message_template: "GoReleaser {{ .Tag }} is out! Check it out: https://github.com/goreleaser/goreleaser/releases/tag/{{ .Tag }}"
-
   mastodon:
     enabled: true
     message_template: "#GoReleaser {{ .Tag }} is out! Check it out: https://github.com/goreleaser/goreleaser/releases/tag/{{ .Tag }}"

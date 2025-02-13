@@ -11,26 +11,32 @@ import (
 //nolint:gochecknoglobals
 var (
 	builders = map[string]Builder{}
-	lock     sync.Mutex
+	lock     sync.RWMutex
 )
 
 // Register registers a builder to a given name.
 func Register(name string, builder Builder) {
 	lock.Lock()
+	defer lock.Unlock()
 	builders[name] = builder
-	lock.Unlock()
 }
 
 // For gets the previously registered builder for the given name.
 func For(name string) Builder {
-	return builders[name]
+	lock.RLock()
+	defer lock.RUnlock()
+	b, ok := builders[name]
+	if !ok {
+		return newFail(name)
+	}
+	return b
 }
 
 // Dependencies returns all dependencies from all builders being used.
 func Dependencies(ctx *context.Context) []string {
 	var result []string
 	for _, build := range ctx.Config.Builds {
-		dep, ok := builders[build.Builder].(DependingBuilder)
+		dep, ok := For(build.Builder).(DependingBuilder)
 		if !ok {
 			continue
 		}
@@ -81,4 +87,11 @@ type PreparedBuilder interface {
 // support concurrent builds.
 type ConcurrentBuilder interface {
 	AllowConcurrentBuilds() bool
+}
+
+// TargetFixer allows the builder to provide a way to "default" an incomplete
+// target, e.g., on Go, 'darwin_arm64' would need to be defaulted to
+// 'darwin_arm64_v8.0'.
+type TargetFixer interface {
+	FixTarget(target string) string
 }

@@ -8,6 +8,7 @@ import (
 	goversion "github.com/caarlos0/go-version"
 	"github.com/caarlos0/log"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/goreleaser/goreleaser/v2/internal/pipe"
 	"github.com/goreleaser/goreleaser/v2/pkg/context"
 	"github.com/spf13/cobra"
 )
@@ -35,14 +36,18 @@ func (cmd *rootCmd) Execute(args []string) {
 	if err := cmd.cmd.Execute(); err != nil {
 		code := 1
 		msg := "command failed"
+		log := log.WithError(err)
 		eerr := &exitError{}
 		if errors.As(err, &eerr) {
 			code = eerr.code
 			if eerr.details != "" {
 				msg = eerr.details
 			}
+			for k, v := range pipe.DetailsOf(eerr.err) {
+				log = log.WithField(k, v)
+			}
 		}
-		log.WithError(err).Error(msg)
+		log.Error(msg)
 		cmd.exit(code)
 	}
 }
@@ -81,7 +86,7 @@ Check out our website for more information, examples and documentation: https://
 			}
 		},
 		PersistentPostRun: func(*cobra.Command, []string) {
-			log.Info("thanks for using goreleaser!")
+			log.Info("thanks for using GoReleaser!")
 		},
 	}
 	cmd.SetVersionTemplate("{{.Version}}")

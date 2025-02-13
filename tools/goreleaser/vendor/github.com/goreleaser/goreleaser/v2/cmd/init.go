@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"regexp"
+	"strings"
 
 	"github.com/caarlos0/log"
+	"github.com/goreleaser/goreleaser/v2/internal/packagejson"
 	"github.com/goreleaser/goreleaser/v2/internal/static"
 	"github.com/spf13/cobra"
 )
@@ -32,22 +34,11 @@ func newInitCmd() *initCmd {
 			if cmd.Flags().Lookup("language").Changed {
 				return
 			}
-
-			// try to figure out which kind of project is this...
-			if _, err := os.Stat("build.zig"); err == nil {
-				root.lang = "zig"
-				log.Info("project contains a 'build.zig', using default zig configuration")
-				return
-			}
-			if _, err := os.Stat("Cargo.toml"); err == nil {
-				root.lang = "rust"
-				log.Info("project contains a 'Cargo.toml', using default rust configuration")
-				return
-			}
+			root.lang = langDetect()
 		},
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if _, err := os.Stat(root.config); err == nil {
-				return fmt.Errorf("%s already exists, delete it and run the command again", root.config)
+				return errors.New(root.config + " already exists, delete it and run the command again")
 			}
 			conf, err := os.OpenFile(root.config, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|os.O_EXCL, 0o644)
 			if err != nil {
@@ -55,16 +46,23 @@ func newInitCmd() *initCmd {
 			}
 			defer conf.Close()
 
-			log.Infof(boldStyle.Render(fmt.Sprintf("Generating %s file", root.config)))
+			log.Infof(boldStyle.Render("generating ") + codeStyle.Render(root.config))
 
+			gitignoreLines := []string{"dist/"}
 			var example []byte
 			switch root.lang {
 			case "zig":
 				example = static.ZigExampleConfig
+				gitignoreLines = append(gitignoreLines, ".intentionally-empty-file.o", "zig-out/", ".zig-cache/")
 			case "rust":
 				example = static.RustExampleConfig
+				gitignoreLines = append(gitignoreLines, ".intentionally-empty-file.o", "target/")
 			case "go":
 				example = static.GoExampleConfig
+			case "bun":
+				example = static.BunExampleConfig
+			case "deno":
+				example = static.DenoExampleConfig
 			default:
 				return fmt.Errorf("invalid language: %s", root.lang)
 			}
@@ -73,17 +71,23 @@ func newInitCmd() *initCmd {
 				return err
 			}
 
-			if !hasDistIgnored(gitignorePath) {
-				gitignore, err := os.OpenFile(gitignorePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
-				if err != nil {
-					return err
-				}
-				defer gitignore.Close()
-				if _, err := gitignore.WriteString("\ndist/\n"); err != nil {
-					return err
-				}
+			gitignoreModified, err := setupGitignore(gitignorePath, gitignoreLines)
+			if gitignoreModified {
+				log.Infof(boldStyle.Render("setting up " + codeStyle.Render(gitignorePath)))
 			}
-			log.WithField("file", root.config).Info("config created; please edit accordingly to your needs")
+			if err != nil {
+				return err
+			}
+
+			done := []string{
+				boldStyle.Render("done!"),
+				"please edit", codeStyle.Render(root.config),
+			}
+			if gitignoreModified {
+				done = append(done, "and", codeStyle.Render(gitignorePath))
+			}
+			done = append(done, "accordingly.")
+			log.Info(strings.Join(done, " "))
 			return nil
 		},
 	}
@@ -95,7 +99,7 @@ func newInitCmd() *initCmd {
 	_ = cmd.RegisterFlagCompletionFunc(
 		"language",
 		cobra.FixedCompletions(
-			[]string{"go", "rust", "zig"},
+			[]string{"go", "bun", "deno", "rust", "zig"},
 			cobra.ShellCompDirectiveDefault,
 		),
 	)
@@ -104,11 +108,49 @@ func newInitCmd() *initCmd {
 	return root
 }
 
-func hasDistIgnored(path string) bool {
-	bts, err := os.ReadFile(path)
+func setupGitignore(path string, lines []string) (bool, error) {
+	ignored, _ := os.ReadFile(path)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
 	if err != nil {
-		return false
+		return false, err
 	}
-	exp := regexp.MustCompile("(?m)^dist/$")
-	return exp.Match(bts)
+	defer f.Close()
+	var modified bool
+	for _, line := range lines {
+		if !strings.Contains(string(ignored), line+"\n") {
+			if !modified {
+				line = "# Added by goreleaser init:\n" + line
+				modified = true
+			}
+			if _, err := f.WriteString(line + "\n"); err != nil {
+				return true, err
+			}
+		}
+	}
+	return modified, nil
+}
+
+func langDetect() string {
+	code := func(s string) string {
+		return codeStyle.Render(s)
+	}
+	for lang, file := range map[string]string{
+		"zig":  "build.zig",
+		"rust": "Cargo.toml",
+		"bun":  "bun.lockb",
+		"deno": "deno.json",
+	} {
+		if _, err := os.Stat(file); err == nil {
+			log.Info("project contains a " + code(file) + " file, using default " + code(lang) + " configuration")
+			return lang
+		}
+	}
+
+	file := "package.json"
+	if pkg, err := packagejson.Open(file); err == nil && pkg.IsBun() {
+		log.Info("project contains a " + code(file) + " with " + code("@types/bun") + " in its " + code("devDependencies") + ", using default " + code("bun") + " configuration")
+		return "bun"
+	}
+
+	return "go"
 }

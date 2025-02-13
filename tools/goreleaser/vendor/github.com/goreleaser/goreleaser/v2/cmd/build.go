@@ -56,7 +56,7 @@ Its intended usage is, for example, within Makefiles to avoid setting up ldflags
 
 It also allows you to generate a local build for your current machine only using the ` + "`--single-target`" + ` option, and specific build IDs using the ` + "`--id`" + ` option in case you have more than one.
 
-When using ` + "`--single-target`" + `, the ` + "`GOOS`, `GOARCH`, `GOARM`, `GOAMD64`, `GOARM64`, `GORISCV64`, `GO386`, `GOPPC64`, and `GOMIPS`" + ` environment variables are used to determine the target, defaulting to the current machine target if not set.
+When using ` + "`--single-target`" + `, you use the ` + "`TARGET`, or GOOS`, `GOARCH`, `GOARM`, `GOAMD64`, `GOARM64`, `GORISCV64`, `GO386`, `GOPPC64`, and `GOMIPS`" + ` environment variables to determine the target, defaulting to the current machine target if not set.
 `,
 		SilenceUsage:      true,
 		SilenceErrors:     true,
@@ -85,7 +85,7 @@ When using ` + "`--single-target`" + `, the ` + "`GOOS`, `GOARCH`, `GOARM`, `GOA
 	cmd.Flags().StringArrayVar(&root.opts.ids, "id", nil, "Builds only the specified build ids")
 	_ = cmd.RegisterFlagCompletionFunc("id", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		// TODO: improve this
-		cfg, err := loadConfig(root.opts.config)
+		cfg, err := loadConfig(!root.opts.snapshot, root.opts.config)
 		if err != nil {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
@@ -97,7 +97,7 @@ When using ` + "`--single-target`" + `, the ` + "`GOOS`, `GOARCH`, `GOARM`, `GOA
 	})
 	cmd.Flags().BoolVar(&root.opts.deprecated, "deprecated", false, "Force print the deprecation message - tests only")
 	cmd.Flags().StringVarP(&root.opts.output, "output", "o", "", "Copy the binary to the path after the build. Only taken into account when using --single-target and a single id (either with --id or if configuration only has one build)")
-	_ = cmd.MarkFlagFilename("output", "")
+	// _ = cmd.MarkFlagFilename("output") // no extensions to filter
 	_ = cmd.Flags().MarkHidden("deprecated")
 
 	cmd.Flags().StringSliceVar(
@@ -115,7 +115,7 @@ When using ` + "`--single-target`" + `, the ` + "`GOOS`, `GOARCH`, `GOARM`, `GOA
 }
 
 func buildProject(options buildOpts) (*context.Context, error) {
-	cfg, err := loadConfig(options.config)
+	cfg, err := loadConfig(!options.snapshot, options.config)
 	if err != nil {
 		return nil, err
 	}

@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/caarlos0/log"
-	"github.com/google/go-github/v67/github"
+	"github.com/google/go-github/v69/github"
 	"github.com/goreleaser/goreleaser/v2/internal/artifact"
 	"github.com/goreleaser/goreleaser/v2/internal/tmpl"
 	"github.com/goreleaser/goreleaser/v2/pkg/config"
@@ -420,7 +420,11 @@ func (c *githubClient) PublishRelease(ctx *context.Context, releaseID string) er
 	data := &github.RepositoryRelease{
 		Draft: github.Bool(draft),
 	}
-	if latest := strings.TrimSpace(ctx.Config.Release.MakeLatest); latest != "" {
+	latest, err := tmpl.New(ctx).Apply(ctx.Config.Release.MakeLatest)
+	if err != nil {
+		return fmt.Errorf("templating GitHub make_latest: %w", err)
+	}
+	if latest != "" {
 		data.MakeLatest = github.String(latest)
 	}
 	if ctx.Config.Release.DiscussionCategoryName != "" {

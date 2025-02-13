@@ -9,6 +9,18 @@ before:
     - ./scripts/completions.sh
     - ./scripts/manpages.sh
 
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
+  description: nFPM is a simple, 0-dependencies, deb, rpm, and apk packager.
+  full_description: |-
+    Simple, 0-dependencies, deb, rpm, and apk packager.
+    nFPM (not FPM) is configurable via YAML and does not need any
+    packaging software installed.
+  homepage: https://nfpm.goreleaser.com
+  license: MIT
+  maintainers:
+    - Carlos Alexandro Becker <carlos@becker.software>
+
 gomod:
   proxy: true
 
@@ -95,14 +107,15 @@ archives:
       - completions/*
       - manpages/*
 
+source:
+  enabled: true
+  name_template: '{{ .ProjectName }}_{{ .Version }}_source'
+
 brews:
   - repository:
       owner: goreleaser
       name: homebrew-tap
     directory: Formula
-    homepage: https://nfpm.goreleaser.com
-    description: nFPM is a simple, 0-dependencies, deb, rpm and apk packager.
-    license: MIT
     test: |
       system "#{bin}/nfpm -v"
     install: |-
@@ -116,31 +129,23 @@ scoops:
   - repository:
       owner: goreleaser
       name: scoop-bucket
-    homepage: https://nfpm.goreleaser.com
     directory: bucket
-    description: nFPM is a simple, 0-dependencies, deb, rpm and apk packager.
-    license: MIT
 
 nix:
   - name: nfpm
     repository:
       owner: goreleaser
       name: nur
-    homepage: https://nfpm.goreleaser.com
-    description: nFPM is a simple, 0-dependencies, deb, rpm and apk packager.
     path: pkgs/nfpm/default.nix
-    license: mit
     extra_install: |-
       installManPage ./manpages/nfpm.1.gz
       installShellCompletion ./completions/*
 
 winget:
   - name: nfpm
+    license_url: https://github.com/goreleaser/nfpm/blob/main/LICENSE.md
     publisher: goreleaser
-    license: Copyright Becker Software LTDA
     copyright: Becker Software LTDA
-    homepage: https://nfpm.goreleaser.com
-    short_description: nFPM is a simple, 0-dependencies, deb, rpm and apk packager.
     repository:
       owner: goreleaser
       name: winget-pkgs
@@ -156,13 +161,6 @@ winget:
 
 nfpms:
   - file_name_template: "{{ .ConventionalFileName }}"
-    homepage: https://nfpm.goreleaser.com
-    description: |-
-      Simple, 0-dependencies, deb, rpm and apk packager.
-      nFPM (not FPM) is configurable via YAML and does not need any
-      packaging software installed.
-    maintainer: Carlos Alexandro Becker <carlos@becker.software>
-    license: MIT
     vendor: GoReleaser
     formats:
       - apk
@@ -198,12 +196,9 @@ nfpms:
           mode: 0644
 
 aurs:
-  - homepage: https://nfpm.goreleaser.com
-    description: nFPM is a simple, 0-dependencies, deb, rpm and apk packager.
-    maintainers:
+  - maintainers:
       - "Fernandez Ludovic <lfernandez dot dev at gmail dot com>"
       - "Carlos Alexandro Becker <carlos at becker dot software>"
-    license: MIT
     private_key: "{{ .Env.AUR_KEY }}"
     git_url: "ssh://aur@aur.archlinux.org/nfpm-bin.git"
     package: |-
@@ -220,6 +215,39 @@ aurs:
       install -Dm644 "./completions/nfpm.fish" "${pkgdir}/usr/share/fish/vendor_completions.d/nfpm.fish"
       # man pages
       install -Dm644 "./manpages/nfpm.1.gz" "${pkgdir}/usr/share/man/man1/nfpm.1.gz"
+
+aur_sources:
+  - homepage: https://nfpm.goreleaser.com
+    description: nFPM is a simple, 0-dependencies, deb, rpm and apk packager.
+    maintainers:
+      - "Fernandez Ludovic <lfernandez dot dev at gmail dot com>"
+      - "Carlos Alexandro Becker <carlos at becker dot software>"
+    license: MIT
+    private_key: "{{ .Env.AUR_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/nfpm.git"
+    build: |-
+      export CGO_CPPFLAGS="${CPPFLAGS}"
+      export CGO_CFLAGS="${CFLAGS}"
+      export CGO_CXXFLAGS="${CXXFLAGS}"
+      export CGO_LDFLAGS="${LDFLAGS}"
+      export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+      go build -ldflags="-w -s -buildid='' -linkmode=external -X main.version=v${pkgver}" ./cmd/nfpm
+
+      chmod +x "./${pkgname}"
+    package: |-
+      # Bin
+      install -Dsm755 "./${pkgname}" "${pkgdir}/usr/bin/${pkgname}"
+
+      # License
+      install -Dm644 "./LICENSE.md" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+
+      # Completions
+      mkdir -p "${pkgdir}/usr/share/bash-completion/completions/"
+      mkdir -p "${pkgdir}/usr/share/zsh/site-functions/"
+      mkdir -p "${pkgdir}/usr/share/fish/vendor_completions.d/"
+      ./${pkgname} completion bash > "${pkgdir}/usr/share/bash-completion/completions/${pkgname}"
+      ./${pkgname} completion zsh > "${pkgdir}/usr/share/zsh/site-functions/_${pkgname}"
+      ./${pkgname} completion fish > "${pkgdir}/usr/share/fish/vendor_completions.d/${pkgname}.fish"
 
 furies:
   - account: goreleaser
