@@ -7,6 +7,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [v0.17.0]
+
+- Deprecate github.com/mfridman/buildversion, and use std lib `debug.ReadBuildInfo()` instead. In
+  go1.24 this is handled automatically, from the [release notes](https://go.dev/doc/go1.24):
+
+  > The go build command now sets the main module’s version in the compiled binary based on the
+  > version control system tag and/or commit. A +dirty suffix will be appended if there are
+  > uncommitted changes. Use the -buildvcs=false flag to omit version control information from the
+  > binary.
+
+- Handle changes in go1.24 related to build output. `tparse` will pipe the build output to stderr
+
+  > Furthermore, `go test -json` now reports build output and failures in JSON, interleaved with
+  > test result JSON. These are distinguished by new Action types, but if they cause problems in a
+  > test integration system, you can revert to the text build output with GODEBUG setting
+  > gotestjsonbuildtext=1.
+
 ## [v0.16.0]
 
 - Add a `-follow-output` flag to allow writing go test output directly into a file. This will be
@@ -71,7 +88,8 @@ Summary from [v0.13.0](https://github.com/mfridman/tparse/releases/tag/v0.13.0)
 - Add [GoReleaser](https://goreleaser.com/) to automate the release process. Pre-built binaries are
   available for each release, currently Linux and macOS. If there is demand, can also add Windows.
 
-[Unreleased]: https://github.com/mfridman/tparse/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/mfridman/tparse/compare/v0.17.0...HEAD
+[v0.17.0]: https://github.com/mfridman/tparse/compare/v0.16.0...v0.17.0
 [v0.16.0]: https://github.com/mfridman/tparse/compare/v0.15.0...v0.16.0
 [v0.15.0]: https://github.com/mfridman/tparse/compare/v0.14.0...v0.15.0
 [v0.14.0]: https://github.com/mfridman/tparse/compare/v0.13.3...v0.14.0
