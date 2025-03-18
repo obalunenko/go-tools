@@ -7,7 +7,7 @@ github.com/Masterminds/semver/v3
 # github.com/Masterminds/sprig/v3 v3.2.3
 ## explicit; go 1.13
 github.com/Masterminds/sprig/v3
-# github.com/abice/go-enum v0.6.0
+# github.com/abice/go-enum v0.6.1
 ## explicit; go 1.20
 github.com/abice/go-enum
 github.com/abice/go-enum/generator
@@ -29,7 +29,7 @@ github.com/huandu/xstrings
 # github.com/imdario/mergo v0.3.16
 ## explicit; go 1.13
 github.com/imdario/mergo
-# github.com/labstack/gommon v0.4.1
+# github.com/labstack/gommon v0.4.2
 ## explicit; go 1.18
 github.com/labstack/gommon/color
 # github.com/mattn/go-colorable v0.1.13
@@ -62,11 +62,11 @@ github.com/shopspring/decimal
 github.com/spf13/cast
 # github.com/stretchr/testify v1.10.0
 ## explicit; go 1.17
-# github.com/urfave/cli/v2 v2.26.0
+# github.com/urfave/cli/v2 v2.27.2
 ## explicit; go 1.18
 github.com/urfave/cli/v2
-# github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673
-## explicit
+# github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913
+## explicit; go 1.15.0
 github.com/xrash/smetrics
 # golang.org/x/crypto v0.31.0
 ## explicit; go 1.20
