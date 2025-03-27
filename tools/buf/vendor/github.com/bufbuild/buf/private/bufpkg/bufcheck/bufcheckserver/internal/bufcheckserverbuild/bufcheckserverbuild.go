@@ -179,7 +179,7 @@ var (
 			},
 		),
 	}
-	// FieldSameLabelV1Beta1RuleBuilder is a rule spec builder.
+	// BreakingFieldSameLabelV1Beta1RuleSpecBuilder is a rule spec builder.
 	BreakingFieldSameLabelV1Beta1RuleSpecBuilder = &bufcheckserverutil.RuleSpecBuilder{
 		ID:             "FIELD_SAME_LABEL",
 		Purpose:        "Checks that fields have the same labels in a given message.",
@@ -373,7 +373,7 @@ var (
 		Type:    check.RuleTypeBreaking,
 		Handler: bufcheckserverhandle.HandleBreakingFileSameJavaGenericServices,
 	}
-	// BreakingFileSamePyGenericServicesRuleBuilder is a rule spec builder.
+	// BreakingFileSamePyGenericServicesRuleSpecBuilder is a rule spec builder.
 	BreakingFileSamePyGenericServicesRuleSpecBuilder = &bufcheckserverutil.RuleSpecBuilder{
 		ID:      "FILE_SAME_PY_GENERIC_SERVICES",
 		Purpose: "Checks that files have the same value for the py_generic_services option.",
@@ -689,10 +689,15 @@ var (
 	}
 	// LintImportNoWeakRuleSpecBuilder is a rule spec builder.
 	LintImportNoWeakRuleSpecBuilder = &bufcheckserverutil.RuleSpecBuilder{
-		ID:      "IMPORT_NO_WEAK",
-		Purpose: "Checks that imports are not weak.",
-		Type:    check.RuleTypeLint,
-		Handler: bufcheckserverhandle.HandleLintImportNoWeak,
+		ID:         "IMPORT_NO_WEAK",
+		Purpose:    "Checks that imports are not weak.",
+		Deprecated: true,
+		Type:       check.RuleTypeLint,
+		Handler: check.RuleHandlerFunc(
+			func(context.Context, check.ResponseWriter, check.Request) error {
+				return nil
+			},
+		),
 	}
 	// LintImportUsedRuleSpecBuilder is a rule spec builder.
 	LintImportUsedRuleSpecBuilder = &bufcheckserverutil.RuleSpecBuilder{
