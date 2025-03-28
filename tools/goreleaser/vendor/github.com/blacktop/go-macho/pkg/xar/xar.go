@@ -21,7 +21,6 @@ import (
 	"errors"
 	"hash"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
@@ -47,9 +46,11 @@ var (
 	ErrFileEncodingUnsupported = errors.New("xar: unsupported file encoding")
 )
 
-const xarVersion = 1
-const xarHeaderMagic = 0x78617221 // 'xar!'
-const xarHeaderSize = 28
+const (
+	xarHeaderMagic = 0x78617221 // 'xar!'
+	xarVersion     = 1
+	xarHeaderSize  = 28
+)
 
 type xarHeader struct {
 	magic         uint32
@@ -121,7 +122,7 @@ type File struct {
 }
 
 type Reader struct {
-	File map[uint64]*File
+	Files map[uint64]*File
 
 	Certificates          []*x509.Certificate
 	SignatureCreationTime int64
@@ -133,27 +134,47 @@ type Reader struct {
 	heapOffset int64
 }
 
-// OpenReader will open the XAR file specified by name and return a Reader.
-func OpenReader(name string) (*Reader, error) {
+// A ReadCloser is a [Reader] that must be closed when no longer needed.
+type ReadCloser struct {
+	f *os.File
+	Reader
+}
+
+// Open will open the XAR file specified by name and return a Reader.
+func Open(name string) (*ReadCloser, error) {
 	f, err := os.Open(name)
 	if err != nil {
 		return nil, err
 	}
-
-	info, err := f.Stat()
+	fi, err := f.Stat()
 	if err != nil {
+		f.Close()
 		return nil, err
 	}
+	rc := new(ReadCloser)
+	rc.f = f
+	r, err := NewReader(f, fi.Size())
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	rc.Reader = *r
+	return rc, nil
+}
 
-	return NewReader(f, info.Size())
+func (r *ReadCloser) Close() error {
+	if r.f != nil {
+		return r.f.Close()
+	}
+	return nil
 }
 
 // NewReader returns a new reader reading from r, which is assumed to have the given size in bytes.
 func NewReader(r io.ReaderAt, size int64) (*Reader, error) {
 	xr := &Reader{
-		File: make(map[uint64]*File),
-		xar:  r,
-		size: size,
+		Files: make(map[uint64]*File),
+		xar:   r,
+		size:  size,
 	}
 
 	hdr := make([]byte, xarHeaderSize)
@@ -340,10 +361,9 @@ func (r *Reader) readAndVerifySignature(root *xmlXar, checksumKind uint32, check
 }
 
 // This is a convenience method that returns true if the opened XAR archive
-// has a signature. Internally, it checks whether the SignatureCreationTime
-// field of the Reader is > 0.
+// has a signature. Internally, it checks whether there is at least one certificate.
 func (r *Reader) HasSignature() bool {
-	return r.SignatureCreationTime > 0
+	return len(r.Certificates) > 0
 }
 
 // This is a convenience method that returns true of the signature if the
@@ -363,14 +383,13 @@ func (r *Reader) HasSignature() bool {
 // If an archive has a signature, the certificate chain of the archive can be
 // accessed through the Certificates field of the Reader.
 //
-// Internally, this method checks whether the SignatureError field is non-nil,
-// and whether the SignatureCreationTime is > 0.
+// Internally, this method checks whether the SignatureError field is non-nil.
 //
 // If the signature is not valid, and the XAR file has a signature, the
 // SignatureError field of the Reader can be used to determine a possible
 // cause.
 func (r *Reader) ValidSignature() bool {
-	return r.SignatureCreationTime > 0 && r.SignatureError == nil
+	return r.SignatureError == nil
 }
 
 func xmlFileToFileInfo(xmlFile *xmlFile) (fi FileInfo, err error) {
@@ -483,7 +502,9 @@ func (r *Reader) readXmlFileTree(xmlFile *xmlFile, dir string) (err error) {
 		}
 	}
 
-	r.File[xf.Id] = xf
+	if xf.Type != FileTypeDirectory {
+		r.Files[xf.Id] = xf
+	}
 
 	if xf.Type == FileTypeDirectory {
 		for _, subXmlFile := range xmlFile.File {
@@ -503,24 +524,22 @@ func (f *File) Open() (rc io.ReadCloser, err error) {
 	r := io.NewSectionReader(f.heap, f.offset, f.length)
 	switch f.EncodingMimetype {
 	case "application/octet-stream":
-		rc = ioutil.NopCloser(r)
+		rc = io.NopCloser(r)
 	case "application/x-gzip":
 		rc, err = zlib.NewReader(r)
 	case "application/x-bzip2":
-		rc = ioutil.NopCloser(bzip2.NewReader(r))
+		rc = io.NopCloser(bzip2.NewReader(r))
 	default:
 		err = ErrFileEncodingUnsupported
 	}
-
 	return rc, err
 }
 
-// OpenRaw returns a ReadCloser that provides access to the file's
+// OpenRaw returns a SectionReader that provides access to the file's
 // raw content. The encoding of the raw content is specified in
 // the File's EncodingMimetype field.
-func (f *File) OpenRaw() (rc io.ReadCloser, err error) {
-	rc = ioutil.NopCloser(io.NewSectionReader(f.heap, f.offset, f.length))
-	return
+func (f *File) OpenRaw() *io.SectionReader {
+	return io.NewSectionReader(f.heap, f.offset, f.length)
 }
 
 // Verify that the compressed content of the File in the

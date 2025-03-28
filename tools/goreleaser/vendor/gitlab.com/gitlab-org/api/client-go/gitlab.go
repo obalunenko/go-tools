@@ -117,6 +117,7 @@ type Client struct {
 	Boards                       *IssueBoardsService
 	Branches                     *BranchesService
 	BroadcastMessage             *BroadcastMessagesService
+	BulkImports                  *BulkImportsService
 	CIYMLTemplate                *CIYMLTemplatesService
 	ClusterAgents                *ClusterAgentsService
 	Commits                      *CommitsService
@@ -153,7 +154,9 @@ type Client struct {
 	GroupMembers                 *GroupMembersService
 	GroupMilestones              *GroupMilestonesService
 	GroupProtectedEnvironments   *GroupProtectedEnvironmentsService
+	GroupReleases                *GroupReleasesService
 	GroupRepositoryStorageMove   *GroupRepositoryStorageMoveService
+	GroupSCIM                    *GroupSCIMService
 	GroupSecuritySettings        *GroupSecuritySettingsService
 	GroupSSHCertificates         *GroupSSHCertificatesService
 	GroupVariables               *GroupVariablesService
@@ -201,6 +204,7 @@ type Client struct {
 	ProjectMembers               *ProjectMembersService
 	ProjectMirrors               *ProjectMirrorService
 	ProjectRepositoryStorageMove *ProjectRepositoryStorageMoveService
+	ProjectSecuritySettings      *ProjectSecuritySettingsService
 	ProjectSnippets              *ProjectSnippetsService
 	ProjectTemplates             *ProjectTemplatesService
 	ProjectVariables             *ProjectVariablesService
@@ -222,6 +226,7 @@ type Client struct {
 	ResourceWeightEvents         *ResourceWeightEventsService
 	Runners                      *RunnersService
 	Search                       *SearchService
+	SecureFiles                  *SecureFilesService
 	Services                     *ServicesService
 	Settings                     *SettingsService
 	Sidekiq                      *SidekiqService
@@ -358,6 +363,7 @@ func newClient(options ...ClientOptionFunc) (*Client, error) {
 	c.Boards = &IssueBoardsService{client: c}
 	c.Branches = &BranchesService{client: c}
 	c.BroadcastMessage = &BroadcastMessagesService{client: c}
+	c.BulkImports = &BulkImportsService{client: c}
 	c.CIYMLTemplate = &CIYMLTemplatesService{client: c}
 	c.ClusterAgents = &ClusterAgentsService{client: c}
 	c.Commits = &CommitsService{client: c}
@@ -394,7 +400,9 @@ func newClient(options ...ClientOptionFunc) (*Client, error) {
 	c.GroupMembers = &GroupMembersService{client: c}
 	c.GroupMilestones = &GroupMilestonesService{client: c}
 	c.GroupProtectedEnvironments = &GroupProtectedEnvironmentsService{client: c}
+	c.GroupReleases = &GroupReleasesService{client: c}
 	c.GroupRepositoryStorageMove = &GroupRepositoryStorageMoveService{client: c}
+	c.GroupSCIM = &GroupSCIMService{client: c}
 	c.GroupSecuritySettings = &GroupSecuritySettingsService{client: c}
 	c.GroupSSHCertificates = &GroupSSHCertificatesService{client: c}
 	c.GroupVariables = &GroupVariablesService{client: c}
@@ -442,6 +450,7 @@ func newClient(options ...ClientOptionFunc) (*Client, error) {
 	c.ProjectMembers = &ProjectMembersService{client: c}
 	c.ProjectMirrors = &ProjectMirrorService{client: c}
 	c.ProjectRepositoryStorageMove = &ProjectRepositoryStorageMoveService{client: c}
+	c.ProjectSecuritySettings = &ProjectSecuritySettingsService{client: c}
 	c.ProjectSnippets = &ProjectSnippetsService{client: c}
 	c.ProjectTemplates = &ProjectTemplatesService{client: c}
 	c.ProjectVariables = &ProjectVariablesService{client: c}
@@ -463,6 +472,7 @@ func newClient(options ...ClientOptionFunc) (*Client, error) {
 	c.ResourceWeightEvents = &ResourceWeightEventsService{client: c}
 	c.Runners = &RunnersService{client: c}
 	c.Search = &SearchService{client: c}
+	c.SecureFiles = &SecureFilesService{client: c}
 	c.Services = &ServicesService{client: c}
 	c.Settings = &SettingsService{client: c}
 	c.Sidekiq = &SidekiqService{client: c}

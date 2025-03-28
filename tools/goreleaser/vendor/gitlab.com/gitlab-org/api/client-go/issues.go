@@ -120,6 +120,7 @@ type Issue struct {
 	Epic                 *Epic                  `json:"epic"`
 	Iteration            *GroupIteration        `json:"iteration"`
 	TaskCompletionStatus *TasksCompletionStatus `json:"task_completion_status"`
+	ServiceDeskReplyTo   string                 `json:"service_desk_reply_to"`
 }
 
 func (i Issue) String() string {
@@ -668,7 +669,7 @@ type ListMergeRequestsClosingIssueOptions ListOptions
 //
 // GitLab API docs:
 // https://docs.gitlab.com/ee/api/issues.html#list-merge-requests-that-close-a-particular-issue-on-merge
-func (s *IssuesService) ListMergeRequestsClosingIssue(pid interface{}, issue int, opt *ListMergeRequestsClosingIssueOptions, options ...RequestOptionFunc) ([]*MergeRequest, *Response, error) {
+func (s *IssuesService) ListMergeRequestsClosingIssue(pid interface{}, issue int, opt *ListMergeRequestsClosingIssueOptions, options ...RequestOptionFunc) ([]*BasicMergeRequest, *Response, error) {
 	project, err := parseID(pid)
 	if err != nil {
 		return nil, nil, err
@@ -680,7 +681,7 @@ func (s *IssuesService) ListMergeRequestsClosingIssue(pid interface{}, issue int
 		return nil, nil, err
 	}
 
-	var m []*MergeRequest
+	var m []*BasicMergeRequest
 	resp, err := s.client.Do(req, &m)
 	if err != nil {
 		return nil, resp, err
@@ -701,7 +702,7 @@ type ListMergeRequestsRelatedToIssueOptions ListOptions
 //
 // GitLab API docs:
 // https://docs.gitlab.com/ee/api/issues.html#list-merge-requests-related-to-issue
-func (s *IssuesService) ListMergeRequestsRelatedToIssue(pid interface{}, issue int, opt *ListMergeRequestsRelatedToIssueOptions, options ...RequestOptionFunc) ([]*MergeRequest, *Response, error) {
+func (s *IssuesService) ListMergeRequestsRelatedToIssue(pid interface{}, issue int, opt *ListMergeRequestsRelatedToIssueOptions, options ...RequestOptionFunc) ([]*BasicMergeRequest, *Response, error) {
 	project, err := parseID(pid)
 	if err != nil {
 		return nil, nil, err
@@ -716,7 +717,7 @@ func (s *IssuesService) ListMergeRequestsRelatedToIssue(pid interface{}, issue i
 		return nil, nil, err
 	}
 
-	var m []*MergeRequest
+	var m []*BasicMergeRequest
 	resp, err := s.client.Do(req, &m)
 	if err != nil {
 		return nil, resp, err

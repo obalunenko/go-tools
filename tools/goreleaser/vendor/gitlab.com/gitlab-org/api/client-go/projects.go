@@ -137,6 +137,7 @@ type Project struct {
 	ImportStatus                             string                                      `json:"import_status"`
 	ImportError                              string                                      `json:"import_error"`
 	CIDefaultGitDepth                        int                                         `json:"ci_default_git_depth"`
+	CIDeletePipelinesInSeconds               int                                         `json:"ci_delete_pipelines_in_seconds,omitempty"`
 	CIForwardDeploymentEnabled               bool                                        `json:"ci_forward_deployment_enabled"`
 	CIForwardDeploymentRollbackAllowed       bool                                        `json:"ci_forward_deployment_rollback_allowed"`
 	CISeperateCache                          bool                                        `json:"ci_separated_caches"`
@@ -852,6 +853,7 @@ type EditProjectOptions struct {
 	BuildsAccessLevel                         *AccessControlValue                          `url:"builds_access_level,omitempty" json:"builds_access_level,omitempty"`
 	CIConfigPath                              *string                                      `url:"ci_config_path,omitempty" json:"ci_config_path,omitempty"`
 	CIDefaultGitDepth                         *int                                         `url:"ci_default_git_depth,omitempty" json:"ci_default_git_depth,omitempty"`
+	CIDeletePipelinesInSeconds                *int                                         `url:"ci_delete_pipelines_in_seconds,omitempty" json:"ci_delete_pipelines_in_seconds,omitempty"`
 	CIForwardDeploymentEnabled                *bool                                        `url:"ci_forward_deployment_enabled,omitempty" json:"ci_forward_deployment_enabled,omitempty"`
 	CIForwardDeploymentRollbackAllowed        *bool                                        `url:"ci_forward_deployment_rollback_allowed,omitempty" json:"ci_forward_deployment_rollback_allowed,omitempty"`
 	CISeperateCache                           *bool                                        `url:"ci_separated_caches,omitempty" json:"ci_separated_caches,omitempty"`

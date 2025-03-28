@@ -16,6 +16,11 @@ func (b RichTextBlock) BlockType() MessageBlockType {
 	return b.Type
 }
 
+// ID returns the ID of the block
+func (s RichTextBlock) ID() string {
+	return s.BlockID
+}
+
 func (e *RichTextBlock) UnmarshalJSON(b []byte) error {
 	var raw struct {
 		Type        MessageBlockType  `json:"type"`
@@ -340,7 +345,7 @@ func NewRichTextSectionUserElement(userID string, style *RichTextSectionTextStyl
 type RichTextSectionEmojiElement struct {
 	Type     RichTextSectionElementType `json:"type"`
 	Name     string                     `json:"name"`
-	SkinTone int                        `json:"skin_tone"`
+	SkinTone int                        `json:"skin_tone,omitempty"`
 	Unicode  string                     `json:"unicode,omitempty"`
 	Style    *RichTextSectionTextStyle  `json:"style,omitempty"`
 }

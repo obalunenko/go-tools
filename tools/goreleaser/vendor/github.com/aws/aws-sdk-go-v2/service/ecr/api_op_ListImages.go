@@ -129,6 +129,9 @@ func (c *Client) addOperationListImagesMiddlewares(stack *middleware.Stack, opti
 	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
+		return err
+	}
 	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
@@ -139,6 +142,12 @@ func (c *Client) addOperationListImagesMiddlewares(stack *middleware.Stack, opti
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
 	if err = addOpListImagesValidationMiddleware(stack); err != nil {
@@ -162,15 +171,20 @@ func (c *Client) addOperationListImagesMiddlewares(stack *middleware.Stack, opti
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
+		return err
+	}
 	return nil
 }
-
-// ListImagesAPIClient is a client that implements the ListImages operation.
-type ListImagesAPIClient interface {
-	ListImages(context.Context, *ListImagesInput, ...func(*Options)) (*ListImagesOutput, error)
-}
-
-var _ ListImagesAPIClient = (*Client)(nil)
 
 // ListImagesPaginatorOptions is the paginator options for ListImages
 type ListImagesPaginatorOptions struct {
@@ -241,6 +255,9 @@ func (p *ListImagesPaginator) NextPage(ctx context.Context, optFns ...func(*Opti
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.ListImages(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -259,6 +276,13 @@ func (p *ListImagesPaginator) NextPage(ctx context.Context, optFns ...func(*Opti
 
 	return result, nil
 }
+
+// ListImagesAPIClient is a client that implements the ListImages operation.
+type ListImagesAPIClient interface {
+	ListImages(context.Context, *ListImagesInput, ...func(*Options)) (*ListImagesOutput, error)
+}
+
+var _ ListImagesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opListImages(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
