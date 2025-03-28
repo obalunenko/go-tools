@@ -43,21 +43,18 @@ type layerStore struct {
 
 // StoreOptions are the options used to create a new Store instance
 type StoreOptions struct {
-	Root                      string
-	MetadataStorePathTemplate string
-	GraphDriver               string
-	GraphDriverOptions        []string
-	IDMapping                 idtools.IdentityMapping
-	ExperimentalEnabled       bool
+	Root               string
+	GraphDriver        string
+	GraphDriverOptions []string
+	IDMapping          idtools.IdentityMapping
 }
 
 // NewStoreFromOptions creates a new Store instance
 func NewStoreFromOptions(options StoreOptions) (Store, error) {
 	driver, err := graphdriver.New(options.GraphDriver, graphdriver.Options{
-		Root:                options.Root,
-		DriverOptions:       options.GraphDriverOptions,
-		IDMap:               options.IDMapping,
-		ExperimentalEnabled: options.ExperimentalEnabled,
+		Root:          options.Root,
+		DriverOptions: options.GraphDriverOptions,
+		IDMap:         options.IDMapping,
 	})
 	if err != nil {
 		if options.GraphDriver != "" {
@@ -67,9 +64,9 @@ func NewStoreFromOptions(options StoreOptions) (Store, error) {
 	}
 	log.G(context.TODO()).Debugf("Initialized graph driver %s", driver)
 
-	root := fmt.Sprintf(options.MetadataStorePathTemplate, driver)
-
-	return newStoreFromGraphDriver(root, driver)
+	driverName := driver.String()
+	layerDBRoot := filepath.Join(options.Root, "image", driverName, "layerdb")
+	return newStoreFromGraphDriver(layerDBRoot, driver)
 }
 
 // newStoreFromGraphDriver creates a new Store instance using the provided
@@ -466,7 +463,7 @@ func (ls *layerStore) Release(l Layer) ([]Metadata, error) {
 	return ls.releaseLayer(layer)
 }
 
-func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWLayerOpts) (_ RWLayer, err error) {
+func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWLayerOpts) (_ RWLayer, retErr error) {
 	var (
 		storageOpt map[string]string
 		initFunc   MountInit
@@ -502,7 +499,7 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 
 		// Release parent chain if error
 		defer func() {
-			if err != nil {
+			if retErr != nil {
 				ls.layerL.Lock()
 				ls.releaseLayer(p)
 				ls.layerL.Unlock()
@@ -519,9 +516,10 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 	}
 
 	if initFunc != nil {
+		var err error
 		pid, err = ls.initMount(m.mountID, pid, mountLabel, initFunc, storageOpt)
 		if err != nil {
-			return
+			return nil, err
 		}
 		m.initID = pid
 	}
@@ -530,11 +528,11 @@ func (ls *layerStore) CreateRWLayer(name string, parent ChainID, opts *CreateRWL
 		StorageOpt: storageOpt,
 	}
 
-	if err = ls.driver.CreateReadWrite(m.mountID, pid, createOpts); err != nil {
-		return
+	if err := ls.driver.CreateReadWrite(m.mountID, pid, createOpts); err != nil {
+		return nil, err
 	}
-	if err = ls.saveMount(m); err != nil {
-		return
+	if err := ls.saveMount(m); err != nil {
+		return nil, err
 	}
 
 	return m.getReference(), nil
@@ -686,9 +684,9 @@ func (ls *layerStore) getTarStream(rl *roLayer) (io.ReadCloser, error) {
 	go func() {
 		err := ls.assembleTarTo(rl.cacheID, r, nil, pw)
 		if err != nil {
-			pw.CloseWithError(err)
+			_ = pw.CloseWithError(err)
 		} else {
-			pw.Close()
+			_ = pw.Close()
 		}
 	}()
 
