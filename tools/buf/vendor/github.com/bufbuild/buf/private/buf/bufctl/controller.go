@@ -54,10 +54,13 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// ImageWithConfig pairs an Image with lint and breaking configuration.
+// ImageWithConfig pairs an Image with its corresponding [bufmodule.Module] full name
+// (which may be nil), [bufmodule.Module] opaque ID, and lint and breaking configurations.
 type ImageWithConfig interface {
 	bufimage.Image
 
+	ModuleFullName() bufparse.FullName
+	ModuleOpaqueID() string
 	LintConfig() bufconfig.LintConfig
 	BreakingConfig() bufconfig.BreakingConfig
 	PluginConfigs() []bufconfig.PluginConfig
@@ -476,6 +479,8 @@ func (c *controller) GetTargetImageWithConfigsAndCheckClient(
 		imageWithConfigs := []ImageWithConfig{
 			newImageWithConfig(
 				image,
+				nil, // No module name for a single message ref
+				"",  // No module opaque ID for a single message ref
 				lintConfig,
 				breakingConfig,
 				pluginConfigs,
@@ -691,11 +696,11 @@ func (c *controller) GetMessage(
 	}
 	var validator protoyaml.Validator
 	if functionOptions.messageValidation {
-		var err error
-		validator, err = protovalidate.New()
+		protovalidateValidator, err := protovalidate.New()
 		if err != nil {
 			return nil, 0, err
 		}
+		validator = yamlValidator{protovalidateValidator}
 	}
 	var unmarshaler protoencoding.Unmarshaler
 	switch messageEncoding {
@@ -724,9 +729,6 @@ func (c *controller) GetMessage(
 	data, err := ioext.ReadAllAndClose(readCloser)
 	if err != nil {
 		return nil, 0, err
-	}
-	if len(data) == 0 {
-		return nil, 0, fmt.Errorf("length of data read from %q was zero", messageInput)
 	}
 	message, err := bufreflect.NewMessage(ctx, schemaImage, typeName)
 	if err != nil {
@@ -1173,6 +1175,8 @@ func (c *controller) buildTargetImageWithConfigs(
 			imageWithConfigs,
 			newImageWithConfig(
 				image,
+				module.FullName(),
+				module.OpaqueID(),
 				workspace.GetLintConfigForOpaqueID(module.OpaqueID()),
 				workspace.GetBreakingConfigForOpaqueID(module.OpaqueID()),
 				workspace.PluginConfigs(),
@@ -1290,6 +1294,15 @@ func (c *controller) handleFileAnnotationSetRetError(retErrAddr *error) {
 	}
 }
 
+// Implements [protoyaml.Validator] using [protovalidate.Validator]. This allows us to pass
+// a [protovalidate.Validator] to the [protoencoding.NewYAMLUnmarshaler] and validate types
+// when unmarshalling.
+type yamlValidator struct{ protovalidateValidator protovalidate.Validator }
+
+func (v yamlValidator) Validate(msg proto.Message) error {
+	return v.protovalidateValidator.Validate(msg)
+}
+
 func getImageFileInfosForModuleSet(ctx context.Context, moduleSet bufmodule.ModuleSet) ([]bufimage.ImageFileInfo, error) {
 	// Sorted.
 	fileInfos, err := bufmodule.GetFileInfos(
@@ -1331,8 +1344,15 @@ func filterImage(
 	if functionOptions.imageExcludeImports {
 		newImage = bufimage.ImageWithoutImports(newImage)
 	}
-	if len(functionOptions.imageTypes) > 0 {
-		newImage, err = bufimageutil.ImageFilteredByTypes(newImage, functionOptions.imageTypes...)
+	includeTypes := functionOptions.imageIncludeTypes
+	excludeTypes := functionOptions.imageExcludeTypes
+	if len(includeTypes) > 0 || len(excludeTypes) > 0 {
+		newImage, err = bufimageutil.FilterImage(
+			newImage,
+			bufimageutil.WithIncludeTypes(includeTypes...),
+			bufimageutil.WithExcludeTypes(excludeTypes...),
+			bufimageutil.WithMutateInPlace(),
+		)
 		if err != nil {
 			return nil, err
 		}
