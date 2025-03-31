@@ -1,10 +1,10 @@
-# buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go v1.36.4-20250121211742-6d880cc6cc8d.1
+# buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go v1.36.5-20250121211742-6d880cc6cc8d.1
 ## explicit; go 1.21
 buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go/buf/plugin/check/v1
 buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go/buf/plugin/descriptor/v1
 buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go/buf/plugin/info/v1
 buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go/buf/plugin/option/v1
-# buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.4-20241127180247-a33202765966.1
+# buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.5-20250307204501-0409229c3780.1
 ## explicit; go 1.21
 buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate
 # buf.build/gen/go/bufbuild/registry/connectrpc/go v1.18.1-20250116203702-1c024d64352b.1
@@ -13,7 +13,7 @@ buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1/modulev1
 buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1beta1/modulev1beta1connect
 buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/owner/v1/ownerv1connect
 buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/plugin/v1beta1/pluginv1beta1connect
-# buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.36.4-20250116203702-1c024d64352b.1
+# buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.36.5-20250116203702-1c024d64352b.1
 ## explicit; go 1.21
 buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1
 buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1
@@ -23,7 +23,7 @@ buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/priv/extensio
 # buf.build/gen/go/pluginrpc/pluginrpc/protocolbuffers/go v1.36.4-20241007202033-cf42259fcbfc.1
 ## explicit; go 1.21
 buf.build/gen/go/pluginrpc/pluginrpc/protocolbuffers/go/pluginrpc/v1
-# buf.build/go/bufplugin v0.7.0
+# buf.build/go/bufplugin v0.8.0
 ## explicit; go 1.22.0
 buf.build/go/bufplugin/check
 buf.build/go/bufplugin/descriptor
@@ -41,15 +41,15 @@ buf.build/go/protoyaml
 # buf.build/go/spdx v0.2.0
 ## explicit; go 1.21
 buf.build/go/spdx
-# cel.dev/expr v0.19.2
+# cel.dev/expr v0.21.2
 ## explicit; go 1.21.1
 cel.dev/expr
 # connectrpc.com/connect v1.18.1
 ## explicit; go 1.21
 connectrpc.com/connect
 connectrpc.com/connect/internal/gen/connectext/grpc/status/v1
-# connectrpc.com/otelconnect v0.7.1
-## explicit; go 1.20
+# connectrpc.com/otelconnect v0.7.2
+## explicit; go 1.21
 connectrpc.com/otelconnect
 # github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c
 ## explicit; go 1.16
@@ -65,7 +65,7 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/antlr4-go/antlr/v4 v4.13.1
 ## explicit; go 1.22
 github.com/antlr4-go/antlr/v4
-# github.com/bufbuild/buf v1.50.1
+# github.com/bufbuild/buf v1.51.0
 ## explicit; go 1.23.0
 github.com/bufbuild/buf/cmd/buf
 github.com/bufbuild/buf/private/buf/bufapp
@@ -286,16 +286,11 @@ github.com/bufbuild/protocompile/walk
 ## explicit; go 1.21
 github.com/bufbuild/protoplugin
 github.com/bufbuild/protoplugin/protopluginutil
-# github.com/bufbuild/protovalidate-go v0.8.2
+# github.com/bufbuild/protovalidate-go v0.9.3-0.20250317160558-38a17488914d
 ## explicit; go 1.21.1
 github.com/bufbuild/protovalidate-go
-github.com/bufbuild/protovalidate-go/celext
-github.com/bufbuild/protovalidate-go/internal/constraints
-github.com/bufbuild/protovalidate-go/internal/errors
-github.com/bufbuild/protovalidate-go/internal/evaluator
-github.com/bufbuild/protovalidate-go/internal/expression
-github.com/bufbuild/protovalidate-go/internal/extensions
-github.com/bufbuild/protovalidate-go/resolver
+github.com/bufbuild/protovalidate-go/cel
+github.com/bufbuild/protovalidate-go/resolve
 # github.com/containerd/log v0.1.0
 ## explicit; go 1.20
 github.com/containerd/log
@@ -321,7 +316,7 @@ github.com/docker/cli/cli/config/types
 ## explicit
 github.com/docker/distribution
 github.com/docker/distribution/registry/client/auth/challenge
-# github.com/docker/docker v28.0.0+incompatible
+# github.com/docker/docker v28.0.2+incompatible
 ## explicit
 github.com/docker/docker/api
 github.com/docker/docker/api/types
@@ -557,7 +552,7 @@ github.com/pkg/profile
 # github.com/quic-go/qpack v0.5.1
 ## explicit; go 1.22
 github.com/quic-go/qpack
-# github.com/quic-go/quic-go v0.50.0
+# github.com/quic-go/quic-go v0.50.1
 ## explicit; go 1.23
 github.com/quic-go/quic-go
 github.com/quic-go/quic-go/http3
@@ -814,11 +809,11 @@ golang.org/x/tools/internal/stdlib
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
-# google.golang.org/genproto/googleapis/api v0.0.0-20250127172529-29210b9bc287
-## explicit; go 1.22
+# google.golang.org/genproto/googleapis/api v0.0.0-20250224174004-546df14abb99
+## explicit; go 1.23.0
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20250127172529-29210b9bc287
-## explicit; go 1.22
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20250224174004-546df14abb99
+## explicit; go 1.23.0
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/protobuf v1.36.5
 ## explicit; go 1.21
