@@ -1,3 +1,153 @@
+## v3.104.7
+* Added public type alias `ydb.Params` to `internal/params.Parameters` for external usage
+
+## v3.104.6
+* Refactored `table.TransactionControl` and `query.TransactionControl` for use single implementation in `internal/tx`
+* Changed `ydb.WithTxControl` context modifier for allow both `table.TransactionControl` and `query.TransactionControl`
+
+## v3.104.5
+* Added query client session pool metrics: create_in_progress, in_use, waiters_queue
+* Added pool item closing for not-alived item
+
+## v3.104.4
+* Fixed bug with session query latency metric collector
+
+## v3.104.3
+* Changed argument types in `table.Client.ReadRows` to public types for compatibility with mock-generation 
+
+## v3.104.2
+* Added bindings options into `ydb.ParamsFromMap` for bind wide time types
+* Changed `ydb.WithWideTimeTypes(bool)` for allow boolean argument
+
+## v3.104.1
+* Added export of advanced metric information for QueryService calls
+
+## v3.104.0
+* Added binding `ydb.WithWideTimeTypes()` which interprets `time.Time` and `time.Duration` as `Timestamp64` and `Interval64` YDB types
+
+## v3.103.0
+* Supported wide `Interval64` type
+
+## v3.102.0
+* Supported wide `Date32`, `Datetime64` and `Timestamp64` types
+
+## v3.101.4
+* Switched internal type of result `ydb.Driver.Query()` from `*internal/query.Client` to `query.Client` interface 
+
+## v3.101.3
+* Added `query.TransactionActor` type alias to `query.TxActor` for compatibility with `table.Client` API's 
+* Removed comment `experimental` from `ydb.ParamsBuilder` and `ydb.ParamsFromMap`
+* Fixed panic on closing `internal/query/sessionCore.done` channel twice
+* Fixed hangup when try to send batch of messages with size more, then grpc limits from topic writer internals
+
+## v3.101.2
+* Added a new metric `ydb_go_sdk_ydb_info` with the current version of the SDK
+
+## v3.101.1
+* Changed allowBanned=false for preferred node connections
+
+## v3.101.0
+* Added `table.Client.ReadRows` method with internal retries
+
+## v3.100.3
+* Fixed bug with concurrent rewrites source slice of `grpc.DialOption` on dial step
+
+## v3.100.2
+* Fixed bug in `internal/xcontext.WithDone` (not listening chan done)
+
+## v3.100.1
+* Refactored behaviour on `retry.Retryable` error for retry object (such as session, connection or transaction)
+
+## v3.100.0
+* Added `table.DescribeTable.StoreType` to table description result from `table.Session.DescribeTable` request
+
+## v3.99.13
+* Added checking errors for conditionally delete item from pool
+
+## v3.99.12
+* Internal debug improved
+
+## v3.99.11
+* Added stacktrace record to row scan errors for detect broken client code
+* Fixed DescribeConsumer ignoring PartitionConsumerStats
+* Added virtualtimestamps field to cdc description
+
+## v3.99.10
+* Returned legacy behaviour for interpret as `time.Time` YDB types `Date`, `Datetime` and `Timestamp` 
+
+## v3.99.9
+* Fixed broken compatibility `database/sql` driver which worked on query engine (usnig `ydb.WithQueryService(true)` connector option):
+  - fixed list of valid data types for `database/sql.Row.Scan()`
+  - allowed legacy option `ydb.WithTxControl(ctx, txControl)` for query engine
+
+## v3.99.8
+* Added details to all log messages
+* Fixed sometime panic on stats receive in query service
+
+## v3.99.7
+* Fixed not passing request context to topic event logs
+* Fixed deadlock on closing table session with internal query session core
+
+## v3.99.6
+* Added log grpc messages metadata on trace log level for topic writer
+
+## v3.99.5
+* Fixed error `Empty query text` using prepared statements and `ydb.WithExecuteDataQueryOverQueryClient(true)` option
+* Prepared statements always send query text on Execute call from now (previous behaviour - send query ID)  
+* Prevented create decoder instance until start read a message from topics
+
+## v3.99.4
+* Fixed bug with wrong context on session closing
+* Fixed goroutine leak on closing `database/sql` driver
+* "No endpoints" is retriable error now
+
+## v3.99.3
+* Fixed potential infinity loop for local dc detection (CWE-835)
+* Fixed nil pointer dereferenced in a topic listener (CWE-476)
+
+## v3.99.2
+* Fixed panic when error returned from parsing sql params
+* Fixed explicit null dereferenced issue in internal/credentials/static.go (CWE-476)
+
+## v3.99.1
+* Bumped dependencies:
+  - `golang.org/x/net` from v0.23.0 to v0.33.0
+  - `golang.org/x/sync` from v0.6.0 to v0.10.0
+  - `golang.org/x/sys` from v0.18.0 to v0.28.0
+  - `golang.org/x/text` from v0.14.0 to v0.21.0
+  - `github.com/golang-jwt/jwt/v4` from v4.4.1 to v4.5.0
+
+## v3.99.0
+* Added `ydb.WithExecuteDataQueryOverQueryClient(bool)` option to execute data queries from table service 
+  client using query client API. Using this option you can execute queries from legacy table service client 
+  through `table.Session.Execute` using internal query client API without limitation of 1000 rows in response.
+  Be careful: an OOM problem may happen because bigger result requires more memory
+
+## v3.98.0
+* Supported pool of encoders, which implement ResetableWriter interface
+
+## v3.97.0
+* Added immutable range iterators from go1.23 into query stats to iterate over query phases and accessed tables without query stats object mutation
+
+## v3.96.2
+* Fixed broken metric `ydb_go_sdk_ydb_database_sql_conns`
+
+## v3.96.1
+* Fixed drop session from pool unnecessary in query service 
+
+## v3.96.0
+* Supported of list, set and struct for unmarshall using `sugar.Unmarshall...`
+
+## v3.95.6
+* Fixed panic on span reporting in `xsql/Tx`
+
+## v3.95.5
+* Fixed goroutine leak on failed execute call in query client
+
+## v3.95.4
+* Fixed connections pool leak on closing sessions
+* Fixed an error in logging session deletion events
+
 ## v3.95.3
 * Supported of `database/sql/driver.Valuer` interfaces for params which passed to query using sql driver 
 * Exposed `credentials/credentials.OAuth2Config` OAuth2 config

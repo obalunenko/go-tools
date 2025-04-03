@@ -34,6 +34,7 @@ import (
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/stack"
 	internalTable "github.com/ydb-platform/ydb-go-sdk/v3/internal/table"
 	tableConfig "github.com/ydb-platform/ydb-go-sdk/v3/internal/table/config"
+	internalTopic "github.com/ydb-platform/ydb-go-sdk/v3/internal/topic"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/topic/topicclientinternal"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xcontext"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors"
@@ -41,6 +42,7 @@ import (
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsync"
 	"github.com/ydb-platform/ydb-go-sdk/v3/log"
 	"github.com/ydb-platform/ydb-go-sdk/v3/operation"
+	"github.com/ydb-platform/ydb-go-sdk/v3/query"
 	"github.com/ydb-platform/ydb-go-sdk/v3/ratelimiter"
 	"github.com/ydb-platform/ydb-go-sdk/v3/scheme"
 	"github.com/ydb-platform/ydb-go-sdk/v3/scripting"
@@ -164,8 +166,8 @@ func (d *Driver) Close(ctx context.Context) (finalErr error) {
 	d.ctxCancel()
 
 	defer func() {
-		for _, f := range d.onClose {
-			f(d)
+		for _, onClose := range d.onClose {
+			onClose(d)
 		}
 	}()
 
@@ -227,7 +229,7 @@ func (d *Driver) Table() table.Client {
 }
 
 // Query returns query client
-func (d *Driver) Query() *internalQuery.Client {
+func (d *Driver) Query() query.Client {
 	return d.query.Must()
 }
 
@@ -588,6 +590,7 @@ func (d *Driver) connect(ctx context.Context) (err error) {
 				[]topicoptions.TopicOption{
 					topicoptions.WithOperationTimeout(d.config.OperationTimeout()),
 					topicoptions.WithOperationCancelAfter(d.config.OperationCancelAfter()),
+					internalTopic.WithGrpcMessageSize(d.config.GrpcMaxMessageSize()),
 				},
 				d.topicOptions...,
 			)...,

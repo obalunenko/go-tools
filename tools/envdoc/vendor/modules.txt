@@ -1,5 +1,5 @@
-# github.com/g4s8/envdoc v1.4.0
-## explicit; go 1.22.0
+# github.com/g4s8/envdoc v1.5.0
+## explicit; go 1.24.1
 github.com/g4s8/envdoc
 github.com/g4s8/envdoc/ast
 github.com/g4s8/envdoc/debug

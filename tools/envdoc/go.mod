@@ -1,7 +1,9 @@
 module envdoc
 
-go 1.24.0
+go 1.24.1
 
-require github.com/g4s8/envdoc v1.4.0
+toolchain go1.24.2
+
+require github.com/g4s8/envdoc v1.5.0
 
 require github.com/gobwas/glob v0.2.3 // indirect

@@ -50,7 +50,7 @@ var _ tx.Identifier = (*transaction)(nil)
 type transaction struct {
 	tx.Identifier
 
-	s       *session
+	s       *Session
 	control *table.TransactionControl
 	state   txState
 }
@@ -79,7 +79,7 @@ func (tx *transaction) Execute(ctx context.Context, sql string, params *params.P
 			return nil, xerrors.WithStackTrace(err)
 		}
 
-		if tx.control.Desc().GetCommitTx() {
+		if tx.control.Commit() {
 			tx.state.Store(txStateCommitted)
 		}
 
@@ -121,7 +121,7 @@ func (tx *transaction) ExecuteStatement(
 			return nil, xerrors.WithStackTrace(err)
 		}
 
-		if tx.control.Desc().GetCommitTx() {
+		if tx.control.Commit() {
 			tx.state.Store(txStateCommitted)
 		}
 
@@ -192,21 +192,21 @@ func (tx *transaction) CommitTx(
 
 // Rollback performs a rollback of the specified active transaction.
 func (tx *transaction) Rollback(ctx context.Context) (err error) {
-	onDone := trace.TableOnTxRollback(
-		tx.s.config.Trace(), &ctx,
-		stack.FunctionID("github.com/ydb-platform/ydb-go-sdk/v3/internal/table.(*transaction).Rollback"),
-		tx.s, tx,
-	)
-	defer func() {
-		onDone(err)
-	}()
-
 	switch tx.state.Load() {
 	case txStateCommitted:
 		return nil // nop for committed tx
 	case txStateRollbacked:
 		return xerrors.WithStackTrace(errTxRollbackedEarly)
 	default:
+		onDone := trace.TableOnTxRollback(
+			tx.s.config.Trace(), &ctx,
+			stack.FunctionID("github.com/ydb-platform/ydb-go-sdk/v3/internal/table.(*transaction).Rollback"),
+			tx.s, tx,
+		)
+		defer func() {
+			onDone(err)
+		}()
+
 		_, err = tx.s.client.RollbackTransaction(ctx,
 			&Ydb_Table.RollbackTransactionRequest{
 				SessionId: tx.s.id,

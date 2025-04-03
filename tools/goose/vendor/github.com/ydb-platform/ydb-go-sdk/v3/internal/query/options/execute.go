@@ -4,9 +4,10 @@ import (
 	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Query"
 	"google.golang.org/grpc"
 
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/allocator"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/params"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/query/tx"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/stats"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/tx"
 	"github.com/ydb-platform/ydb-go-sdk/v3/retry"
 )
 
@@ -25,6 +26,12 @@ type (
 	ExecMode  Ydb_Query.ExecMode
 	StatsMode Ydb_Query.StatsMode
 
+	TxControl interface {
+		ToYdbQueryTransactionControl(a *allocator.Allocator) *Ydb_Query.TransactionControl
+
+		Commit() bool
+	}
+
 	// executeSettings is a holder for execute settings
 	executeSettings struct {
 		syntax                 Syntax
@@ -37,6 +44,7 @@ type (
 		txControl              *tx.Control
 		retryOptions           []retry.Option
 		responsePartLimitBytes int64
+		label                  string
 	}
 
 	// Execute is an interface for execute method options
@@ -78,7 +86,7 @@ func (s *executeSettings) StatsCallback() func(stats.QueryStats) {
 }
 
 func (t txCommitOption) applyExecuteOption(s *executeSettings) {
-	s.txControl.Commit = true
+	s.txControl = tx.WithCommit(s.txControl)
 }
 
 func (txControl *txControlOption) applyExecuteOption(s *executeSettings) {
@@ -133,6 +141,7 @@ func defaultExecuteSettings() executeSettings {
 		statsMode: StatsModeNone,
 		txControl: tx.DefaultTxControl(),
 		params:    &params.Params{},
+		label:     "undefined",
 	}
 }
 
@@ -148,7 +157,7 @@ func ExecuteSettings(opts ...Execute) *executeSettings {
 	return &settings
 }
 
-func (s *executeSettings) TxControl() *tx.Control {
+func (s *executeSettings) TxControl() TxControl {
 	return s.txControl
 }
 
@@ -178,6 +187,10 @@ func (s *executeSettings) Params() params.Parameters {
 
 func (s *executeSettings) ResponsePartLimitSizeBytes() int64 {
 	return s.responsePartLimitBytes
+}
+
+func (s *executeSettings) Label() string {
+	return s.label
 }
 
 func WithParameters(params params.Parameters) parametersOption {

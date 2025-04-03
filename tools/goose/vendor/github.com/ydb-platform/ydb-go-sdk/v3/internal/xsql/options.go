@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/bind"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/legacy"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/propose"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/xquery"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/xtable"
 	"github.com/ydb-platform/ydb-go-sdk/v3/retry/budget"
 	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
 )
@@ -21,9 +21,9 @@ type (
 	tablePathPrefixOption struct {
 		bind.TablePathPrefix
 	}
-	legacyOptionsOption struct {
-		legacyOps []legacy.Option
-		options   []propose.Option
+	processorOptionsOption struct {
+		tableOpts []xtable.Option
+		queryOpts []xquery.Option
 	}
 	traceDatabaseSQLOption struct {
 		t    *trace.DatabaseSQL
@@ -38,7 +38,7 @@ type (
 	retryBudgetOption           struct {
 		budget budget.Budget
 	}
-	bindOption struct {
+	BindOption struct {
 		bind.Bind
 	}
 	queryProcessorOption Engine
@@ -57,7 +57,7 @@ func (processor queryProcessorOption) Apply(c *Connector) error {
 	return nil
 }
 
-func (opt bindOption) Apply(c *Connector) error {
+func (opt BindOption) Apply(c *Connector) error {
 	c.bindings = bind.Sort(append(c.bindings, opt.Bind))
 
 	return nil
@@ -76,7 +76,7 @@ func (opt traceRetryOption) Apply(c *Connector) error {
 }
 
 func (onClose onCloseOption) Apply(c *Connector) error {
-	c.onCLose = append(c.onCLose, onClose)
+	c.onClose = append(c.onClose, onClose)
 
 	return nil
 }
@@ -93,9 +93,9 @@ func (opt traceDatabaseSQLOption) Apply(c *Connector) error {
 	return nil
 }
 
-func (opt legacyOptionsOption) Apply(c *Connector) error {
-	c.Options = append(c.Options, opt.options...)
-	c.LegacyOpts = append(c.LegacyOpts, opt.legacyOps...)
+func (opt processorOptionsOption) Apply(c *Connector) error {
+	c.QueryOpts = append(c.QueryOpts, opt.queryOpts...)
+	c.TableOpts = append(c.TableOpts, opt.tableOpts...)
 
 	return nil
 }
@@ -141,31 +141,31 @@ func WithTablePathPrefix(tablePathPrefix string) QueryBindOption {
 }
 
 func WithQueryBind(bind bind.Bind) QueryBindOption {
-	return bindOption{
+	return BindOption{
 		Bind: bind,
 	}
 }
 
-func WithDefaultQueryMode(mode legacy.QueryMode) Option {
-	return legacyOptionsOption{
-		legacyOps: []legacy.Option{
-			legacy.WithDefaultQueryMode(mode),
+func WithDefaultQueryMode(mode xtable.QueryMode) Option {
+	return processorOptionsOption{
+		tableOpts: []xtable.Option{
+			xtable.WithDefaultQueryMode(mode),
 		},
 	}
 }
 
-func WithFakeTx(modes ...legacy.QueryMode) Option {
-	return legacyOptionsOption{
-		legacyOps: []legacy.Option{
-			legacy.WithFakeTxModes(modes...),
+func WithFakeTx(modes ...xtable.QueryMode) Option {
+	return processorOptionsOption{
+		tableOpts: []xtable.Option{
+			xtable.WithFakeTxModes(modes...),
 		},
 	}
 }
 
 func WithIdleThreshold(idleThreshold time.Duration) Option {
-	return legacyOptionsOption{
-		legacyOps: []legacy.Option{
-			legacy.WithIdleThreshold(idleThreshold),
+	return processorOptionsOption{
+		tableOpts: []xtable.Option{
+			xtable.WithIdleThreshold(idleThreshold),
 		},
 	}
 }
@@ -186,22 +186,22 @@ func Merge(opts ...Option) Option {
 	return mergedOptions(opts)
 }
 
-func WithTableOptions(opts ...legacy.Option) Option {
-	return legacyOptionsOption{
-		legacyOps: opts,
+func WithTableOptions(opts ...xtable.Option) Option {
+	return processorOptionsOption{
+		tableOpts: opts,
 	}
 }
 
-func WithQueryOptions(opts ...propose.Option) Option {
-	return legacyOptionsOption{
-		options: opts,
+func WithQueryOptions(opts ...xquery.Option) Option {
+	return processorOptionsOption{
+		queryOpts: opts,
 	}
 }
 
 func WithQueryService(b bool) Option {
 	if b {
-		return queryProcessorOption(QUERY_SERVICE)
+		return queryProcessorOption(QUERY)
 	}
 
-	return queryProcessorOption(LEGACY)
+	return queryProcessorOption(TABLE)
 }

@@ -59,6 +59,7 @@ type Description struct {
 	TimeToLiveSettings   *TimeToLiveSettings
 	Changefeeds          []ChangefeedDescription
 	Tiering              string
+	StoreType            StoreType
 }
 
 type TableStats struct {
@@ -562,18 +563,20 @@ func (unit *TimeToLiveUnit) ToYDB() Ydb_Table.ValueSinceUnixEpochModeSettings_Un
 }
 
 type ChangefeedDescription struct {
-	Name   string
-	Mode   ChangefeedMode
-	Format ChangefeedFormat
-	State  ChangefeedState
+	Name             string
+	Mode             ChangefeedMode
+	Format           ChangefeedFormat
+	State            ChangefeedState
+	VirtualTimestamp bool
 }
 
 func NewChangefeedDescription(proto *Ydb_Table.ChangefeedDescription) ChangefeedDescription {
 	return ChangefeedDescription{
-		Name:   proto.GetName(),
-		Mode:   ChangefeedMode(proto.GetMode()),
-		Format: ChangefeedFormat(proto.GetFormat()),
-		State:  ChangefeedState(proto.GetState()),
+		Name:             proto.GetName(),
+		Mode:             ChangefeedMode(proto.GetMode()),
+		Format:           ChangefeedFormat(proto.GetFormat()),
+		State:            ChangefeedState(proto.GetState()),
+		VirtualTimestamp: proto.GetVirtualTimestamps(),
 	}
 }
 
@@ -602,4 +605,12 @@ const (
 	ChangefeedFormatUnspecified         = ChangefeedFormat(Ydb_Table.ChangefeedFormat_FORMAT_UNSPECIFIED)
 	ChangefeedFormatJSON                = ChangefeedFormat(Ydb_Table.ChangefeedFormat_FORMAT_JSON)
 	ChangefeedFormatDynamoDBStreamsJSON = ChangefeedFormat(Ydb_Table.ChangefeedFormat_FORMAT_DYNAMODB_STREAMS_JSON)
+)
+
+type StoreType int
+
+const (
+	StoreTypeUnspecified = StoreType(Ydb_Table.StoreType_STORE_TYPE_UNSPECIFIED)
+	StoreTypeRow         = StoreType(Ydb_Table.StoreType_STORE_TYPE_ROW)
+	StoreTypeColumn      = StoreType(Ydb_Table.StoreType_STORE_TYPE_COLUMN)
 )

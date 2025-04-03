@@ -25,13 +25,14 @@ type executeSettings interface {
 	ExecMode() options.ExecMode
 	StatsMode() options.StatsMode
 	StatsCallback() func(stats stats.QueryStats)
-	TxControl() *query.TransactionControl
+	TxControl() options.TxControl
 	Syntax() options.Syntax
 	Params() params.Parameters
 	CallOptions() []grpc.CallOption
 	RetryOpts() []retry.Option
 	ResourcePool() string
 	ResponsePartLimitSizeBytes() int64
+	Label() string
 }
 
 type executeScriptConfig interface {
@@ -84,7 +85,7 @@ func executeQueryRequest(a *allocator.Allocator, sessionID, q string, cfg execut
 
 	request.SessionId = sessionID
 	request.ExecMode = Ydb_Query.ExecMode(cfg.ExecMode())
-	request.TxControl = cfg.TxControl().ToYDB(a)
+	request.TxControl = cfg.TxControl().ToYdbQueryTransactionControl(a)
 	request.Query = queryFromText(a, q, Ydb_Query.Syntax(cfg.Syntax()))
 	request.Parameters = params
 	request.StatsMode = Ydb_Query.StatsMode(cfg.StatsMode())
@@ -126,14 +127,22 @@ func execute(
 		return nil, xerrors.WithStackTrace(err)
 	}
 
-	executeCtx := xcontext.ValueOnly(ctx)
+	executeCtx, executeCancel := xcontext.WithCancel(xcontext.ValueOnly(ctx))
+	defer func() {
+		if finalErr != nil {
+			executeCancel()
+		}
+	}()
 
 	stream, err := c.ExecuteQuery(executeCtx, request, callOptions...)
 	if err != nil {
 		return nil, xerrors.WithStackTrace(err)
 	}
 
-	r, err := newResult(ctx, stream, append(opts, withStatsCallback(settings.StatsCallback()))...)
+	r, err := newResult(ctx, stream, append(opts,
+		withStatsCallback(settings.StatsCallback()),
+		withOnClose(executeCancel),
+	)...)
 	if err != nil {
 		return nil, xerrors.WithStackTrace(err)
 	}
@@ -171,14 +180,16 @@ func readResultSet(ctx context.Context, r *streamResult) (_ *resultSetWithClose,
 	}, nil
 }
 
-func readMaterializedResultSet(ctx context.Context, r *streamResult) (_ *materializedResultSet, finalErr error) {
+func readMaterializedResultSet(ctx context.Context, r *streamResult) (
+	_ *materializedResultSet, rowsCount int, finalErr error,
+) {
 	defer func() {
 		_ = r.Close(ctx)
 	}()
 
 	rs, err := r.nextResultSet(ctx)
 	if err != nil {
-		return nil, xerrors.WithStackTrace(err)
+		return nil, 0, xerrors.WithStackTrace(err)
 	}
 
 	var rows []query.Row
@@ -189,7 +200,7 @@ func readMaterializedResultSet(ctx context.Context, r *streamResult) (_ *materia
 				break
 			}
 
-			return nil, xerrors.WithStackTrace(err)
+			return nil, 0, xerrors.WithStackTrace(err)
 		}
 
 		rows = append(rows, row)
@@ -197,13 +208,13 @@ func readMaterializedResultSet(ctx context.Context, r *streamResult) (_ *materia
 
 	_, err = r.nextResultSet(ctx)
 	if err == nil {
-		return nil, xerrors.WithStackTrace(errMoreThanOneResultSet)
+		return nil, 0, xerrors.WithStackTrace(errMoreThanOneResultSet)
 	}
 	if !xerrors.Is(err, io.EOF) {
-		return nil, xerrors.WithStackTrace(err)
+		return nil, 0, xerrors.WithStackTrace(err)
 	}
 
-	return MaterializedResultSet(rs.Index(), rs.Columns(), rs.ColumnTypes(), rows), nil
+	return MaterializedResultSet(rs.Index(), rs.Columns(), rs.ColumnTypes(), rows), len(rows), nil
 }
 
 func readRow(ctx context.Context, r *streamResult) (_ *Row, finalErr error) {
