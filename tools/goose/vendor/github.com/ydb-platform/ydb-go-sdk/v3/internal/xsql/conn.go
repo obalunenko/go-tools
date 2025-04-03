@@ -7,7 +7,7 @@ import (
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/stack"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xcontext"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/iface"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/common"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsync"
 	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
 )
@@ -15,7 +15,7 @@ import (
 type Conn struct {
 	processor Engine
 
-	cc        iface.Conn
+	cc        common.Conn
 	currentTx *Tx
 	ctx       context.Context //nolint:containedctx
 
@@ -23,9 +23,17 @@ type Conn struct {
 	lastUsage xsync.LastUsage
 }
 
+func (c *Conn) ID() string {
+	return c.cc.ID()
+}
+
+func (c *Conn) NodeID() uint32 {
+	return c.cc.NodeID()
+}
+
 func (c *Conn) Ping(ctx context.Context) (finalErr error) {
 	onDone := trace.DatabaseSQLOnConnPing(c.connector.trace, &c.ctx,
-		stack.FunctionID("", stack.Package("database/sql")),
+		stack.FunctionID("database/sql.(*Conn).Ping", stack.Package("database/sql")),
 	)
 	defer func() {
 		onDone(finalErr)
@@ -36,7 +44,7 @@ func (c *Conn) Ping(ctx context.Context) (finalErr error) {
 
 func (c *Conn) CheckNamedValue(value *driver.NamedValue) (finalErr error) {
 	onDone := trace.DatabaseSQLOnConnCheckNamedValue(c.connector.trace, &c.ctx,
-		stack.FunctionID("", stack.Package("database/sql")),
+		stack.FunctionID("database/sql.(*Conn).CheckNamedValue", stack.Package("database/sql")),
 		value,
 	)
 	defer func() {
@@ -49,7 +57,7 @@ func (c *Conn) CheckNamedValue(value *driver.NamedValue) (finalErr error) {
 
 func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (_ driver.Tx, finalErr error) {
 	onDone := trace.DatabaseSQLOnConnBeginTx(c.connector.trace, &ctx,
-		stack.FunctionID("", stack.Package("database/sql")),
+		stack.FunctionID("database/sql.(*Conn).BeginTx", stack.Package("database/sql")),
 	)
 	defer func() {
 		onDone(c.currentTx, finalErr)
@@ -75,7 +83,7 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (_ driver.Tx,
 
 func (c *Conn) Close() (finalErr error) {
 	onDone := trace.DatabaseSQLOnConnClose(c.connector.Trace(), &c.ctx,
-		stack.FunctionID("", stack.Package("database/sql")),
+		stack.FunctionID("database/sql.(*Conn).Close", stack.Package("database/sql")),
 	)
 	defer func() {
 		onDone(finalErr)
@@ -91,7 +99,7 @@ func (c *Conn) Close() (finalErr error) {
 
 func (c *Conn) Begin() (_ driver.Tx, finalErr error) {
 	onDone := trace.DatabaseSQLOnConnBegin(c.connector.trace, &c.ctx,
-		stack.FunctionID("", stack.Package("database/sql")),
+		stack.FunctionID("database/sql.(*Conn).Begin", stack.Package("database/sql")),
 	)
 	defer func() {
 		onDone(c.currentTx, finalErr)
@@ -110,7 +118,7 @@ func (c *Conn) Prepare(string) (driver.Stmt, error) {
 
 func (c *Conn) PrepareContext(ctx context.Context, sql string) (_ driver.Stmt, finalErr error) {
 	onDone := trace.DatabaseSQLOnConnPrepare(c.connector.Trace(), &ctx,
-		stack.FunctionID("", stack.Package("database/sql")),
+		stack.FunctionID("database/sql.(*Conn).PrepareContext", stack.Package("database/sql")),
 		sql,
 	)
 	defer func() {
@@ -118,7 +126,10 @@ func (c *Conn) PrepareContext(ctx context.Context, sql string) (_ driver.Stmt, f
 	}()
 
 	if !c.cc.IsValid() {
-		return nil, xerrors.WithStackTrace(errNotReadyConn)
+		return nil, xerrors.WithStackTrace(xerrors.Retryable(errNotReadyConn,
+			xerrors.Invalid(c),
+			xerrors.Invalid(c.cc),
+		))
 	}
 
 	return &Stmt{
@@ -133,7 +144,7 @@ func (c *Conn) QueryContext(ctx context.Context, sql string, args []driver.Named
 	_ driver.Rows, finalErr error,
 ) {
 	onDone := trace.DatabaseSQLOnConnQuery(c.connector.Trace(), &ctx,
-		stack.FunctionID("", stack.Package("database/sql")),
+		stack.FunctionID("database/sql.(*Conn).QueryContext", stack.Package("database/sql")),
 		sql, c.connector.processor.String(), xcontext.IsIdempotent(ctx), c.connector.clock.Since(c.lastUsage.Get()),
 	)
 	defer func() {
@@ -168,7 +179,7 @@ func (c *Conn) ExecContext(ctx context.Context, sql string, args []driver.NamedV
 	_ driver.Result, finalErr error,
 ) {
 	onDone := trace.DatabaseSQLOnConnExec(c.connector.Trace(), &ctx,
-		stack.FunctionID("", stack.Package("database/sql")),
+		stack.FunctionID("database/sql.(*Conn).ExecContext", stack.Package("database/sql")),
 		sql, c.connector.processor.String(), xcontext.IsIdempotent(ctx), c.connector.clock.Since(c.lastUsage.Get()),
 	)
 	defer func() {

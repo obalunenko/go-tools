@@ -3,11 +3,13 @@ package retry
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/stack"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xcontext"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/badconn"
 	budget "github.com/ydb-platform/ydb-go-sdk/v3/retry/budget"
 	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
 )
@@ -85,13 +87,19 @@ func DoWithResult[T any](ctx context.Context, db *sql.DB,
 			opt.ApplyDoOption(&options)
 		}
 	}
-	v, err := RetryWithResult(ctx, func(ctx context.Context) (T, error) {
+	v, err := RetryWithResult(ctx, func(ctx context.Context) (_ T, finalErr error) {
 		attempts++
 		cc, err := db.Conn(ctx)
 		if err != nil {
 			return zeroValue, unwrapErrBadConn(xerrors.WithStackTrace(err))
 		}
 		defer func() {
+			if finalErr != nil && mustDeleteConn(finalErr, cc) {
+				_ = cc.Raw(func(driverConn any) error {
+					return xerrors.WithStackTrace(badconn.Errorf("close connection because: %w", finalErr))
+				})
+			}
+
 			_ = cc.Close()
 		}()
 		v, err := op(xcontext.MarkRetryCall(ctx), cc)
@@ -173,7 +181,7 @@ func DoTx(ctx context.Context, db *sql.DB, op func(context.Context, *sql.Tx) err
 // DoTxWithResult is a retryer of database/sql transactions with fallbacks on errors
 //
 // Experimental: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#experimental
-func DoTxWithResult[T any](ctx context.Context, db *sql.DB, //nolint:funlen
+func DoTxWithResult[T any](ctx context.Context, db *sql.DB,
 	op func(context.Context, *sql.Tx) (T, error),
 	opts ...doTxOption,
 ) (T, error) {
@@ -211,17 +219,7 @@ func DoTxWithResult[T any](ctx context.Context, db *sql.DB, //nolint:funlen
 			return zeroValue, unwrapErrBadConn(xerrors.WithStackTrace(err))
 		}
 		defer func() {
-			if finalErr == nil {
-				return
-			}
-			errRollback := tx.Rollback()
-			if errRollback == nil {
-				return
-			}
-			finalErr = xerrors.NewWithIssues("",
-				xerrors.WithStackTrace(finalErr),
-				xerrors.WithStackTrace(fmt.Errorf("rollback failed: %w", errRollback)),
-			)
+			_ = tx.Rollback()
 		}()
 		v, err := op(xcontext.MarkRetryCall(ctx), tx)
 		if err != nil {
@@ -240,4 +238,14 @@ func DoTxWithResult[T any](ctx context.Context, db *sql.DB, //nolint:funlen
 	}
 
 	return v, nil
+}
+
+func mustDeleteConn[T interface {
+	*sql.Conn
+}](err error, conn T) bool {
+	if xerrors.Is(err, driver.ErrBadConn) {
+		return true
+	}
+
+	return !xerrors.IsValid(err, conn)
 }

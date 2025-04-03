@@ -23,7 +23,7 @@ type SingleStreamWriterConfig struct {
 
 	stream                RawTopicWriterStream
 	queue                 *messageQueue
-	encodersMap           *EncoderMap
+	encodersMap           *MultiEncoder
 	getLastSeqNum         bool
 	reconnectorInstanceID string
 }
@@ -32,7 +32,7 @@ func newSingleStreamWriterConfig(
 	common WritersCommonConfig, //nolint:gocritic
 	stream RawTopicWriterStream,
 	queue *messageQueue,
-	encodersMap *EncoderMap,
+	encodersMap *MultiEncoder,
 	getLastSeqNum bool,
 	reconnectorID string,
 ) SingleStreamWriterConfig {
@@ -126,7 +126,7 @@ func (w *SingleStreamWriter) start() {
 
 func (w *SingleStreamWriter) initStream() (err error) {
 	traceOnDone := trace.TopicOnWriterInitStream(w.cfg.Tracer, w.cfg.reconnectorInstanceID, w.cfg.topic, w.cfg.producerID)
-	defer traceOnDone(w.SessionID, err)
+	defer func() { traceOnDone(w.SessionID, err) }()
 
 	req := w.createInitRequest()
 	if err = w.cfg.stream.Send(&req); err != nil {
@@ -240,7 +240,7 @@ func (w *SingleStreamWriter) sendMessagesFromQueueToStreamLoop(ctx context.Conte
 			messages[0].SeqNo,
 			len(messages),
 		)
-		err = sendMessagesToStream(w.cfg.stream, targetCodec, messages)
+		err = sendMessagesToStream(w.cfg.stream, w.cfg.maxBytesPerMessage, targetCodec, messages)
 		onSentComplete(err)
 		if err != nil {
 			err = xerrors.WithStackTrace(fmt.Errorf("ydb: error send message to topic stream: %w", err))
@@ -295,4 +295,48 @@ type RawTopicWriterStream interface {
 	Recv() (rawtopicwriter.ServerMessage, error)
 	Send(mess rawtopicwriter.ClientMessage) error
 	CloseSend() error
+}
+
+func sendMessagesToStream(
+	stream RawTopicWriterStream,
+	maxBytesPerMessage int,
+	targetCodec rawtopiccommon.Codec,
+	messages []messageWithDataContent,
+) error {
+	if len(messages) == 0 {
+		return nil
+	}
+
+	request, err := createWriteRequest(messages, targetCodec)
+	if err != nil {
+		return err
+	}
+
+	var rest *rawtopicwriter.WriteRequest
+	for request != nil {
+		request, rest = cutRequestBytes(request, maxBytesPerMessage)
+		err = stream.Send(request)
+		if err != nil {
+			return xerrors.WithStackTrace(fmt.Errorf("ydb: failed send write request: %w", err))
+		}
+		request = rest
+	}
+
+	return nil
+}
+
+func cutRequestBytes(req *rawtopicwriter.WriteRequest, maxBytes int) (head, rest *rawtopicwriter.WriteRequest) {
+	requestSize := req.Size()
+	requestMessagesCount := len(req.Messages)
+
+	// it needs 1 message minimum for request
+	// reverse order reason:
+	// 1. Fast process messages less, than maxBytes, without special way
+	// 2. Prevent difficult for account bytes of encode messages count
+	for requestSize > maxBytes && requestMessagesCount > 1 {
+		requestMessagesCount--
+		requestSize -= req.Messages[requestMessagesCount].ProtoWireSizeBytes()
+	}
+
+	return req.Cut(requestMessagesCount)
 }

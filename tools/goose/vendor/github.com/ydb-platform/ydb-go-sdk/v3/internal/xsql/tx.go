@@ -6,18 +6,22 @@ import (
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/stack"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/iface"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/legacy/badconn"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/badconn"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/common"
 	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
 )
 
 type Tx struct {
 	conn *Conn
-	tx   iface.Tx
+	tx   common.Tx
 	ctx  context.Context //nolint:containedctx
 }
 
 func (tx *Tx) ID() string {
+	if tx.tx == nil {
+		return ""
+	}
+
 	return tx.tx.ID()
 }
 
@@ -35,7 +39,7 @@ func (tx *Tx) Commit() (finalErr error) {
 	var (
 		ctx    = tx.ctx
 		onDone = trace.DatabaseSQLOnTxCommit(tx.conn.connector.Trace(), &ctx,
-			stack.FunctionID("", stack.Package("database/sql")),
+			stack.FunctionID("database/sql.(*Tx).Commit", stack.Package("database/sql")),
 			tx,
 		)
 	)
@@ -58,7 +62,7 @@ func (tx *Tx) Rollback() (finalErr error) {
 	var (
 		ctx    = tx.ctx
 		onDone = trace.DatabaseSQLOnTxRollback(tx.conn.connector.Trace(), &ctx,
-			stack.FunctionID("", stack.Package("database/sql")),
+			stack.FunctionID("database/sql.(*Tx).Rollback", stack.Package("database/sql")),
 			tx,
 		)
 	)
@@ -78,7 +82,7 @@ func (tx *Tx) QueryContext(ctx context.Context, sql string, args []driver.NamedV
 	_ driver.Rows, finalErr error,
 ) {
 	onDone := trace.DatabaseSQLOnTxQuery(tx.conn.connector.Trace(), &ctx,
-		stack.FunctionID("", stack.Package("database/sql")),
+		stack.FunctionID("database/sql.(*Tx).QueryContext", stack.Package("database/sql")),
 		tx.ctx, tx, sql,
 	)
 	defer func() {
@@ -111,7 +115,7 @@ func (tx *Tx) ExecContext(ctx context.Context, sql string, args []driver.NamedVa
 	_ driver.Result, finalErr error,
 ) {
 	onDone := trace.DatabaseSQLOnTxExec(tx.conn.connector.Trace(), &ctx,
-		stack.FunctionID("", stack.Package("database/sql")),
+		stack.FunctionID("database/sql.(*Tx).ExecContext", stack.Package("database/sql")),
 		tx.ctx, tx, sql,
 	)
 	defer func() {
@@ -133,14 +137,18 @@ func (tx *Tx) ExecContext(ctx context.Context, sql string, args []driver.NamedVa
 
 func (tx *Tx) PrepareContext(ctx context.Context, sql string) (_ driver.Stmt, finalErr error) {
 	onDone := trace.DatabaseSQLOnTxPrepare(tx.conn.connector.Trace(), &ctx,
-		stack.FunctionID("", stack.Package("database/sql")),
+		stack.FunctionID("database/sql.(*Tx).PrepareContext", stack.Package("database/sql")),
 		tx.ctx, tx, sql,
 	)
 	defer func() {
 		onDone(finalErr)
 	}()
 	if !tx.conn.cc.IsValid() {
-		return nil, badconn.Map(xerrors.WithStackTrace(errNotReadyConn))
+		return nil, badconn.Map(xerrors.WithStackTrace(xerrors.Retryable(errNotReadyConn,
+			xerrors.Invalid(tx),
+			xerrors.Invalid(tx.conn),
+			xerrors.Invalid(tx.conn.cc),
+		)))
 	}
 
 	return &Stmt{

@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/config"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/backoff"
 	balancerConfig "github.com/ydb-platform/ydb-go-sdk/v3/internal/balancer/config"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/conn"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/credentials"
@@ -27,7 +28,10 @@ import (
 	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
 )
 
-var ErrNoEndpoints = xerrors.Wrap(fmt.Errorf("no endpoints"))
+var (
+	ErrNoEndpoints    = xerrors.Wrap(xerrors.Retryable(fmt.Errorf("no endpoints"), xerrors.WithBackoff(backoff.TypeSlow)))
+	errBalancerClosed = xerrors.Wrap(fmt.Errorf("internal ydb sdk balancer closed"))
+)
 
 type Balancer struct {
 	driverConfig      *config.Config
@@ -40,6 +44,7 @@ type Balancer struct {
 	localDCDetector func(ctx context.Context, endpoints []endpoint.Endpoint) (string, error)
 
 	connectionsState atomic.Pointer[connectionsState]
+	closed           atomic.Bool
 }
 
 func (b *Balancer) clusterDiscovery(ctx context.Context) (err error) {
@@ -152,6 +157,8 @@ func (b *Balancer) applyDiscoveredEndpoints(ctx context.Context, newest []endpoi
 }
 
 func (b *Balancer) Close(ctx context.Context) (err error) {
+	b.closed.Store(true)
+
 	onDone := trace.DriverOnBalancerClose(
 		b.driverConfig.Trace(), &ctx,
 		stack.FunctionID("github.com/ydb-platform/ydb-go-sdk/v3/internal/balancer.(*Balancer).Close"),
@@ -183,6 +190,7 @@ func makeDiscoveryFunc(
 			)
 		}
 
+		//nolint:staticcheck,nolintlint
 		cc, err := grpc.DialContext(ctx,
 			"ydb:///"+driverConfig.Endpoint(),
 			append(
@@ -190,7 +198,7 @@ func makeDiscoveryFunc(
 				grpc.WithResolvers(
 					xresolver.New("ydb", driverConfig.Trace()),
 				),
-				grpc.WithBlock(),
+				grpc.WithBlock(), //nolint:staticcheck,nolintlint
 				grpc.WithDefaultServiceConfig(`{
 					"loadBalancingPolicy": "pick_first"
 				}`),
@@ -281,6 +289,10 @@ func (b *Balancer) Invoke(
 	reply interface{},
 	opts ...grpc.CallOption,
 ) error {
+	if b.closed.Load() {
+		return xerrors.WithStackTrace(errBalancerClosed)
+	}
+
 	return b.wrapCall(ctx, func(ctx context.Context, cc conn.Conn) error {
 		return cc.Invoke(ctx, method, args, reply, opts...)
 	})
@@ -292,6 +304,10 @@ func (b *Balancer) NewStream(
 	method string,
 	opts ...grpc.CallOption,
 ) (_ grpc.ClientStream, err error) {
+	if b.closed.Load() {
+		return nil, xerrors.WithStackTrace(errBalancerClosed)
+	}
+
 	var client grpc.ClientStream
 	err = b.wrapCall(ctx, func(ctx context.Context, cc conn.Conn) error {
 		client, err = cc.NewStream(ctx, desc, method, opts...)
@@ -345,6 +361,10 @@ func (b *Balancer) connections() *connectionsState {
 }
 
 func (b *Balancer) getConn(ctx context.Context) (c conn.Conn, err error) {
+	if b.closed.Load() {
+		return nil, xerrors.WithStackTrace(errBalancerClosed)
+	}
+
 	onDone := trace.DriverOnBalancerChooseEndpoint(
 		b.driverConfig.Trace(), &ctx,
 		stack.FunctionID("github.com/ydb-platform/ydb-go-sdk/v3/internal/balancer.(*Balancer).getConn"),

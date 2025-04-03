@@ -354,6 +354,17 @@ func WithDialTimeout(timeout time.Duration) Option {
 	}
 }
 
+// WithGrpcMaxMessageSize set max size of message on grpc level
+// use the option for the driver known custom limit.
+// Driver can't read the limit from direct grpc option
+func WithGrpcMaxMessageSize(sizeBytes int) Option {
+	return func(ctx context.Context, d *Driver) error {
+		d.options = append(d.options, config.WithGrpcMaxMessageSize(sizeBytes))
+
+		return nil
+	}
+}
+
 // With collects additional configuration options.
 //
 // This option does not replace collected option, instead it will append provided options.
@@ -551,6 +562,18 @@ func WithSessionPoolIdleThreshold(idleThreshold time.Duration) Option {
 		d.databaseSQLOptions = append(d.databaseSQLOptions,
 			xsql.WithIdleThreshold(idleThreshold),
 		)
+
+		return nil
+	}
+}
+
+// WithExecuteDataQueryOverQueryClient option enables execution data queries from legacy table service client over
+// query client API. Using this option you can execute queries from legacy table service client through
+// `table.Session.Execute` using internal query client API without limitation of 1000 rows in response.
+// Be careful: an OOM problem may happen because bigger result requires more memory
+func WithExecuteDataQueryOverQueryClient(b bool) Option {
+	return func(ctx context.Context, d *Driver) error {
+		d.tableOptions = append(d.tableOptions, tableConfig.ExecuteDataQueryOverQueryService(b))
 
 		return nil
 	}

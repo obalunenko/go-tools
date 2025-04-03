@@ -3,5 +3,5 @@
 package swag
 
 import (
-	_ "github.com/swaggo/swag/cmd/swag"
+	_ "github.com/swaggo/swag/v2/cmd/swag"
 )

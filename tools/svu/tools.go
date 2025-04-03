@@ -3,5 +3,5 @@
 package svu
 
 import (
-	_ "github.com/caarlos0/svu/v2"
+	_ "github.com/caarlos0/svu/v3"
 )

@@ -339,25 +339,11 @@ func (l *streamListener) onStopPartitionRequest(
 	m *rawtopicreader.StopPartitionSessionRequest,
 ) error {
 	session, err := l.sessions.Get(m.PartitionSessionID)
-	if !m.Graceful && session == nil {
-		// stop partition may be received twice: graceful and force
-		// the sdk we can forget about the session after graceful stop
-		return nil
-	}
 	if err != nil {
 		return err
 	}
 
-	var handlerCtx context.Context
-	if session == nil {
-		cancelledCtx, cancel := context.WithCancelCause(ctx)
-		cancel(xerrors.WithStackTrace(xerrors.Wrap(errors.New(
-			"ydb: partition on topic listener was force stopped: %w",
-		))))
-		handlerCtx = cancelledCtx
-	} else {
-		handlerCtx = session.Context()
-	}
+	handlerCtx := session.Context()
 
 	event := NewPublicStopPartitionSessionEvent(
 		session.ToPublic(),

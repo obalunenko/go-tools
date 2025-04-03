@@ -8,12 +8,11 @@ import (
 	"sync/atomic"
 
 	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Topic"
-	"google.golang.org/grpc/codes"
-	grpcStatus "google.golang.org/grpc/status"
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/grpcwrapper/rawtopic/rawtopiccommon"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/grpcwrapper/rawydb"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors"
+	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
 )
 
 var errConcurencyReadDenied = xerrors.Wrap(errors.New("ydb: read from rawtopicwriter in parallel"))
@@ -29,8 +28,15 @@ type StreamWriter struct {
 
 	sendCloseMtx sync.Mutex
 	Stream       GrpcStream
+
+	Tracer               *trace.Topic
+	InternalStreamID     string
+	readMessagesCount    int
+	writtenMessagesCount int
+	sessionID            string
 }
 
+//nolint:funlen
 func (w *StreamWriter) Recv() (ServerMessage, error) {
 	readCnt := atomic.AddInt32(&w.readCounter, 1)
 	defer atomic.AddInt32(&w.readCounter, -1)
@@ -39,20 +45,27 @@ func (w *StreamWriter) Recv() (ServerMessage, error) {
 		return nil, xerrors.WithStackTrace(errConcurencyReadDenied)
 	}
 
-	grpcMsg, err := w.Stream.Recv()
-	if err != nil {
-		if !xerrors.IsErrorFromServer(err) {
-			err = xerrors.Transport(err)
+	grpcMsg, sendErr := w.Stream.Recv()
+	w.readMessagesCount++
+	defer func() {
+		// defer needs for set good session id on first init response before trace the message
+		trace.TopicOnWriterReceiveGRPCMessage(
+			w.Tracer, w.InternalStreamID, w.sessionID, w.readMessagesCount, grpcMsg, sendErr,
+		)
+	}()
+	if sendErr != nil {
+		if !xerrors.IsErrorFromServer(sendErr) {
+			sendErr = xerrors.Transport(sendErr)
 		}
 
 		return nil, xerrors.WithStackTrace(xerrors.Wrap(fmt.Errorf(
 			"ydb: failed to read grpc message from writer stream: %w",
-			err,
+			sendErr,
 		)))
 	}
 
 	var meta rawtopiccommon.ServerMessageMetadata
-	if err = meta.MetaFromStatusAndIssues(grpcMsg); err != nil {
+	if err := meta.MetaFromStatusAndIssues(grpcMsg); err != nil {
 		return nil, err
 	}
 	if !meta.Status.IsSuccess() {
@@ -64,12 +77,13 @@ func (w *StreamWriter) Recv() (ServerMessage, error) {
 		var res InitResult
 		res.ServerMessageMetadata = meta
 		res.mustFromProto(v.InitResponse)
+		w.sessionID = res.SessionID
 
 		return &res, nil
 	case *Ydb_Topic.StreamWriteMessage_FromServer_WriteResponse:
 		var res WriteResult
 		res.ServerMessageMetadata = meta
-		err = res.fromProto(v.WriteResponse)
+		err := res.fromProto(v.WriteResponse)
 		if err != nil {
 			return nil, err
 		}
@@ -111,7 +125,7 @@ func (w *StreamWriter) Send(rawMsg ClientMessage) (err error) {
 			return writeErr
 		}
 
-		return sendWriteRequest(w.Stream.Send, writeReqProto)
+		return w.Stream.Send(&Ydb_Topic.StreamWriteMessage_FromClient{ClientMessage: writeReqProto})
 	case *UpdateTokenRequest:
 		protoMsg.ClientMessage = &Ydb_Topic.StreamWriteMessage_FromClient_UpdateTokenRequest{
 			UpdateTokenRequest: v.ToProto(),
@@ -124,14 +138,14 @@ func (w *StreamWriter) Send(rawMsg ClientMessage) (err error) {
 	}
 
 	err = w.Stream.Send(&protoMsg)
+	w.writtenMessagesCount++
+	trace.TopicOnWriterSentGRPCMessage(w.Tracer, w.InternalStreamID, w.sessionID, w.writtenMessagesCount, &protoMsg, err)
 	if err != nil {
 		return xerrors.WithStackTrace(xerrors.Wrap(fmt.Errorf("ydb: failed to send grpc message to writer stream: %w", err)))
 	}
 
 	return nil
 }
-
-type sendFunc func(req *Ydb_Topic.StreamWriteMessage_FromClient) error
 
 func (w *StreamWriter) CloseSend() error {
 	w.sendCloseMtx.Lock()
@@ -157,40 +171,3 @@ type ServerMessage interface {
 type serverMessageImpl struct{}
 
 func (*serverMessageImpl) isServerMessage() {}
-
-func sendWriteRequest(send sendFunc, req *Ydb_Topic.StreamWriteMessage_FromClient_WriteRequest) error {
-	sendErr := send(&Ydb_Topic.StreamWriteMessage_FromClient{
-		ClientMessage: req,
-	})
-
-	if sendErr == nil {
-		return nil
-	}
-
-	grpcStatus, ok := grpcStatus.FromError(sendErr)
-	if !ok {
-		return sendErr
-	}
-
-	grpcMessages := req.WriteRequest.GetMessages()
-	if grpcStatus.Code() != codes.ResourceExhausted || len(grpcMessages) < 2 {
-		return sendErr
-	}
-
-	//nolint:gomnd
-	splitIndex := len(grpcMessages) / 2
-	firstMessages, lastMessages := grpcMessages[:splitIndex], grpcMessages[splitIndex:]
-	defer func() {
-		req.WriteRequest.Messages = grpcMessages
-	}()
-
-	req.WriteRequest.Messages = firstMessages
-	err := sendWriteRequest(send, req)
-	if err != nil {
-		return err
-	}
-
-	req.WriteRequest.Messages = lastMessages
-
-	return sendWriteRequest(send, req)
-}

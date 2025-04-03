@@ -7,11 +7,11 @@ import (
 	"fmt"
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/bind"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/tx"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/legacy"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/propose"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsync"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/xquery"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/xtable"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table/options"
 	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
@@ -32,30 +32,12 @@ func withConnectorOptions(opts ...ConnectorOption) Option {
 	}
 }
 
-type sqlDriver struct {
-	connectors xsync.Map[*xsql.Connector, *Driver]
-}
+type sqlDriver struct{}
 
 var (
 	_ driver.Driver        = &sqlDriver{}
 	_ driver.DriverContext = &sqlDriver{}
 )
-
-func (d *sqlDriver) Close() error {
-	var errs []error
-	d.connectors.Range(func(c *xsql.Connector, _ *Driver) bool {
-		if err := c.Close(); err != nil {
-			errs = append(errs, err)
-		}
-
-		return true
-	})
-	if len(errs) > 0 {
-		return xerrors.NewWithIssues("ydb legacy driver close failed", errs...)
-	}
-
-	return nil
-}
 
 // Open returns a new Driver to the ydb.
 func (d *sqlDriver) Open(string) (driver.Conn, error) {
@@ -68,15 +50,16 @@ func (d *sqlDriver) OpenConnector(dataSourceName string) (driver.Connector, erro
 		return nil, xerrors.WithStackTrace(fmt.Errorf("failed to connect by data source name '%s': %w", dataSourceName, err))
 	}
 
-	return Connector(db, db.databaseSQLOptions...)
-}
+	c, err := Connector(db, append(db.databaseSQLOptions,
+		xsql.WithOnClose(func(connector *xsql.Connector) {
+			_ = db.Close(context.Background())
+		}),
+	)...)
+	if err != nil {
+		return nil, xerrors.WithStackTrace(fmt.Errorf("failed to create connector: %w", err))
+	}
 
-func (d *sqlDriver) attach(c *xsql.Connector, parent *Driver) {
-	d.connectors.Set(c, parent)
-}
-
-func (d *sqlDriver) detach(c *xsql.Connector) {
-	d.connectors.Delete(c)
+	return c, nil
 }
 
 type QueryMode int
@@ -99,20 +82,24 @@ func WithQueryMode(ctx context.Context, mode QueryMode) context.Context {
 	case ExplainQueryMode:
 		return xsql.WithExplain(ctx)
 	case DataQueryMode:
-		return legacy.WithQueryMode(ctx, legacy.DataQueryMode)
+		return xtable.WithQueryMode(ctx, xtable.DataQueryMode)
 	case ScanQueryMode:
-		return legacy.WithQueryMode(ctx, legacy.ScanQueryMode)
+		return xtable.WithQueryMode(ctx, xtable.ScanQueryMode)
 	case SchemeQueryMode:
-		return legacy.WithQueryMode(ctx, legacy.SchemeQueryMode)
+		return xtable.WithQueryMode(ctx, xtable.SchemeQueryMode)
 	case ScriptingQueryMode:
-		return legacy.WithQueryMode(ctx, legacy.ScriptingQueryMode)
+		return xtable.WithQueryMode(ctx, xtable.ScriptingQueryMode)
 	default:
 		return ctx
 	}
 }
 
-func WithTxControl(ctx context.Context, txc *table.TransactionControl) context.Context {
-	return legacy.WithTxControl(ctx, txc)
+// WithTxControl modifies context for explicit define transaction control for a single query execute
+//
+// Allowed the table.TransactionControl and the query.TransactionControl
+// table.TransactionControl and query.TransactionControl are the type aliases to internal tx.Control
+func WithTxControl(ctx context.Context, txControl *tx.Control) context.Context {
+	return tx.WithTxControl(ctx, txControl)
 }
 
 type ConnectorOption = xsql.Option
@@ -122,22 +109,26 @@ type QueryBindConnectorOption interface {
 	bind.Bind
 }
 
-func modeToMode(mode QueryMode) legacy.QueryMode {
+func modeToMode(mode QueryMode) xtable.QueryMode {
 	switch mode {
 	case ScanQueryMode:
-		return legacy.ScanQueryMode
+		return xtable.ScanQueryMode
 	case SchemeQueryMode:
-		return legacy.SchemeQueryMode
+		return xtable.SchemeQueryMode
 	case ScriptingQueryMode:
-		return legacy.ScriptingQueryMode
+		return xtable.ScriptingQueryMode
 	default:
-		return legacy.DataQueryMode
+		return xtable.DataQueryMode
 	}
 }
 
 func WithDefaultQueryMode(mode QueryMode) ConnectorOption {
+	if mode == QueryExecuteQueryMode {
+		return xsql.WithQueryService(true)
+	}
+
 	return xsql.WithTableOptions(
-		legacy.WithDefaultQueryMode(modeToMode(mode)),
+		xtable.WithDefaultQueryMode(modeToMode(mode)),
 	)
 }
 
@@ -156,32 +147,32 @@ func WithFakeTx(modes ...QueryMode) ConnectorOption {
 		switch mode {
 		case DataQueryMode:
 			opts = append(opts,
-				xsql.WithTableOptions(legacy.WithFakeTxModes(
-					legacy.DataQueryMode,
+				xsql.WithTableOptions(xtable.WithFakeTxModes(
+					xtable.DataQueryMode,
 				)),
 			)
 		case ScanQueryMode:
 			opts = append(opts,
-				xsql.WithTableOptions(legacy.WithFakeTxModes(
-					legacy.ScanQueryMode,
+				xsql.WithTableOptions(xtable.WithFakeTxModes(
+					xtable.ScanQueryMode,
 				)),
 			)
 		case SchemeQueryMode:
 			opts = append(opts,
-				xsql.WithTableOptions(legacy.WithFakeTxModes(
-					legacy.SchemeQueryMode,
+				xsql.WithTableOptions(xtable.WithFakeTxModes(
+					xtable.SchemeQueryMode,
 				)),
 			)
 		case ScriptingQueryMode:
 			opts = append(opts,
-				xsql.WithTableOptions(legacy.WithFakeTxModes(
-					legacy.ScriptingQueryMode,
+				xsql.WithTableOptions(xtable.WithFakeTxModes(
+					xtable.ScriptingQueryMode,
 				)),
-				xsql.WithQueryOptions(propose.WithFakeTx()),
+				xsql.WithQueryOptions(xquery.WithFakeTx()),
 			)
 		case QueryExecuteQueryMode:
 			opts = append(opts,
-				xsql.WithQueryOptions(propose.WithFakeTx()),
+				xsql.WithQueryOptions(xquery.WithFakeTx()),
 			)
 		default:
 		}
@@ -202,20 +193,24 @@ func WithPositionalArgs() QueryBindConnectorOption {
 	return xsql.WithQueryBind(bind.PositionalArgs{})
 }
 
+func WithWideTimeTypes(b bool) QueryBindConnectorOption {
+	return xsql.WithQueryBind(bind.WideTimeTypes(b))
+}
+
 func WithNumericArgs() QueryBindConnectorOption {
 	return xsql.WithQueryBind(bind.NumericArgs{})
 }
 
 func WithDefaultTxControl(txControl *table.TransactionControl) ConnectorOption {
-	return xsql.WithTableOptions(legacy.WithDefaultTxControl(txControl))
+	return xsql.WithTableOptions(xtable.WithDefaultTxControl(txControl))
 }
 
 func WithDefaultDataQueryOptions(opts ...options.ExecuteDataQueryOption) ConnectorOption {
-	return xsql.WithTableOptions(legacy.WithDataOpts(opts...))
+	return xsql.WithTableOptions(xtable.WithDataOpts(opts...))
 }
 
 func WithDefaultScanQueryOptions(opts ...options.ExecuteScanQueryOption) ConnectorOption {
-	return xsql.WithTableOptions(legacy.WithScanOpts(opts...))
+	return xsql.WithTableOptions(xtable.WithScanOpts(opts...))
 }
 
 func WithDatabaseSQLTrace(
@@ -236,13 +231,12 @@ type SQLConnector interface {
 }
 
 func Connector(parent *Driver, opts ...ConnectorOption) (SQLConnector, error) {
-	c, err := xsql.Open(parent, parent.metaBalancer,
+	c, err := xsql.Open(parent, parent.metaBalancer, parent.query.Must().Config(),
 		append(
 			append(
 				parent.databaseSQLOptions,
 				opts...,
 			),
-			xsql.WithOnClose(d.detach),
 			xsql.WithTraceRetry(parent.config.TraceRetry()),
 			xsql.WithRetryBudget(parent.config.RetryBudget()),
 		)...,
@@ -250,7 +244,6 @@ func Connector(parent *Driver, opts ...ConnectorOption) (SQLConnector, error) {
 	if err != nil {
 		return nil, xerrors.WithStackTrace(err)
 	}
-	d.attach(c, parent)
 
 	return c, nil
 }
