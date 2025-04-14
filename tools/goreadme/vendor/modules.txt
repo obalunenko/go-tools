@@ -41,8 +41,8 @@ github.com/posener/script
 ## explicit; go 1.17
 # github.com/yuin/goldmark v1.6.0
 ## explicit; go 1.18
-# golang.org/x/crypto v0.31.0
-## explicit; go 1.20
+# golang.org/x/crypto v0.35.0
+## explicit; go 1.23.0
 golang.org/x/crypto/cast5
 golang.org/x/crypto/openpgp
 golang.org/x/crypto/openpgp/armor
