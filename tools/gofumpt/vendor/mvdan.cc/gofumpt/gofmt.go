@@ -257,13 +257,22 @@ func (r *reporter) Report(err error) {
 		panic("Report with nil error")
 	}
 	st := r.getState()
-	scanner.PrintError(st.err, err)
-	st.exitCode = 2
+	switch err.(type) {
+	case printedDiff:
+		st.exitCode = 1
+	default:
+		scanner.PrintError(st.err, err)
+		st.exitCode = 2
+	}
 }
 
 func (r *reporter) ExitCode() int {
 	return r.getState().exitCode
 }
+
+type printedDiff struct{}
+
+func (printedDiff) Error() string { return "printed a diff, exiting with status code 1" }
 
 // If info == nil, we are formatting stdin instead of a file.
 // If in == nil, the source is the contents of the file with the given filename.
@@ -297,6 +306,11 @@ func processFile(filename string, info fs.FileInfo, in io.Reader, r *reporter, e
 		mod, ok := moduleCacheByDir.Load(dir)
 		if ok && mod != nil {
 			mod := mod.(*module)
+			if mod.Go == "" {
+				// If the go directive is missing, go 1.16 is assumed.
+				// https://go.dev/ref/mod#go-mod-file-go
+				mod.Go = "1.16"
+			}
 			if lang == "" {
 				lang = "go" + mod.Go
 			}
@@ -353,6 +367,7 @@ func processFile(filename string, info fs.FileInfo, in io.Reader, r *reporter, e
 			newName := filepath.ToSlash(filename)
 			oldName := newName + ".orig"
 			r.Write(diff.Diff(oldName, src, newName, res))
+			return printedDiff{}
 		}
 	}
 
@@ -427,9 +442,7 @@ func readFile(filename string, info fs.FileInfo, in io.Reader) ([]byte, error) {
 	return src[:n], nil
 }
 
-func main() { os.Exit(main1()) }
-
-func main1() int {
+func main() {
 	// Arbitrarily limit in-flight work to 2MiB times the number of threads.
 	//
 	// The actual overhead for the parse tree and output will depend on the
@@ -442,7 +455,7 @@ func main1() int {
 	// so that it can use defer and have them
 	// run before the exit.
 	gofmtMain(s)
-	return s.GetExitCode()
+	os.Exit(s.GetExitCode())
 }
 
 func gofmtMain(s *sequencer) {
