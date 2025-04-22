@@ -1911,10 +1911,10 @@ func (b0 GetOrganizationSettingsRequest_builder) Build() *GetOrganizationSetting
 }
 
 type GetOrganizationSettingsResponse struct {
-	state                         protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_RepositoryBaseRole RepositoryRole         `protobuf:"varint,1,opt,name=repository_base_role,json=repositoryBaseRole,proto3,enum=buf.alpha.registry.v1alpha1.RepositoryRole"`
-	xxx_hidden_MembersCount       uint32                 `protobuf:"varint,4,opt,name=members_count,json=membersCount,proto3"`
-	xxx_hidden_IdpGroups          []string               `protobuf:"bytes,5,rep,name=idp_groups,json=idpGroups,proto3"`
+	state                         protoimpl.MessageState                       `protogen:"opaque.v1"`
+	xxx_hidden_RepositoryBaseRole RepositoryRole                               `protobuf:"varint,1,opt,name=repository_base_role,json=repositoryBaseRole,proto3,enum=buf.alpha.registry.v1alpha1.RepositoryRole"`
+	xxx_hidden_MembersCount       uint32                                       `protobuf:"varint,4,opt,name=members_count,json=membersCount,proto3"`
+	xxx_hidden_IdpGroups          *[]*GetOrganizationSettingsResponse_IdPGroup `protobuf:"bytes,5,rep,name=idp_groups,json=idpGroups,proto3"`
 	unknownFields                 protoimpl.UnknownFields
 	sizeCache                     protoimpl.SizeCache
 }
@@ -1958,9 +1958,11 @@ func (x *GetOrganizationSettingsResponse) GetMembersCount() uint32 {
 	return 0
 }
 
-func (x *GetOrganizationSettingsResponse) GetIdpGroups() []string {
+func (x *GetOrganizationSettingsResponse) GetIdpGroups() []*GetOrganizationSettingsResponse_IdPGroup {
 	if x != nil {
-		return x.xxx_hidden_IdpGroups
+		if x.xxx_hidden_IdpGroups != nil {
+			return *x.xxx_hidden_IdpGroups
+		}
 	}
 	return nil
 }
@@ -1973,8 +1975,8 @@ func (x *GetOrganizationSettingsResponse) SetMembersCount(v uint32) {
 	x.xxx_hidden_MembersCount = v
 }
 
-func (x *GetOrganizationSettingsResponse) SetIdpGroups(v []string) {
-	x.xxx_hidden_IdpGroups = v
+func (x *GetOrganizationSettingsResponse) SetIdpGroups(v []*GetOrganizationSettingsResponse_IdPGroup) {
+	x.xxx_hidden_IdpGroups = &v
 }
 
 type GetOrganizationSettingsResponse_builder struct {
@@ -1984,7 +1986,7 @@ type GetOrganizationSettingsResponse_builder struct {
 	// The number of members in the organization.
 	MembersCount uint32
 	// The IdP groups associated with the organization.
-	IdpGroups []string
+	IdpGroups []*GetOrganizationSettingsResponse_IdPGroup
 }
 
 func (b0 GetOrganizationSettingsResponse_builder) Build() *GetOrganizationSettingsResponse {
@@ -1993,7 +1995,7 @@ func (b0 GetOrganizationSettingsResponse_builder) Build() *GetOrganizationSettin
 	_, _ = b, x
 	x.xxx_hidden_RepositoryBaseRole = b.RepositoryBaseRole
 	x.xxx_hidden_MembersCount = b.MembersCount
-	x.xxx_hidden_IdpGroups = b.IdpGroups
+	x.xxx_hidden_IdpGroups = &b.IdpGroups
 	return m0
 }
 
@@ -2187,6 +2189,7 @@ type AddOrganizationGroupRequest struct {
 	state                     protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_OrganizationId string                 `protobuf:"bytes,1,opt,name=organization_id,json=organizationId,proto3"`
 	xxx_hidden_GroupName      string                 `protobuf:"bytes,2,opt,name=group_name,json=groupName,proto3"`
+	xxx_hidden_RoleOverride   OrganizationRole       `protobuf:"varint,3,opt,name=role_override,json=roleOverride,proto3,enum=buf.alpha.registry.v1alpha1.OrganizationRole"`
 	unknownFields             protoimpl.UnknownFields
 	sizeCache                 protoimpl.SizeCache
 }
@@ -2230,12 +2233,23 @@ func (x *AddOrganizationGroupRequest) GetGroupName() string {
 	return ""
 }
 
+func (x *AddOrganizationGroupRequest) GetRoleOverride() OrganizationRole {
+	if x != nil {
+		return x.xxx_hidden_RoleOverride
+	}
+	return OrganizationRole_ORGANIZATION_ROLE_UNSPECIFIED
+}
+
 func (x *AddOrganizationGroupRequest) SetOrganizationId(v string) {
 	x.xxx_hidden_OrganizationId = v
 }
 
 func (x *AddOrganizationGroupRequest) SetGroupName(v string) {
 	x.xxx_hidden_GroupName = v
+}
+
+func (x *AddOrganizationGroupRequest) SetRoleOverride(v OrganizationRole) {
+	x.xxx_hidden_RoleOverride = v
 }
 
 type AddOrganizationGroupRequest_builder struct {
@@ -2245,6 +2259,11 @@ type AddOrganizationGroupRequest_builder struct {
 	OrganizationId string
 	// The name of the group to add.
 	GroupName string
+	// The role to associate with this organization group.
+	//
+	// Any user who maps to this organization via this group will be granted this role. If no role is
+	// set, the user will be granted the 'member' role.
+	RoleOverride OrganizationRole
 }
 
 func (b0 AddOrganizationGroupRequest_builder) Build() *AddOrganizationGroupRequest {
@@ -2253,6 +2272,7 @@ func (b0 AddOrganizationGroupRequest_builder) Build() *AddOrganizationGroupReque
 	_, _ = b, x
 	x.xxx_hidden_OrganizationId = b.OrganizationId
 	x.xxx_hidden_GroupName = b.GroupName
+	x.xxx_hidden_RoleOverride = b.RoleOverride
 	return m0
 }
 
@@ -2299,6 +2319,160 @@ func (b0 AddOrganizationGroupResponse_builder) Build() *AddOrganizationGroupResp
 	return m0
 }
 
+type UpdateOrganizationGroupRequest struct {
+	state                     protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_OrganizationId string                 `protobuf:"bytes,1,opt,name=organization_id,json=organizationId,proto3"`
+	xxx_hidden_GroupName      string                 `protobuf:"bytes,2,opt,name=group_name,json=groupName,proto3"`
+	xxx_hidden_RoleOverride   OrganizationRole       `protobuf:"varint,3,opt,name=role_override,json=roleOverride,proto3,enum=buf.alpha.registry.v1alpha1.OrganizationRole,oneof"`
+	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
+	XXX_presence              [1]uint32
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
+}
+
+func (x *UpdateOrganizationGroupRequest) Reset() {
+	*x = UpdateOrganizationGroupRequest{}
+	mi := &file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateOrganizationGroupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateOrganizationGroupRequest) ProtoMessage() {}
+
+func (x *UpdateOrganizationGroupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *UpdateOrganizationGroupRequest) GetOrganizationId() string {
+	if x != nil {
+		return x.xxx_hidden_OrganizationId
+	}
+	return ""
+}
+
+func (x *UpdateOrganizationGroupRequest) GetGroupName() string {
+	if x != nil {
+		return x.xxx_hidden_GroupName
+	}
+	return ""
+}
+
+func (x *UpdateOrganizationGroupRequest) GetRoleOverride() OrganizationRole {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 2) {
+			return x.xxx_hidden_RoleOverride
+		}
+	}
+	return OrganizationRole_ORGANIZATION_ROLE_UNSPECIFIED
+}
+
+func (x *UpdateOrganizationGroupRequest) SetOrganizationId(v string) {
+	x.xxx_hidden_OrganizationId = v
+}
+
+func (x *UpdateOrganizationGroupRequest) SetGroupName(v string) {
+	x.xxx_hidden_GroupName = v
+}
+
+func (x *UpdateOrganizationGroupRequest) SetRoleOverride(v OrganizationRole) {
+	x.xxx_hidden_RoleOverride = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *UpdateOrganizationGroupRequest) HasRoleOverride() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *UpdateOrganizationGroupRequest) ClearRoleOverride() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_RoleOverride = OrganizationRole_ORGANIZATION_ROLE_UNSPECIFIED
+}
+
+type UpdateOrganizationGroupRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The ID of the organization to which this group belongs.
+	OrganizationId string
+	// The name of the group to update.
+	GroupName string
+	// The role to associate with this organization group.
+	//
+	// Setting this to 'UNSPECIFIED' will remove the override. Leaving this unset will not update this
+	// property.
+	RoleOverride *OrganizationRole
+}
+
+func (b0 UpdateOrganizationGroupRequest_builder) Build() *UpdateOrganizationGroupRequest {
+	m0 := &UpdateOrganizationGroupRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_OrganizationId = b.OrganizationId
+	x.xxx_hidden_GroupName = b.GroupName
+	if b.RoleOverride != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_RoleOverride = *b.RoleOverride
+	}
+	return m0
+}
+
+type UpdateOrganizationGroupResponse struct {
+	state         protoimpl.MessageState `protogen:"opaque.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateOrganizationGroupResponse) Reset() {
+	*x = UpdateOrganizationGroupResponse{}
+	mi := &file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateOrganizationGroupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateOrganizationGroupResponse) ProtoMessage() {}
+
+func (x *UpdateOrganizationGroupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+type UpdateOrganizationGroupResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+}
+
+func (b0 UpdateOrganizationGroupResponse_builder) Build() *UpdateOrganizationGroupResponse {
+	m0 := &UpdateOrganizationGroupResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	return m0
+}
+
 type RemoveOrganizationGroupRequest struct {
 	state                     protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_OrganizationId string                 `protobuf:"bytes,1,opt,name=organization_id,json=organizationId,proto3"`
@@ -2309,7 +2483,7 @@ type RemoveOrganizationGroupRequest struct {
 
 func (x *RemoveOrganizationGroupRequest) Reset() {
 	*x = RemoveOrganizationGroupRequest{}
-	mi := &file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[32]
+	mi := &file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2321,7 +2495,7 @@ func (x *RemoveOrganizationGroupRequest) String() string {
 func (*RemoveOrganizationGroupRequest) ProtoMessage() {}
 
 func (x *RemoveOrganizationGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[32]
+	mi := &file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2380,7 +2554,7 @@ type RemoveOrganizationGroupResponse struct {
 
 func (x *RemoveOrganizationGroupResponse) Reset() {
 	*x = RemoveOrganizationGroupResponse{}
-	mi := &file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[33]
+	mi := &file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2392,7 +2566,7 @@ func (x *RemoveOrganizationGroupResponse) String() string {
 func (*RemoveOrganizationGroupResponse) ProtoMessage() {}
 
 func (x *RemoveOrganizationGroupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[33]
+	mi := &file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2412,6 +2586,79 @@ func (b0 RemoveOrganizationGroupResponse_builder) Build() *RemoveOrganizationGro
 	m0 := &RemoveOrganizationGroupResponse{}
 	b, x := &b0, m0
 	_, _ = b, x
+	return m0
+}
+
+type GetOrganizationSettingsResponse_IdPGroup struct {
+	state                   protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name         string                 `protobuf:"bytes,1,opt,name=name,proto3"`
+	xxx_hidden_RoleOverride OrganizationRole       `protobuf:"varint,2,opt,name=role_override,json=roleOverride,proto3,enum=buf.alpha.registry.v1alpha1.OrganizationRole"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *GetOrganizationSettingsResponse_IdPGroup) Reset() {
+	*x = GetOrganizationSettingsResponse_IdPGroup{}
+	mi := &file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetOrganizationSettingsResponse_IdPGroup) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetOrganizationSettingsResponse_IdPGroup) ProtoMessage() {}
+
+func (x *GetOrganizationSettingsResponse_IdPGroup) ProtoReflect() protoreflect.Message {
+	mi := &file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *GetOrganizationSettingsResponse_IdPGroup) GetName() string {
+	if x != nil {
+		return x.xxx_hidden_Name
+	}
+	return ""
+}
+
+func (x *GetOrganizationSettingsResponse_IdPGroup) GetRoleOverride() OrganizationRole {
+	if x != nil {
+		return x.xxx_hidden_RoleOverride
+	}
+	return OrganizationRole_ORGANIZATION_ROLE_UNSPECIFIED
+}
+
+func (x *GetOrganizationSettingsResponse_IdPGroup) SetName(v string) {
+	x.xxx_hidden_Name = v
+}
+
+func (x *GetOrganizationSettingsResponse_IdPGroup) SetRoleOverride(v OrganizationRole) {
+	x.xxx_hidden_RoleOverride = v
+}
+
+type GetOrganizationSettingsResponse_IdPGroup_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The name of the IdP group.
+	Name string
+	// The role override associated with this group.
+	RoleOverride OrganizationRole
+}
+
+func (b0 GetOrganizationSettingsResponse_IdPGroup_builder) Build() *GetOrganizationSettingsResponse_IdPGroup {
+	m0 := &GetOrganizationSettingsResponse_IdPGroup{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Name = b.Name
+	x.xxx_hidden_RoleOverride = b.RoleOverride
 	return m0
 }
 
@@ -2493,12 +2740,15 @@ const file_buf_alpha_registry_v1alpha1_organization_proto_rawDesc = "" +
 	"\x11organization_role\x18\x03 \x01(\x0e2-.buf.alpha.registry.v1alpha1.OrganizationRoleR\x10organizationRole\"\x1f\n" +
 	"\x1dSetOrganizationMemberResponse\"I\n" +
 	"\x1eGetOrganizationSettingsRequest\x12'\n" +
-	"\x0forganization_id\x18\x01 \x01(\tR\x0eorganizationId\"\xf6\x01\n" +
+	"\x0forganization_id\x18\x01 \x01(\tR\x0eorganizationId\"\xb1\x03\n" +
 	"\x1fGetOrganizationSettingsResponse\x12]\n" +
 	"\x14repository_base_role\x18\x01 \x01(\x0e2+.buf.alpha.registry.v1alpha1.RepositoryRoleR\x12repositoryBaseRole\x12#\n" +
-	"\rmembers_count\x18\x04 \x01(\rR\fmembersCount\x12\x1d\n" +
+	"\rmembers_count\x18\x04 \x01(\rR\fmembersCount\x12d\n" +
 	"\n" +
-	"idp_groups\x18\x05 \x03(\tR\tidpGroupsJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04R\x10plugin_base_roleR\x12template_base_role\"\xb3\x02\n" +
+	"idp_groups\x18\x05 \x03(\v2E.buf.alpha.registry.v1alpha1.GetOrganizationSettingsResponse.IdPGroupR\tidpGroups\x1ar\n" +
+	"\bIdPGroup\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12R\n" +
+	"\rrole_override\x18\x02 \x01(\x0e2-.buf.alpha.registry.v1alpha1.OrganizationRoleR\froleOverrideJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04R\x10plugin_base_roleR\x12template_base_role\"\xb3\x02\n" +
 	"!UpdateOrganizationSettingsRequest\x12'\n" +
 	"\x0forganization_id\x18\x01 \x01(\tR\x0eorganizationId\x12]\n" +
 	"\x14repository_base_role\x18\x02 \x01(\x0e2+.buf.alpha.registry.v1alpha1.RepositoryRoleR\x12repositoryBaseRole\x12%\n" +
@@ -2506,17 +2756,25 @@ const file_buf_alpha_registry_v1alpha1_organization_proto_rawDesc = "" +
 	"\x03url\x18\x06 \x01(\tH\x01R\x03url\x88\x01\x01B\x0e\n" +
 	"\f_descriptionB\x06\n" +
 	"\x04_urlJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\x10plugin_base_roleR\x12template_base_role\"$\n" +
-	"\"UpdateOrganizationSettingsResponse\"e\n" +
+	"\"UpdateOrganizationSettingsResponse\"\xb9\x01\n" +
 	"\x1bAddOrganizationGroupRequest\x12'\n" +
 	"\x0forganization_id\x18\x01 \x01(\tR\x0eorganizationId\x12\x1d\n" +
 	"\n" +
-	"group_name\x18\x02 \x01(\tR\tgroupName\"\x1e\n" +
-	"\x1cAddOrganizationGroupResponse\"h\n" +
+	"group_name\x18\x02 \x01(\tR\tgroupName\x12R\n" +
+	"\rrole_override\x18\x03 \x01(\x0e2-.buf.alpha.registry.v1alpha1.OrganizationRoleR\froleOverride\"\x1e\n" +
+	"\x1cAddOrganizationGroupResponse\"\xd3\x01\n" +
+	"\x1eUpdateOrganizationGroupRequest\x12'\n" +
+	"\x0forganization_id\x18\x01 \x01(\tR\x0eorganizationId\x12\x1d\n" +
+	"\n" +
+	"group_name\x18\x02 \x01(\tR\tgroupName\x12W\n" +
+	"\rrole_override\x18\x03 \x01(\x0e2-.buf.alpha.registry.v1alpha1.OrganizationRoleH\x00R\froleOverride\x88\x01\x01B\x10\n" +
+	"\x0e_role_override\"!\n" +
+	"\x1fUpdateOrganizationGroupResponse\"h\n" +
 	"\x1eRemoveOrganizationGroupRequest\x12'\n" +
 	"\x0forganization_id\x18\x01 \x01(\tR\x0eorganizationId\x12\x1d\n" +
 	"\n" +
 	"group_name\x18\x02 \x01(\tR\tgroupName\"!\n" +
-	"\x1fRemoveOrganizationGroupResponse2\xe3\x12\n" +
+	"\x1fRemoveOrganizationGroupResponse2\xff\x13\n" +
 	"\x13OrganizationService\x12\x81\x01\n" +
 	"\x0fGetOrganization\x123.buf.alpha.registry.v1alpha1.GetOrganizationRequest\x1a4.buf.alpha.registry.v1alpha1.GetOrganizationResponse\"\x03\x90\x02\x01\x12\x93\x01\n" +
 	"\x15GetOrganizationByName\x129.buf.alpha.registry.v1alpha1.GetOrganizationByNameRequest\x1a:.buf.alpha.registry.v1alpha1.GetOrganizationByNameResponse\"\x03\x90\x02\x01\x12\x87\x01\n" +
@@ -2533,104 +2791,114 @@ const file_buf_alpha_registry_v1alpha1_organization_proto_rawDesc = "" +
 	"\x17GetOrganizationSettings\x12;.buf.alpha.registry.v1alpha1.GetOrganizationSettingsRequest\x1a<.buf.alpha.registry.v1alpha1.GetOrganizationSettingsResponse\"\x03\x90\x02\x01\x12\x9d\x01\n" +
 	"\x1aUpdateOrganizationSettings\x12>.buf.alpha.registry.v1alpha1.UpdateOrganizationSettingsRequest\x1a?.buf.alpha.registry.v1alpha1.UpdateOrganizationSettingsResponse\x12\x90\x01\n" +
 	"\x14AddOrganizationGroup\x128.buf.alpha.registry.v1alpha1.AddOrganizationGroupRequest\x1a9.buf.alpha.registry.v1alpha1.AddOrganizationGroupResponse\"\x03\x90\x02\x02\x12\x99\x01\n" +
+	"\x17UpdateOrganizationGroup\x12;.buf.alpha.registry.v1alpha1.UpdateOrganizationGroupRequest\x1a<.buf.alpha.registry.v1alpha1.UpdateOrganizationGroupResponse\"\x03\x90\x02\x02\x12\x99\x01\n" +
 	"\x17RemoveOrganizationGroup\x12;.buf.alpha.registry.v1alpha1.RemoveOrganizationGroupRequest\x1a<.buf.alpha.registry.v1alpha1.RemoveOrganizationGroupResponse\"\x03\x90\x02\x02B\x9e\x02\n" +
 	"\x1fcom.buf.alpha.registry.v1alpha1B\x11OrganizationProtoP\x01ZYgithub.com/bufbuild/buf/private/gen/proto/go/buf/alpha/registry/v1alpha1;registryv1alpha1\xa2\x02\x03BAR\xaa\x02\x1bBuf.Alpha.Registry.V1alpha1\xca\x02\x1bBuf\\Alpha\\Registry\\V1alpha1\xe2\x02'Buf\\Alpha\\Registry\\V1alpha1\\GPBMetadata\xea\x02\x1eBuf::Alpha::Registry::V1alpha1b\x06proto3"
 
-var file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
+var file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_buf_alpha_registry_v1alpha1_organization_proto_goTypes = []any{
-	(*Organization)(nil),                       // 0: buf.alpha.registry.v1alpha1.Organization
-	(*OrganizationMembership)(nil),             // 1: buf.alpha.registry.v1alpha1.OrganizationMembership
-	(*GetOrganizationRequest)(nil),             // 2: buf.alpha.registry.v1alpha1.GetOrganizationRequest
-	(*GetOrganizationResponse)(nil),            // 3: buf.alpha.registry.v1alpha1.GetOrganizationResponse
-	(*GetOrganizationByNameRequest)(nil),       // 4: buf.alpha.registry.v1alpha1.GetOrganizationByNameRequest
-	(*GetOrganizationByNameResponse)(nil),      // 5: buf.alpha.registry.v1alpha1.GetOrganizationByNameResponse
-	(*ListOrganizationsRequest)(nil),           // 6: buf.alpha.registry.v1alpha1.ListOrganizationsRequest
-	(*ListOrganizationsResponse)(nil),          // 7: buf.alpha.registry.v1alpha1.ListOrganizationsResponse
-	(*ListUserOrganizationsRequest)(nil),       // 8: buf.alpha.registry.v1alpha1.ListUserOrganizationsRequest
-	(*ListUserOrganizationsResponse)(nil),      // 9: buf.alpha.registry.v1alpha1.ListUserOrganizationsResponse
-	(*GetUserOrganizationRequest)(nil),         // 10: buf.alpha.registry.v1alpha1.GetUserOrganizationRequest
-	(*GetUserOrganizationResponse)(nil),        // 11: buf.alpha.registry.v1alpha1.GetUserOrganizationResponse
-	(*CreateOrganizationRequest)(nil),          // 12: buf.alpha.registry.v1alpha1.CreateOrganizationRequest
-	(*CreateOrganizationResponse)(nil),         // 13: buf.alpha.registry.v1alpha1.CreateOrganizationResponse
-	(*DeleteOrganizationRequest)(nil),          // 14: buf.alpha.registry.v1alpha1.DeleteOrganizationRequest
-	(*DeleteOrganizationResponse)(nil),         // 15: buf.alpha.registry.v1alpha1.DeleteOrganizationResponse
-	(*DeleteOrganizationByNameRequest)(nil),    // 16: buf.alpha.registry.v1alpha1.DeleteOrganizationByNameRequest
-	(*DeleteOrganizationByNameResponse)(nil),   // 17: buf.alpha.registry.v1alpha1.DeleteOrganizationByNameResponse
-	(*AddOrganizationMemberRequest)(nil),       // 18: buf.alpha.registry.v1alpha1.AddOrganizationMemberRequest
-	(*AddOrganizationMemberResponse)(nil),      // 19: buf.alpha.registry.v1alpha1.AddOrganizationMemberResponse
-	(*UpdateOrganizationMemberRequest)(nil),    // 20: buf.alpha.registry.v1alpha1.UpdateOrganizationMemberRequest
-	(*UpdateOrganizationMemberResponse)(nil),   // 21: buf.alpha.registry.v1alpha1.UpdateOrganizationMemberResponse
-	(*RemoveOrganizationMemberRequest)(nil),    // 22: buf.alpha.registry.v1alpha1.RemoveOrganizationMemberRequest
-	(*RemoveOrganizationMemberResponse)(nil),   // 23: buf.alpha.registry.v1alpha1.RemoveOrganizationMemberResponse
-	(*SetOrganizationMemberRequest)(nil),       // 24: buf.alpha.registry.v1alpha1.SetOrganizationMemberRequest
-	(*SetOrganizationMemberResponse)(nil),      // 25: buf.alpha.registry.v1alpha1.SetOrganizationMemberResponse
-	(*GetOrganizationSettingsRequest)(nil),     // 26: buf.alpha.registry.v1alpha1.GetOrganizationSettingsRequest
-	(*GetOrganizationSettingsResponse)(nil),    // 27: buf.alpha.registry.v1alpha1.GetOrganizationSettingsResponse
-	(*UpdateOrganizationSettingsRequest)(nil),  // 28: buf.alpha.registry.v1alpha1.UpdateOrganizationSettingsRequest
-	(*UpdateOrganizationSettingsResponse)(nil), // 29: buf.alpha.registry.v1alpha1.UpdateOrganizationSettingsResponse
-	(*AddOrganizationGroupRequest)(nil),        // 30: buf.alpha.registry.v1alpha1.AddOrganizationGroupRequest
-	(*AddOrganizationGroupResponse)(nil),       // 31: buf.alpha.registry.v1alpha1.AddOrganizationGroupResponse
-	(*RemoveOrganizationGroupRequest)(nil),     // 32: buf.alpha.registry.v1alpha1.RemoveOrganizationGroupRequest
-	(*RemoveOrganizationGroupResponse)(nil),    // 33: buf.alpha.registry.v1alpha1.RemoveOrganizationGroupResponse
-	(*timestamppb.Timestamp)(nil),              // 34: google.protobuf.Timestamp
-	(VerificationStatus)(0),                    // 35: buf.alpha.registry.v1alpha1.VerificationStatus
-	(OrganizationRole)(0),                      // 36: buf.alpha.registry.v1alpha1.OrganizationRole
-	(RepositoryRole)(0),                        // 37: buf.alpha.registry.v1alpha1.RepositoryRole
+	(*Organization)(nil),                             // 0: buf.alpha.registry.v1alpha1.Organization
+	(*OrganizationMembership)(nil),                   // 1: buf.alpha.registry.v1alpha1.OrganizationMembership
+	(*GetOrganizationRequest)(nil),                   // 2: buf.alpha.registry.v1alpha1.GetOrganizationRequest
+	(*GetOrganizationResponse)(nil),                  // 3: buf.alpha.registry.v1alpha1.GetOrganizationResponse
+	(*GetOrganizationByNameRequest)(nil),             // 4: buf.alpha.registry.v1alpha1.GetOrganizationByNameRequest
+	(*GetOrganizationByNameResponse)(nil),            // 5: buf.alpha.registry.v1alpha1.GetOrganizationByNameResponse
+	(*ListOrganizationsRequest)(nil),                 // 6: buf.alpha.registry.v1alpha1.ListOrganizationsRequest
+	(*ListOrganizationsResponse)(nil),                // 7: buf.alpha.registry.v1alpha1.ListOrganizationsResponse
+	(*ListUserOrganizationsRequest)(nil),             // 8: buf.alpha.registry.v1alpha1.ListUserOrganizationsRequest
+	(*ListUserOrganizationsResponse)(nil),            // 9: buf.alpha.registry.v1alpha1.ListUserOrganizationsResponse
+	(*GetUserOrganizationRequest)(nil),               // 10: buf.alpha.registry.v1alpha1.GetUserOrganizationRequest
+	(*GetUserOrganizationResponse)(nil),              // 11: buf.alpha.registry.v1alpha1.GetUserOrganizationResponse
+	(*CreateOrganizationRequest)(nil),                // 12: buf.alpha.registry.v1alpha1.CreateOrganizationRequest
+	(*CreateOrganizationResponse)(nil),               // 13: buf.alpha.registry.v1alpha1.CreateOrganizationResponse
+	(*DeleteOrganizationRequest)(nil),                // 14: buf.alpha.registry.v1alpha1.DeleteOrganizationRequest
+	(*DeleteOrganizationResponse)(nil),               // 15: buf.alpha.registry.v1alpha1.DeleteOrganizationResponse
+	(*DeleteOrganizationByNameRequest)(nil),          // 16: buf.alpha.registry.v1alpha1.DeleteOrganizationByNameRequest
+	(*DeleteOrganizationByNameResponse)(nil),         // 17: buf.alpha.registry.v1alpha1.DeleteOrganizationByNameResponse
+	(*AddOrganizationMemberRequest)(nil),             // 18: buf.alpha.registry.v1alpha1.AddOrganizationMemberRequest
+	(*AddOrganizationMemberResponse)(nil),            // 19: buf.alpha.registry.v1alpha1.AddOrganizationMemberResponse
+	(*UpdateOrganizationMemberRequest)(nil),          // 20: buf.alpha.registry.v1alpha1.UpdateOrganizationMemberRequest
+	(*UpdateOrganizationMemberResponse)(nil),         // 21: buf.alpha.registry.v1alpha1.UpdateOrganizationMemberResponse
+	(*RemoveOrganizationMemberRequest)(nil),          // 22: buf.alpha.registry.v1alpha1.RemoveOrganizationMemberRequest
+	(*RemoveOrganizationMemberResponse)(nil),         // 23: buf.alpha.registry.v1alpha1.RemoveOrganizationMemberResponse
+	(*SetOrganizationMemberRequest)(nil),             // 24: buf.alpha.registry.v1alpha1.SetOrganizationMemberRequest
+	(*SetOrganizationMemberResponse)(nil),            // 25: buf.alpha.registry.v1alpha1.SetOrganizationMemberResponse
+	(*GetOrganizationSettingsRequest)(nil),           // 26: buf.alpha.registry.v1alpha1.GetOrganizationSettingsRequest
+	(*GetOrganizationSettingsResponse)(nil),          // 27: buf.alpha.registry.v1alpha1.GetOrganizationSettingsResponse
+	(*UpdateOrganizationSettingsRequest)(nil),        // 28: buf.alpha.registry.v1alpha1.UpdateOrganizationSettingsRequest
+	(*UpdateOrganizationSettingsResponse)(nil),       // 29: buf.alpha.registry.v1alpha1.UpdateOrganizationSettingsResponse
+	(*AddOrganizationGroupRequest)(nil),              // 30: buf.alpha.registry.v1alpha1.AddOrganizationGroupRequest
+	(*AddOrganizationGroupResponse)(nil),             // 31: buf.alpha.registry.v1alpha1.AddOrganizationGroupResponse
+	(*UpdateOrganizationGroupRequest)(nil),           // 32: buf.alpha.registry.v1alpha1.UpdateOrganizationGroupRequest
+	(*UpdateOrganizationGroupResponse)(nil),          // 33: buf.alpha.registry.v1alpha1.UpdateOrganizationGroupResponse
+	(*RemoveOrganizationGroupRequest)(nil),           // 34: buf.alpha.registry.v1alpha1.RemoveOrganizationGroupRequest
+	(*RemoveOrganizationGroupResponse)(nil),          // 35: buf.alpha.registry.v1alpha1.RemoveOrganizationGroupResponse
+	(*GetOrganizationSettingsResponse_IdPGroup)(nil), // 36: buf.alpha.registry.v1alpha1.GetOrganizationSettingsResponse.IdPGroup
+	(*timestamppb.Timestamp)(nil),                    // 37: google.protobuf.Timestamp
+	(VerificationStatus)(0),                          // 38: buf.alpha.registry.v1alpha1.VerificationStatus
+	(OrganizationRole)(0),                            // 39: buf.alpha.registry.v1alpha1.OrganizationRole
+	(RepositoryRole)(0),                              // 40: buf.alpha.registry.v1alpha1.RepositoryRole
 }
 var file_buf_alpha_registry_v1alpha1_organization_proto_depIdxs = []int32{
-	34, // 0: buf.alpha.registry.v1alpha1.Organization.create_time:type_name -> google.protobuf.Timestamp
-	34, // 1: buf.alpha.registry.v1alpha1.Organization.update_time:type_name -> google.protobuf.Timestamp
-	35, // 2: buf.alpha.registry.v1alpha1.Organization.verification_status:type_name -> buf.alpha.registry.v1alpha1.VerificationStatus
+	37, // 0: buf.alpha.registry.v1alpha1.Organization.create_time:type_name -> google.protobuf.Timestamp
+	37, // 1: buf.alpha.registry.v1alpha1.Organization.update_time:type_name -> google.protobuf.Timestamp
+	38, // 2: buf.alpha.registry.v1alpha1.Organization.verification_status:type_name -> buf.alpha.registry.v1alpha1.VerificationStatus
 	0,  // 3: buf.alpha.registry.v1alpha1.OrganizationMembership.organization:type_name -> buf.alpha.registry.v1alpha1.Organization
-	36, // 4: buf.alpha.registry.v1alpha1.OrganizationMembership.organization_role:type_name -> buf.alpha.registry.v1alpha1.OrganizationRole
+	39, // 4: buf.alpha.registry.v1alpha1.OrganizationMembership.organization_role:type_name -> buf.alpha.registry.v1alpha1.OrganizationRole
 	0,  // 5: buf.alpha.registry.v1alpha1.GetOrganizationResponse.organization:type_name -> buf.alpha.registry.v1alpha1.Organization
 	0,  // 6: buf.alpha.registry.v1alpha1.GetOrganizationByNameResponse.organization:type_name -> buf.alpha.registry.v1alpha1.Organization
 	0,  // 7: buf.alpha.registry.v1alpha1.ListOrganizationsResponse.organizations:type_name -> buf.alpha.registry.v1alpha1.Organization
 	1,  // 8: buf.alpha.registry.v1alpha1.ListUserOrganizationsResponse.organizations:type_name -> buf.alpha.registry.v1alpha1.OrganizationMembership
 	1,  // 9: buf.alpha.registry.v1alpha1.GetUserOrganizationResponse.organization_membership:type_name -> buf.alpha.registry.v1alpha1.OrganizationMembership
 	0,  // 10: buf.alpha.registry.v1alpha1.CreateOrganizationResponse.organization:type_name -> buf.alpha.registry.v1alpha1.Organization
-	36, // 11: buf.alpha.registry.v1alpha1.AddOrganizationMemberRequest.organization_role:type_name -> buf.alpha.registry.v1alpha1.OrganizationRole
-	36, // 12: buf.alpha.registry.v1alpha1.UpdateOrganizationMemberRequest.organization_role:type_name -> buf.alpha.registry.v1alpha1.OrganizationRole
-	36, // 13: buf.alpha.registry.v1alpha1.SetOrganizationMemberRequest.organization_role:type_name -> buf.alpha.registry.v1alpha1.OrganizationRole
-	37, // 14: buf.alpha.registry.v1alpha1.GetOrganizationSettingsResponse.repository_base_role:type_name -> buf.alpha.registry.v1alpha1.RepositoryRole
-	37, // 15: buf.alpha.registry.v1alpha1.UpdateOrganizationSettingsRequest.repository_base_role:type_name -> buf.alpha.registry.v1alpha1.RepositoryRole
-	2,  // 16: buf.alpha.registry.v1alpha1.OrganizationService.GetOrganization:input_type -> buf.alpha.registry.v1alpha1.GetOrganizationRequest
-	4,  // 17: buf.alpha.registry.v1alpha1.OrganizationService.GetOrganizationByName:input_type -> buf.alpha.registry.v1alpha1.GetOrganizationByNameRequest
-	6,  // 18: buf.alpha.registry.v1alpha1.OrganizationService.ListOrganizations:input_type -> buf.alpha.registry.v1alpha1.ListOrganizationsRequest
-	8,  // 19: buf.alpha.registry.v1alpha1.OrganizationService.ListUserOrganizations:input_type -> buf.alpha.registry.v1alpha1.ListUserOrganizationsRequest
-	10, // 20: buf.alpha.registry.v1alpha1.OrganizationService.GetUserOrganization:input_type -> buf.alpha.registry.v1alpha1.GetUserOrganizationRequest
-	12, // 21: buf.alpha.registry.v1alpha1.OrganizationService.CreateOrganization:input_type -> buf.alpha.registry.v1alpha1.CreateOrganizationRequest
-	14, // 22: buf.alpha.registry.v1alpha1.OrganizationService.DeleteOrganization:input_type -> buf.alpha.registry.v1alpha1.DeleteOrganizationRequest
-	16, // 23: buf.alpha.registry.v1alpha1.OrganizationService.DeleteOrganizationByName:input_type -> buf.alpha.registry.v1alpha1.DeleteOrganizationByNameRequest
-	18, // 24: buf.alpha.registry.v1alpha1.OrganizationService.AddOrganizationMember:input_type -> buf.alpha.registry.v1alpha1.AddOrganizationMemberRequest
-	20, // 25: buf.alpha.registry.v1alpha1.OrganizationService.UpdateOrganizationMember:input_type -> buf.alpha.registry.v1alpha1.UpdateOrganizationMemberRequest
-	22, // 26: buf.alpha.registry.v1alpha1.OrganizationService.RemoveOrganizationMember:input_type -> buf.alpha.registry.v1alpha1.RemoveOrganizationMemberRequest
-	24, // 27: buf.alpha.registry.v1alpha1.OrganizationService.SetOrganizationMember:input_type -> buf.alpha.registry.v1alpha1.SetOrganizationMemberRequest
-	26, // 28: buf.alpha.registry.v1alpha1.OrganizationService.GetOrganizationSettings:input_type -> buf.alpha.registry.v1alpha1.GetOrganizationSettingsRequest
-	28, // 29: buf.alpha.registry.v1alpha1.OrganizationService.UpdateOrganizationSettings:input_type -> buf.alpha.registry.v1alpha1.UpdateOrganizationSettingsRequest
-	30, // 30: buf.alpha.registry.v1alpha1.OrganizationService.AddOrganizationGroup:input_type -> buf.alpha.registry.v1alpha1.AddOrganizationGroupRequest
-	32, // 31: buf.alpha.registry.v1alpha1.OrganizationService.RemoveOrganizationGroup:input_type -> buf.alpha.registry.v1alpha1.RemoveOrganizationGroupRequest
-	3,  // 32: buf.alpha.registry.v1alpha1.OrganizationService.GetOrganization:output_type -> buf.alpha.registry.v1alpha1.GetOrganizationResponse
-	5,  // 33: buf.alpha.registry.v1alpha1.OrganizationService.GetOrganizationByName:output_type -> buf.alpha.registry.v1alpha1.GetOrganizationByNameResponse
-	7,  // 34: buf.alpha.registry.v1alpha1.OrganizationService.ListOrganizations:output_type -> buf.alpha.registry.v1alpha1.ListOrganizationsResponse
-	9,  // 35: buf.alpha.registry.v1alpha1.OrganizationService.ListUserOrganizations:output_type -> buf.alpha.registry.v1alpha1.ListUserOrganizationsResponse
-	11, // 36: buf.alpha.registry.v1alpha1.OrganizationService.GetUserOrganization:output_type -> buf.alpha.registry.v1alpha1.GetUserOrganizationResponse
-	13, // 37: buf.alpha.registry.v1alpha1.OrganizationService.CreateOrganization:output_type -> buf.alpha.registry.v1alpha1.CreateOrganizationResponse
-	15, // 38: buf.alpha.registry.v1alpha1.OrganizationService.DeleteOrganization:output_type -> buf.alpha.registry.v1alpha1.DeleteOrganizationResponse
-	17, // 39: buf.alpha.registry.v1alpha1.OrganizationService.DeleteOrganizationByName:output_type -> buf.alpha.registry.v1alpha1.DeleteOrganizationByNameResponse
-	19, // 40: buf.alpha.registry.v1alpha1.OrganizationService.AddOrganizationMember:output_type -> buf.alpha.registry.v1alpha1.AddOrganizationMemberResponse
-	21, // 41: buf.alpha.registry.v1alpha1.OrganizationService.UpdateOrganizationMember:output_type -> buf.alpha.registry.v1alpha1.UpdateOrganizationMemberResponse
-	23, // 42: buf.alpha.registry.v1alpha1.OrganizationService.RemoveOrganizationMember:output_type -> buf.alpha.registry.v1alpha1.RemoveOrganizationMemberResponse
-	25, // 43: buf.alpha.registry.v1alpha1.OrganizationService.SetOrganizationMember:output_type -> buf.alpha.registry.v1alpha1.SetOrganizationMemberResponse
-	27, // 44: buf.alpha.registry.v1alpha1.OrganizationService.GetOrganizationSettings:output_type -> buf.alpha.registry.v1alpha1.GetOrganizationSettingsResponse
-	29, // 45: buf.alpha.registry.v1alpha1.OrganizationService.UpdateOrganizationSettings:output_type -> buf.alpha.registry.v1alpha1.UpdateOrganizationSettingsResponse
-	31, // 46: buf.alpha.registry.v1alpha1.OrganizationService.AddOrganizationGroup:output_type -> buf.alpha.registry.v1alpha1.AddOrganizationGroupResponse
-	33, // 47: buf.alpha.registry.v1alpha1.OrganizationService.RemoveOrganizationGroup:output_type -> buf.alpha.registry.v1alpha1.RemoveOrganizationGroupResponse
-	32, // [32:48] is the sub-list for method output_type
-	16, // [16:32] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	39, // 11: buf.alpha.registry.v1alpha1.AddOrganizationMemberRequest.organization_role:type_name -> buf.alpha.registry.v1alpha1.OrganizationRole
+	39, // 12: buf.alpha.registry.v1alpha1.UpdateOrganizationMemberRequest.organization_role:type_name -> buf.alpha.registry.v1alpha1.OrganizationRole
+	39, // 13: buf.alpha.registry.v1alpha1.SetOrganizationMemberRequest.organization_role:type_name -> buf.alpha.registry.v1alpha1.OrganizationRole
+	40, // 14: buf.alpha.registry.v1alpha1.GetOrganizationSettingsResponse.repository_base_role:type_name -> buf.alpha.registry.v1alpha1.RepositoryRole
+	36, // 15: buf.alpha.registry.v1alpha1.GetOrganizationSettingsResponse.idp_groups:type_name -> buf.alpha.registry.v1alpha1.GetOrganizationSettingsResponse.IdPGroup
+	40, // 16: buf.alpha.registry.v1alpha1.UpdateOrganizationSettingsRequest.repository_base_role:type_name -> buf.alpha.registry.v1alpha1.RepositoryRole
+	39, // 17: buf.alpha.registry.v1alpha1.AddOrganizationGroupRequest.role_override:type_name -> buf.alpha.registry.v1alpha1.OrganizationRole
+	39, // 18: buf.alpha.registry.v1alpha1.UpdateOrganizationGroupRequest.role_override:type_name -> buf.alpha.registry.v1alpha1.OrganizationRole
+	39, // 19: buf.alpha.registry.v1alpha1.GetOrganizationSettingsResponse.IdPGroup.role_override:type_name -> buf.alpha.registry.v1alpha1.OrganizationRole
+	2,  // 20: buf.alpha.registry.v1alpha1.OrganizationService.GetOrganization:input_type -> buf.alpha.registry.v1alpha1.GetOrganizationRequest
+	4,  // 21: buf.alpha.registry.v1alpha1.OrganizationService.GetOrganizationByName:input_type -> buf.alpha.registry.v1alpha1.GetOrganizationByNameRequest
+	6,  // 22: buf.alpha.registry.v1alpha1.OrganizationService.ListOrganizations:input_type -> buf.alpha.registry.v1alpha1.ListOrganizationsRequest
+	8,  // 23: buf.alpha.registry.v1alpha1.OrganizationService.ListUserOrganizations:input_type -> buf.alpha.registry.v1alpha1.ListUserOrganizationsRequest
+	10, // 24: buf.alpha.registry.v1alpha1.OrganizationService.GetUserOrganization:input_type -> buf.alpha.registry.v1alpha1.GetUserOrganizationRequest
+	12, // 25: buf.alpha.registry.v1alpha1.OrganizationService.CreateOrganization:input_type -> buf.alpha.registry.v1alpha1.CreateOrganizationRequest
+	14, // 26: buf.alpha.registry.v1alpha1.OrganizationService.DeleteOrganization:input_type -> buf.alpha.registry.v1alpha1.DeleteOrganizationRequest
+	16, // 27: buf.alpha.registry.v1alpha1.OrganizationService.DeleteOrganizationByName:input_type -> buf.alpha.registry.v1alpha1.DeleteOrganizationByNameRequest
+	18, // 28: buf.alpha.registry.v1alpha1.OrganizationService.AddOrganizationMember:input_type -> buf.alpha.registry.v1alpha1.AddOrganizationMemberRequest
+	20, // 29: buf.alpha.registry.v1alpha1.OrganizationService.UpdateOrganizationMember:input_type -> buf.alpha.registry.v1alpha1.UpdateOrganizationMemberRequest
+	22, // 30: buf.alpha.registry.v1alpha1.OrganizationService.RemoveOrganizationMember:input_type -> buf.alpha.registry.v1alpha1.RemoveOrganizationMemberRequest
+	24, // 31: buf.alpha.registry.v1alpha1.OrganizationService.SetOrganizationMember:input_type -> buf.alpha.registry.v1alpha1.SetOrganizationMemberRequest
+	26, // 32: buf.alpha.registry.v1alpha1.OrganizationService.GetOrganizationSettings:input_type -> buf.alpha.registry.v1alpha1.GetOrganizationSettingsRequest
+	28, // 33: buf.alpha.registry.v1alpha1.OrganizationService.UpdateOrganizationSettings:input_type -> buf.alpha.registry.v1alpha1.UpdateOrganizationSettingsRequest
+	30, // 34: buf.alpha.registry.v1alpha1.OrganizationService.AddOrganizationGroup:input_type -> buf.alpha.registry.v1alpha1.AddOrganizationGroupRequest
+	32, // 35: buf.alpha.registry.v1alpha1.OrganizationService.UpdateOrganizationGroup:input_type -> buf.alpha.registry.v1alpha1.UpdateOrganizationGroupRequest
+	34, // 36: buf.alpha.registry.v1alpha1.OrganizationService.RemoveOrganizationGroup:input_type -> buf.alpha.registry.v1alpha1.RemoveOrganizationGroupRequest
+	3,  // 37: buf.alpha.registry.v1alpha1.OrganizationService.GetOrganization:output_type -> buf.alpha.registry.v1alpha1.GetOrganizationResponse
+	5,  // 38: buf.alpha.registry.v1alpha1.OrganizationService.GetOrganizationByName:output_type -> buf.alpha.registry.v1alpha1.GetOrganizationByNameResponse
+	7,  // 39: buf.alpha.registry.v1alpha1.OrganizationService.ListOrganizations:output_type -> buf.alpha.registry.v1alpha1.ListOrganizationsResponse
+	9,  // 40: buf.alpha.registry.v1alpha1.OrganizationService.ListUserOrganizations:output_type -> buf.alpha.registry.v1alpha1.ListUserOrganizationsResponse
+	11, // 41: buf.alpha.registry.v1alpha1.OrganizationService.GetUserOrganization:output_type -> buf.alpha.registry.v1alpha1.GetUserOrganizationResponse
+	13, // 42: buf.alpha.registry.v1alpha1.OrganizationService.CreateOrganization:output_type -> buf.alpha.registry.v1alpha1.CreateOrganizationResponse
+	15, // 43: buf.alpha.registry.v1alpha1.OrganizationService.DeleteOrganization:output_type -> buf.alpha.registry.v1alpha1.DeleteOrganizationResponse
+	17, // 44: buf.alpha.registry.v1alpha1.OrganizationService.DeleteOrganizationByName:output_type -> buf.alpha.registry.v1alpha1.DeleteOrganizationByNameResponse
+	19, // 45: buf.alpha.registry.v1alpha1.OrganizationService.AddOrganizationMember:output_type -> buf.alpha.registry.v1alpha1.AddOrganizationMemberResponse
+	21, // 46: buf.alpha.registry.v1alpha1.OrganizationService.UpdateOrganizationMember:output_type -> buf.alpha.registry.v1alpha1.UpdateOrganizationMemberResponse
+	23, // 47: buf.alpha.registry.v1alpha1.OrganizationService.RemoveOrganizationMember:output_type -> buf.alpha.registry.v1alpha1.RemoveOrganizationMemberResponse
+	25, // 48: buf.alpha.registry.v1alpha1.OrganizationService.SetOrganizationMember:output_type -> buf.alpha.registry.v1alpha1.SetOrganizationMemberResponse
+	27, // 49: buf.alpha.registry.v1alpha1.OrganizationService.GetOrganizationSettings:output_type -> buf.alpha.registry.v1alpha1.GetOrganizationSettingsResponse
+	29, // 50: buf.alpha.registry.v1alpha1.OrganizationService.UpdateOrganizationSettings:output_type -> buf.alpha.registry.v1alpha1.UpdateOrganizationSettingsResponse
+	31, // 51: buf.alpha.registry.v1alpha1.OrganizationService.AddOrganizationGroup:output_type -> buf.alpha.registry.v1alpha1.AddOrganizationGroupResponse
+	33, // 52: buf.alpha.registry.v1alpha1.OrganizationService.UpdateOrganizationGroup:output_type -> buf.alpha.registry.v1alpha1.UpdateOrganizationGroupResponse
+	35, // 53: buf.alpha.registry.v1alpha1.OrganizationService.RemoveOrganizationGroup:output_type -> buf.alpha.registry.v1alpha1.RemoveOrganizationGroupResponse
+	37, // [37:54] is the sub-list for method output_type
+	20, // [20:37] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_buf_alpha_registry_v1alpha1_organization_proto_init() }
@@ -2641,13 +2909,14 @@ func file_buf_alpha_registry_v1alpha1_organization_proto_init() {
 	file_buf_alpha_registry_v1alpha1_role_proto_init()
 	file_buf_alpha_registry_v1alpha1_verification_status_proto_init()
 	file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[28].OneofWrappers = []any{}
+	file_buf_alpha_registry_v1alpha1_organization_proto_msgTypes[32].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_buf_alpha_registry_v1alpha1_organization_proto_rawDesc), len(file_buf_alpha_registry_v1alpha1_organization_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   34,
+			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
