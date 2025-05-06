@@ -2,7 +2,7 @@ module gotestsum
 
 go 1.24
 
-require gotest.tools/gotestsum v1.12.1
+require gotest.tools/gotestsum v1.12.2
 
 require (
 	github.com/bitfield/gotestdox v0.2.2 // indirect

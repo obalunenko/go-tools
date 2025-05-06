@@ -65,7 +65,7 @@ golang.org/x/tools/internal/stdlib
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
-# gotest.tools/gotestsum v1.12.1
+# gotest.tools/gotestsum v1.12.2
 ## explicit; go 1.21
 gotest.tools/gotestsum
 gotest.tools/gotestsum/cmd
