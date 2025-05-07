@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.24.2-alpine3.21 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24.3-alpine3.21 AS builder
 
 ARG APK_BASH_VERSION=~5
 ARG APK_GIT_VERSION=~2
@@ -39,7 +39,7 @@ RUN --mount=type=bind,source=./scripts,target=./scripts \
     GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
 
 
-FROM golang:1.24.2-alpine3.21 AS releaser
+FROM golang:1.24.3-alpine3.21 AS releaser
 
 ARG APK_BASH_VERSION=~5
 ARG APK_BUILDBASE_VERSION=~0
