@@ -69,7 +69,7 @@ const (
 type LabelServiceClient interface {
 	// Get Labels by id or name.
 	GetLabels(context.Context, *connect.Request[v1.GetLabelsRequest]) (*connect.Response[v1.GetLabelsResponse], error)
-	// List Labels for a given Module, Commit, or CommitDigest.
+	// List Labels for a given Module, Commit or Label.
 	ListLabels(context.Context, *connect.Request[v1.ListLabelsRequest]) (*connect.Response[v1.ListLabelsResponse], error)
 	// List the history of a Label.
 	ListLabelHistory(context.Context, *connect.Request[v1.ListLabelHistoryRequest]) (*connect.Response[v1.ListLabelHistoryResponse], error)
@@ -192,7 +192,7 @@ func (c *labelServiceClient) UnarchiveLabels(ctx context.Context, req *connect.R
 type LabelServiceHandler interface {
 	// Get Labels by id or name.
 	GetLabels(context.Context, *connect.Request[v1.GetLabelsRequest]) (*connect.Response[v1.GetLabelsResponse], error)
-	// List Labels for a given Module, Commit, or CommitDigest.
+	// List Labels for a given Module, Commit or Label.
 	ListLabels(context.Context, *connect.Request[v1.ListLabelsRequest]) (*connect.Response[v1.ListLabelsResponse], error)
 	// List the history of a Label.
 	ListLabelHistory(context.Context, *connect.Request[v1.ListLabelHistoryRequest]) (*connect.Response[v1.ListLabelHistoryResponse], error)

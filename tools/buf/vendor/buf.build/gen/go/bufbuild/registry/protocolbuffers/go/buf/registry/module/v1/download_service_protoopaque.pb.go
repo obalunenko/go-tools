@@ -402,13 +402,13 @@ var File_buf_registry_module_v1_download_service_proto protoreflect.FileDescript
 
 const file_buf_registry_module_v1_download_service_proto_rawDesc = "" +
 	"\n" +
-	"-buf/registry/module/v1/download_service.proto\x12\x16buf.registry.module.v1\x1a#buf/registry/module/v1/commit.proto\x1a!buf/registry/module/v1/file.proto\x1a%buf/registry/module/v1/resource.proto\x1a\x1bbuf/validate/validate.proto\"\xb6\x03\n" +
+	"-buf/registry/module/v1/download_service.proto\x12\x16buf.registry.module.v1\x1a#buf/registry/module/v1/commit.proto\x1a!buf/registry/module/v1/file.proto\x1a%buf/registry/module/v1/resource.proto\x1a\x1bbuf/validate/validate.proto\"\xb5\x03\n" +
 	"\x0fDownloadRequest\x12R\n" +
-	"\x06values\x18\x01 \x03(\v2-.buf.registry.module.v1.DownloadRequest.ValueB\v\xbaH\b\x92\x01\x05\b\x01\x10\xfa\x01R\x06values\x1a\xce\x02\n" +
+	"\x06values\x18\x01 \x03(\v2-.buf.registry.module.v1.DownloadRequest.ValueB\v\xbaH\b\x92\x01\x05\b\x01\x10\xfa\x01R\x06values\x1a\xcd\x02\n" +
 	"\x05Value\x12N\n" +
-	"\fresource_ref\x18\x01 \x01(\v2#.buf.registry.module.v1.ResourceRefB\x06\xbaH\x03\xc8\x01\x01R\vresourceRef\x12S\n" +
+	"\fresource_ref\x18\x01 \x01(\v2#.buf.registry.module.v1.ResourceRefB\x06\xbaH\x03\xc8\x01\x01R\vresourceRef\x12R\n" +
 	"\n" +
-	"file_types\x18\x02 \x03(\x0e2 .buf.registry.module.v1.FileTypeB\x12\xbaH\x0f\x92\x01\f\x18\x01\"\b\x82\x01\x05\x10\x01\"\x01\x00R\tfileTypes\x12m\n" +
+	"file_types\x18\x02 \x03(\x0e2 .buf.registry.module.v1.FileTypeB\x11\xbaH\x0e\x92\x01\v\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\tfileTypes\x12m\n" +
 	"\x05paths\x18\x03 \x03(\tBW\xbaHT\x92\x01Q\"OrM\x18\x80 2D^([^/.][^/]?|[^/][^/.]|[^/]{3,})(/([^/.][^/]?|[^/][^/.]|[^/]{3,}))*$\xba\x01\x01\\R\x05paths\x121\n" +
 	"\x15paths_allow_not_exist\x18\x04 \x01(\bR\x12pathsAllowNotExist\"\xe9\x01\n" +
 	"\x10DownloadResponse\x12V\n" +

@@ -703,7 +703,7 @@ type ListLabelHistoryRequest_builder struct {
 	// If this DigestType is not available, an error is returned. Note that certain DigestTypes may be
 	// deprecated over time.
 	//
-	// If not set, the latest DigestType is used, currently B5.
+	// If not set, the latest DigestType is used, currently P1.
 	DigestType DigestType
 	// The Commit id to start from.
 	//

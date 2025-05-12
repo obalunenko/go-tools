@@ -553,15 +553,15 @@ var File_buf_registry_module_v1beta1_download_service_proto protoreflect.FileDes
 
 const file_buf_registry_module_v1beta1_download_service_proto_rawDesc = "" +
 	"\n" +
-	"2buf/registry/module/v1beta1/download_service.proto\x12\x1bbuf.registry.module.v1beta1\x1a(buf/registry/module/v1beta1/commit.proto\x1a(buf/registry/module/v1beta1/digest.proto\x1a&buf/registry/module/v1beta1/file.proto\x1a*buf/registry/module/v1beta1/resource.proto\x1a\x1bbuf/validate/validate.proto\"\x99\x04\n" +
+	"2buf/registry/module/v1beta1/download_service.proto\x12\x1bbuf.registry.module.v1beta1\x1a(buf/registry/module/v1beta1/commit.proto\x1a(buf/registry/module/v1beta1/digest.proto\x1a&buf/registry/module/v1beta1/file.proto\x1a*buf/registry/module/v1beta1/resource.proto\x1a\x1bbuf/validate/validate.proto\"\x98\x04\n" +
 	"\x0fDownloadRequest\x12W\n" +
 	"\x06values\x18\x01 \x03(\v22.buf.registry.module.v1beta1.DownloadRequest.ValueB\v\xbaH\b\x92\x01\x05\b\x01\x10\xfa\x01R\x06values\x12R\n" +
 	"\vdigest_type\x18\x02 \x01(\x0e2'.buf.registry.module.v1beta1.DigestTypeB\b\xbaH\x05\x82\x01\x02\x10\x01R\n" +
-	"digestType\x1a\xd8\x02\n" +
+	"digestType\x1a\xd7\x02\n" +
 	"\x05Value\x12S\n" +
-	"\fresource_ref\x18\x01 \x01(\v2(.buf.registry.module.v1beta1.ResourceRefB\x06\xbaH\x03\xc8\x01\x01R\vresourceRef\x12X\n" +
+	"\fresource_ref\x18\x01 \x01(\v2(.buf.registry.module.v1beta1.ResourceRefB\x06\xbaH\x03\xc8\x01\x01R\vresourceRef\x12W\n" +
 	"\n" +
-	"file_types\x18\x02 \x03(\x0e2%.buf.registry.module.v1beta1.FileTypeB\x12\xbaH\x0f\x92\x01\f\x18\x01\"\b\x82\x01\x05\x10\x01\"\x01\x00R\tfileTypes\x12m\n" +
+	"file_types\x18\x02 \x03(\x0e2%.buf.registry.module.v1beta1.FileTypeB\x11\xbaH\x0e\x92\x01\v\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\tfileTypes\x12m\n" +
 	"\x05paths\x18\x03 \x03(\tBW\xbaHT\x92\x01Q\"OrM\x18\x80 2D^([^/.][^/]?|[^/][^/.]|[^/]{3,})(/([^/.][^/]?|[^/][^/.]|[^/]{3,}))*$\xba\x01\x01\\R\x05paths\x121\n" +
 	"\x15paths_allow_not_exist\x18\x04 \x01(\bR\x12pathsAllowNotExist\"\x91\x03\n" +
 	"\x10DownloadResponse\x12[\n" +

@@ -1340,15 +1340,14 @@ const file_buf_registry_module_v1_label_service_proto_rawDesc = "" +
 	"\n" +
 	"label_refs\x18\x01 \x03(\v2 .buf.registry.module.v1.LabelRefB\v\xbaH\b\x92\x01\x05\b\x01\x10\xfa\x01R\tlabelRefs\"T\n" +
 	"\x11GetLabelsResponse\x12?\n" +
-	"\x06labels\x18\x01 \x03(\v2\x1d.buf.registry.module.v1.LabelB\b\xbaH\x05\x92\x01\x02\b\x01R\x06labels\"\xa9\x06\n" +
+	"\x06labels\x18\x01 \x03(\v2\x1d.buf.registry.module.v1.LabelB\b\xbaH\x05\x92\x01\x02\b\x01R\x06labels\"\xaa\x06\n" +
 	"\x11ListLabelsRequest\x12%\n" +
 	"\tpage_size\x18\x01 \x01(\rB\b\xbaH\x05*\x03\x18\xfa\x01R\bpageSize\x12'\n" +
 	"\n" +
 	"page_token\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80 R\tpageToken\x12N\n" +
 	"\fresource_ref\x18\x03 \x01(\v2#.buf.registry.module.v1.ResourceRefB\x06\xbaH\x03\xc8\x01\x01R\vresourceRef\x12O\n" +
-	"\x05order\x18\x04 \x01(\x0e2/.buf.registry.module.v1.ListLabelsRequest.OrderB\b\xbaH\x05\x82\x01\x02\x10\x01R\x05order\x12q\n" +
-	"\x15commit_check_statuses\x18\x05 \x03(\x0e2).buf.registry.module.v1.CommitCheckStatusB\x12\xbaH\x0f\x92\x01\f\"\n" +
-	"\x82\x01\a\x10\x01\x1a\x03\x01\x02\x05R\x13commitCheckStatuses\x12'\n" +
+	"\x05order\x18\x04 \x01(\x0e2/.buf.registry.module.v1.ListLabelsRequest.OrderB\b\xbaH\x05\x82\x01\x02\x10\x01R\x05order\x12r\n" +
+	"\x15commit_check_statuses\x18\x05 \x03(\x0e2).buf.registry.module.v1.CommitCheckStatusB\x13\xbaH\x10\x92\x01\r\"\v\x82\x01\b\x10\x01\x18\x01\x18\x02\x18\x05R\x13commitCheckStatuses\x12'\n" +
 	"\n" +
 	"name_query\x18\x06 \x01(\tB\b\xbaH\x05r\x03\x18\xfa\x01R\tnameQuery\x12h\n" +
 	"\x0earchive_filter\x18\a \x01(\x0e27.buf.registry.module.v1.ListLabelsRequest.ArchiveFilterB\b\xbaH\x05\x82\x01\x02\x10\x01R\rarchiveFilter\"\x8c\x01\n" +

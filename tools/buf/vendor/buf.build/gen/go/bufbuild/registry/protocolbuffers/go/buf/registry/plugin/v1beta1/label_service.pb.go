@@ -602,7 +602,7 @@ type ListLabelHistoryRequest struct {
 	// If this DigestType is not available, an error is returned. Note that certain DigestTypes may be
 	// deprecated over time.
 	//
-	// If not set, the latest DigestType is used, currently B5.
+	// If not set, the latest DigestType is used, currently P1.
 	DigestType DigestType `protobuf:"varint,5,opt,name=digest_type,json=digestType,proto3,enum=buf.registry.plugin.v1beta1.DigestType" json:"digest_type,omitempty"`
 	// The Commit id to start from.
 	//
@@ -752,7 +752,7 @@ type ListLabelHistoryRequest_builder struct {
 	// If this DigestType is not available, an error is returned. Note that certain DigestTypes may be
 	// deprecated over time.
 	//
-	// If not set, the latest DigestType is used, currently B5.
+	// If not set, the latest DigestType is used, currently P1.
 	DigestType DigestType
 	// The Commit id to start from.
 	//
