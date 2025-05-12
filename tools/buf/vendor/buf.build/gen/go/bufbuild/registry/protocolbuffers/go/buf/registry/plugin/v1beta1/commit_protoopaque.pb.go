@@ -46,7 +46,7 @@ const (
 //
 // Many Commits may be associated with one Digest.
 //
-// Not that the Digest returned on a Commit depends on the requested DigestType in the RPC that
+// Note that the Digest returned on a Commit depends on the requested DigestType in the RPC that
 // returned the Commit.
 type Commit struct {
 	state                       protoimpl.MessageState `protogen:"opaque.v1"`
