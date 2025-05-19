@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bufbuild/protovalidate-go"
+	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
@@ -44,12 +44,6 @@ var (
 	wktUnmarshalers map[protoreflect.FullName]customUnmarshaler
 )
 
-// Validator is an interface for validating a Protobuf message produced from a given YAML node.
-type Validator interface {
-	// Validate the given message.
-	Validate(message proto.Message) error
-}
-
 // UnmarshalOptions is a configurable YAML format parser for Protobuf messages.
 type UnmarshalOptions struct {
 	// The path for the data being unmarshaled.
@@ -58,6 +52,8 @@ type UnmarshalOptions struct {
 	Path string
 	// Validator is a validator to run after unmarshaling a message.
 	Validator Validator
+	// CustomUnmarshaler is a custom unmarshaler to use for specific message types.
+	CustomUnmarshaler CustomUnmarshaler
 	// Resolver is the Protobuf type resolver to use.
 	Resolver interface {
 		protoregistry.MessageTypeResolver
@@ -71,6 +67,29 @@ type UnmarshalOptions struct {
 	// DiscardUnknown specifies whether to discard unknown fields instead of
 	// returning an error.
 	DiscardUnknown bool
+}
+
+// Validator is an interface for validating a Protobuf message produced from a given YAML node.
+type Validator interface {
+	// Validate the given message.
+	Validate(message proto.Message) error
+}
+
+// CustomUnmarshaler is an interface for custom unmarshaling of Protobuf messages.
+type CustomUnmarshaler interface {
+	// Unmarshal the given node into the given message.
+	//
+	// Returns an error if the node is invalid for the message.
+	// Returns (true, nil) if the node was handled by the custom unmarshaler.
+	// Otherwise, returns (false, nil), to indicate that the node should be
+	// unmarshaled by the default unmarshaler.
+	//
+	// When unmarshaling a google.protobuf.Any message, the `@type` field is
+	// included in the node.
+	//
+	// The 'message' argument maybe [dynamicpb.Message] or a concrete message type
+	// depending on the [UnmarshalOptions].Resolver used.
+	Unmarshal(node *yaml.Node, message proto.Message) (bool, error)
 }
 
 // Unmarshal a Protobuf message from the given YAML data.
@@ -344,7 +363,7 @@ func (u *unmarshaler) unmarshalEnum(node *yaml.Node, field protoreflect.FieldDes
 	// Get the enum value.
 	enumVal := enumDesc.Values().ByName(protoreflect.Name(node.Value))
 	if enumVal == nil {
-		lit, err := parseIntLiteral(node.Value)
+		lit, err := parseIntLiteral(node.Value, false)
 		if err != nil {
 			u.addErrorf(node, "unknown enum value %#v, expected one of %v", node.Value,
 				getEnumValueNames(enumDesc.Values()))
@@ -383,7 +402,7 @@ func (u *unmarshaler) unmarshalUnsigned(node *yaml.Node, bits int) uint64 {
 		return 0
 	}
 
-	parsed, err := parseUintLiteral(node.Value)
+	parsed, err := parseUintLiteral(node.Value, true)
 	if err != nil {
 		u.addErrorf(node, "invalid integer: %v", err)
 	}
@@ -399,7 +418,7 @@ func (u *unmarshaler) unmarshalInteger(node *yaml.Node, bits int) int64 {
 		return 0
 	}
 
-	lit, err := parseIntLiteral(node.Value)
+	lit, err := parseIntLiteral(node.Value, true)
 	if err != nil {
 		u.addErrorf(node, "invalid integer: %v", err)
 	}
@@ -461,35 +480,60 @@ func getNodeKind(kind yaml.Kind) string {
 // Conversion through JSON/YAML may have converted integers into floats, including
 // exponential notation. This function will parse those values back into integers
 // if possible.
-func parseUintLiteral(value string) (uint64, error) {
+func parseUintLiteral(value string, allowBytes bool) (uint64, error) { //nolint:gocyclo
+	// Try to parse as an unsigned integer.
 	base := 10
+	remaining := value
 	if len(value) >= 2 && strings.HasPrefix(value, "0") {
 		switch value[1] {
 		case 'x', 'X':
 			base = 16
-			value = value[2:]
+			remaining = value[2:]
 		case 'o', 'O':
 			base = 8
-			value = value[2:]
+			remaining = value[2:]
 		case 'b', 'B':
 			base = 2
-			value = value[2:]
+			remaining = value[2:]
 		}
 	}
+	parsed, uintErr := strconv.ParseUint(remaining, base, 64)
+	if uintErr == nil {
+		return parsed, nil
+	}
 
-	parsed, err := strconv.ParseUint(value, base, 64)
-	if err != nil {
-		parsedFloat, floatErr := strconv.ParseFloat(value, 64)
-		if floatErr != nil || parsedFloat < 0 || math.IsInf(parsedFloat, 0) || math.IsNaN(parsedFloat) {
-			return 0, err
+	// Try to parse as an unsigned integer encoded as a float.
+	parsedFloat, floatErr := strconv.ParseFloat(value, 64)
+	if floatErr == nil {
+		if parsedFloat < 0 || math.IsInf(parsedFloat, 0) || math.IsNaN(parsedFloat) {
+			return 0, uintErr
 		}
+
 		// See if it's actually an integer.
 		parsed = uint64(parsedFloat)
 		if float64(parsed) != parsedFloat || parsed >= (1<<53) {
 			return parsed, errors.New("precision loss")
 		}
+		return parsed, nil
 	}
-	return parsed, nil
+	if !allowBytes {
+		// Skip bytes parsing for non-integer values.
+		return 0, uintErr
+	}
+
+	// Try to parse integers (int32, int64, uint32, uint64) as bytes.
+	byteCount := &big.Int{}
+	rem, bytesErr := parseBytes(value, byteCount)
+	switch {
+	case bytesErr != nil:
+		return 0, bytesErr // Likely a better error message.
+	case rem != "": // Extra characters.
+		return 0, uintErr
+	}
+	if byteCount.BitLen() > 64 {
+		return 0, errors.New("integer is too large")
+	}
+	return byteCount.Uint64(), nil
 }
 
 type intLit struct {
@@ -507,14 +551,14 @@ func (lit intLit) checkI32(field protoreflect.FieldDescriptor) error {
 	return nil
 }
 
-func parseIntLiteral(value string) (intLit, error) {
+func parseIntLiteral(value string, allowBytes bool) (intLit, error) {
 	var lit intLit
 	if strings.HasPrefix(value, "-") {
 		lit.negative = true
 		value = value[1:]
 	}
 	var err error
-	lit.value, err = parseUintLiteral(value)
+	lit.value, err = parseUintLiteral(value, allowBytes)
 	return lit, err
 }
 
@@ -665,6 +709,14 @@ func (u *unmarshaler) findNodeForCustom(node *yaml.Node, forAny bool) *yaml.Node
 
 // Unmarshal the given yaml node into the given proto.Message.
 func (u *unmarshaler) unmarshalMessage(node *yaml.Node, message proto.Message, forAny bool) {
+	if u.options.CustomUnmarshaler != nil {
+		if ok, err := u.options.CustomUnmarshaler.Unmarshal(node, message); err != nil {
+			u.addError(node, err)
+			return
+		} else if ok {
+			return // Custom unmarshaler handled the decoding.
+		}
+	}
 	// Check for a custom unmarshaler
 	if custom, ok := wktUnmarshalers[message.ProtoReflect().Descriptor().FullName()]; ok {
 		valueNode := u.findNodeForCustom(node, forAny)
@@ -1038,6 +1090,12 @@ func (u *unmarshaler) unmarshalScalarBool(node *yaml.Node, value *structpb.Value
 
 // Can be string, bytes, float, or int.
 func (u *unmarshaler) unmarshalScalarString(node *yaml.Node, value *structpb.Value) {
+	if node.Tag == "!!str" {
+		// Explicitly tagged string.
+		value.Kind = &structpb.Value_StringValue{StringValue: node.Value}
+		return
+	}
+
 	floatVal, err := strconv.ParseFloat(node.Value, 64)
 	if err != nil {
 		value.Kind = &structpb.Value_StringValue{StringValue: node.Value}
@@ -1050,13 +1108,13 @@ func (u *unmarshaler) unmarshalScalarString(node *yaml.Node, value *structpb.Val
 		return
 	}
 
-	// String, float, or int.
+	// Float or int.
 	u.unmarshalScalarFloat(node, value, floatVal)
 }
 
 func (u *unmarshaler) unmarshalScalarFloat(node *yaml.Node, value *structpb.Value, floatVal float64) {
 	// Try to parse it as in integer, to see if the float representation is lossy.
-	lit, litErr := parseIntLiteral(node.Value)
+	lit, litErr := parseIntLiteral(node.Value, false)
 
 	// Check if we can represent this as a number.
 	floatUintVal := uint64(math.Abs(floatVal))      // The uint64 representation of the float.
@@ -1222,8 +1280,11 @@ func findEntryByKey(cur *yaml.Node, key string) (*yaml.Node, *yaml.Node, bool) {
 // nanosPerSecond is the number of nanoseconds in a second.
 var nanosPerSecond = new(big.Int).SetUint64(uint64(time.Second / time.Nanosecond))
 
-// nanosMap is a map of time unit names to their duration in nanoseconds.
-var nanosMap = map[string]*big.Int{
+// durationUnitNames is the (normalized) list of time unit names.
+var durationUnitNames = []string{"h", "m", "s", "ms", "us", "ns"}
+
+// nanosPerUnitMap is a map of time unit names to their duration in nanoseconds.
+var nanosPerUnitMap = map[string]*big.Int{
 	"ns": new(big.Int).SetUint64(1), // Identity for nanos.
 	"us": new(big.Int).SetUint64(uint64(time.Microsecond / time.Nanosecond)),
 	"µs": new(big.Int).SetUint64(uint64(time.Microsecond / time.Nanosecond)), // U+00B5 = micro symbol
@@ -1234,41 +1295,20 @@ var nanosMap = map[string]*big.Int{
 	"h":  new(big.Int).SetUint64(uint64(time.Hour / time.Nanosecond)),
 }
 
-// unitsNames is the (normalized) list of time unit names.
-var unitsNames = []string{"h", "m", "s", "ms", "us", "ns"}
-
 // parseDurationNest parses a single segment of the duration string.
 func parseDurationNext(str string, totalNanos *big.Int) (string, error) {
-	// The next character must be [0-9.]
-	if str[0] != '.' && ('0' > str[0] || str[0] > '9') {
-		return "", errors.New("invalid duration")
-	}
-	var err error
-	var whole, frac uint64
-	var pre bool // Whether we have seen a digit before the dot.
-	whole, str, pre, err = leadingInt(str)
+	// Parse the number and unit.
+	whole, frac, scale, unitName, str, err := parseNumberWithUnit(str)
 	if err != nil {
 		return "", err
 	}
-	var scale *big.Int
-	var post bool // Whether we have seen a digit after the dot.
-	if str != "" && str[0] == '.' {
-		str = str[1:]
-		frac, scale, str, post = leadingFrac(str)
-	}
-	if !pre && !post {
-		return "", errors.New("invalid duration")
+	if unitName == "" {
+		return "", fmt.Errorf("invalid duration: missing unit, expected one of %v", durationUnitNames)
 	}
 
-	end := unitEnd(str)
-	if end == 0 {
-		return "", fmt.Errorf("invalid duration: missing unit, expected one of %v", unitsNames)
-	}
-	unitName := str[:end]
-	str = str[end:]
-	nanosPerUnit, ok := nanosMap[unitName]
+	nanosPerUnit, ok := nanosPerUnitMap[unitName]
 	if !ok {
-		return "", fmt.Errorf("invalid duration: unknown unit, expected one of %v", unitsNames)
+		return "", fmt.Errorf("invalid duration: unknown unit, expected one of %v", durationUnitNames)
 	}
 
 	// Convert to nanos and add to total.
@@ -1291,6 +1331,85 @@ func parseDurationNext(str string, totalNanos *big.Int) (string, error) {
 		totalNanos.Add(totalNanos, fracNanos)
 	}
 	return str, nil
+}
+
+// bytesUnitNames is the list of byte unit names.
+// E is exabyte, P is petabyte, T is terabyte, G is gigabyte, M is megabyte, K is kilobyte.
+// The i suffix indicates a binary unit (e.g., Ki = 1024).
+var bytesUnitNames = []string{"k", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
+
+// A map from unit to the number of bytes in that unit.
+var bytesPerUnitMap = map[string]int64{
+	"k":  1000,
+	"Ki": 1 << 10,
+	"M":  1000 * 1000,
+	"Mi": 1 << 20,
+	"G":  1000 * 1000 * 1000,
+	"Gi": 1 << 30,
+	"T":  1000 * 1000 * 1000 * 1000,
+	"Ti": 1 << 40,
+	"P":  1000 * 1000 * 1000 * 1000 * 1000,
+	"Pi": 1 << 50,
+	"E":  1000 * 1000 * 1000 * 1000 * 1000 * 1000,
+	"Ei": 1 << 60,
+}
+
+func parseBytes(str string, totalBytes *big.Int) (string, error) {
+	whole, frac, scale, unitName, str, err := parseNumberWithUnit(str)
+	if err != nil {
+		return "", err
+	}
+
+	bytesPerUnit, ok := bytesPerUnitMap[unitName]
+	if !ok {
+		return "", fmt.Errorf("invalid bytes: unknown unit, expected one of %v", bytesUnitNames)
+	}
+
+	// Convert to bytes and add to total.
+	// totalBytes += whole * bytesPerUnit + frac * bytesPerUnit / scale
+	if whole > 0 {
+		wholeBytes := &big.Int{}
+		wholeBytes.SetUint64(whole)
+		wholeBytes.Mul(wholeBytes, big.NewInt(bytesPerUnit))
+		totalBytes.Add(totalBytes, wholeBytes)
+	}
+	if frac > 0 {
+		fracBytes := &big.Int{}
+		fracBytes.SetUint64(frac)
+		fracBytes.Mul(fracBytes, big.NewInt(bytesPerUnit))
+		rem := &big.Int{}
+		fracBytes.QuoRem(fracBytes, scale, rem)
+		totalBytes.Add(totalBytes, fracBytes)
+	}
+	return str, nil
+}
+
+func parseNumberWithUnit(str string) (whole, frac uint64, scale *big.Int, unitName string, rem string, err error) {
+	if len(str) == 0 {
+		return 0, 0, nil, "", str, errors.New("expected number")
+	}
+	// The next character must be [0-9.]
+	if str[0] != '.' && (str[0] < '0' || str[0] > '9') {
+		return whole, frac, scale, unitName, str, errors.New("invalid number, expected digit")
+	}
+	var pre bool // Whether we have seen a digit before the dot.
+	whole, str, pre, err = leadingInt(str)
+	if err != nil {
+		return whole, frac, scale, unitName, str, err
+	}
+	var post bool // Whether we have seen a digit after the dot.
+	if str != "" && str[0] == '.' {
+		str = str[1:]
+		frac, scale, str, post = leadingFrac(str)
+	}
+	if !pre && !post {
+		return whole, frac, scale, unitName, str, errors.New("invalid number, expected digit")
+	}
+
+	end := unitEnd(str)
+	unitName = str[:end]
+	str = str[end:]
+	return whole, frac, scale, unitName, str, nil
 }
 
 func unitEnd(str string) int {
