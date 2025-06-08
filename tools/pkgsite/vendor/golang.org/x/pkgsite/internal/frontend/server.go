@@ -48,6 +48,7 @@ type Server struct {
 	staticFS           fs.FS
 	thirdPartyFS       fs.FS
 	devMode            bool
+	goDocMode          bool          // running to serve documentation for 'go doc'
 	localMode          bool          // running locally (i.e. ./cmd/pkgsite)
 	localModules       []LocalModule // locally hosted modules; empty in production
 	errorPage          []byte
@@ -90,6 +91,7 @@ type ServerConfig struct {
 	ThirdPartyFS      fs.FS              // for third_party/ directory
 	DevMode           bool
 	LocalMode         bool
+	GoDocMode         bool
 	LocalModules      []LocalModule
 	Reporter          derrors.Reporter
 	VulndbClient      *vuln.Client
@@ -113,6 +115,7 @@ func NewServer(scfg ServerConfig) (_ *Server, err error) {
 		thirdPartyFS:      scfg.ThirdPartyFS,
 		devMode:           scfg.DevMode,
 		localMode:         scfg.LocalMode,
+		goDocMode:         scfg.GoDocMode,
 		localModules:      scfg.LocalModules,
 		templates:         ts,
 		reporter:          scfg.Reporter,
@@ -307,7 +310,7 @@ func (s *Server) installDebugHandlers(handle func(string, http.Handler)) {
 
 // InstallFS adds path under the /files handler, serving the files in fsys.
 func (s *Server) InstallFS(path string, fsys fs.FS) {
-	s.fileMux.Handle(path+"/", http.StripPrefix(path, http.FileServer(http.FS(fsys))))
+	s.fileMux.Handle("GET "+path+"/", http.StripPrefix(path, http.FileServer(http.FS(fsys))))
 }
 
 const (
