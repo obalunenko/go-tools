@@ -41,6 +41,7 @@ type ServerConfig struct {
 	DevMode          bool
 	DevModeStaticDir string
 	GoRepoPath       string
+	GoDocMode        bool
 
 	Proxy *proxy.Client // client, or nil; controlled by the -proxy flag
 }
@@ -68,7 +69,7 @@ func BuildServer(ctx context.Context, serverCfg ServerConfig) (*frontend.Server,
 		}
 	} else {
 		var err error
-		cfg.dirs, err = getModuleDirs(ctx, serverCfg.Paths)
+		cfg.dirs, err = getModuleDirs(ctx, serverCfg.Paths, serverCfg.GoDocMode)
 		if err != nil {
 			return nil, fmt.Errorf("searching modules: %v", err)
 		}
@@ -113,7 +114,7 @@ func BuildServer(ctx context.Context, serverCfg ServerConfig) (*frontend.Server,
 		return allModules[i].ModulePath < allModules[j].ModulePath
 	})
 
-	return newServer(getters, allModules, cfg.proxy, serverCfg.DevMode, serverCfg.DevModeStaticDir)
+	return newServer(getters, allModules, cfg.proxy, serverCfg.GoDocMode, serverCfg.DevMode, serverCfg.DevModeStaticDir)
 }
 
 // getModuleDirs returns the set of workspace modules for each directory,
@@ -121,7 +122,7 @@ func BuildServer(ctx context.Context, serverCfg ServerConfig) (*frontend.Server,
 //
 // An error is returned if any operations failed unexpectedly, or if no
 // requested directories contain any valid modules.
-func getModuleDirs(ctx context.Context, dirs []string) (map[string][]frontend.LocalModule, error) {
+func getModuleDirs(ctx context.Context, dirs []string, allowNoModules bool) (map[string][]frontend.LocalModule, error) {
 	dirModules := make(map[string][]frontend.LocalModule)
 	for _, dir := range dirs {
 		output, err := runGo(dir, "list", "-m", "-json")
@@ -143,7 +144,7 @@ func getModuleDirs(ctx context.Context, dirs []string) (map[string][]frontend.Lo
 			dirModules[dir] = modules
 		}
 	}
-	if len(dirs) > 0 && len(dirModules) == 0 {
+	if len(dirs) > 0 && len(dirModules) == 0 && !allowNoModules {
 		return nil, fmt.Errorf("no modules in any of the requested directories")
 	}
 	return dirModules, nil
@@ -264,7 +265,7 @@ func buildGetters(ctx context.Context, cfg getterConfig) ([]fetch.ModuleGetter, 
 	return getters, nil
 }
 
-func newServer(getters []fetch.ModuleGetter, localModules []frontend.LocalModule, prox *proxy.Client, devMode bool, staticFlag string) (*frontend.Server, error) {
+func newServer(getters []fetch.ModuleGetter, localModules []frontend.LocalModule, prox *proxy.Client, goDocMode bool, devMode bool, staticFlag string) (*frontend.Server, error) {
 	lds := fetchdatasource.Options{
 		Getters:              getters,
 		ProxyClientForLatest: prox,
@@ -291,6 +292,7 @@ func newServer(getters []fetch.ModuleGetter, localModules []frontend.LocalModule
 		TemplateFS:       template.TrustedFSFromEmbed(static.FS),
 		StaticFS:         staticFS,
 		DevMode:          devMode,
+		GoDocMode:        goDocMode,
 		LocalMode:        true,
 		LocalModules:     localModules,
 		ThirdPartyFS:     thirdparty.FS,
