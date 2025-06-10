@@ -25,12 +25,12 @@ import (
 type (
 	DeployKeysServiceInterface interface {
 		ListAllDeployKeys(opt *ListInstanceDeployKeysOptions, options ...RequestOptionFunc) ([]*InstanceDeployKey, *Response, error)
-		ListProjectDeployKeys(pid interface{}, opt *ListProjectDeployKeysOptions, options ...RequestOptionFunc) ([]*ProjectDeployKey, *Response, error)
-		GetDeployKey(pid interface{}, deployKey int, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error)
-		AddDeployKey(pid interface{}, opt *AddDeployKeyOptions, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error)
-		DeleteDeployKey(pid interface{}, deployKey int, options ...RequestOptionFunc) (*Response, error)
-		EnableDeployKey(pid interface{}, deployKey int, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error)
-		UpdateDeployKey(pid interface{}, deployKey int, opt *UpdateDeployKeyOptions, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error)
+		ListProjectDeployKeys(pid any, opt *ListProjectDeployKeysOptions, options ...RequestOptionFunc) ([]*ProjectDeployKey, *Response, error)
+		GetDeployKey(pid any, deployKey int, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error)
+		AddDeployKey(pid any, opt *AddDeployKeyOptions, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error)
+		DeleteDeployKey(pid any, deployKey int, options ...RequestOptionFunc) (*Response, error)
+		EnableDeployKey(pid any, deployKey int, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error)
+		UpdateDeployKey(pid any, deployKey int, opt *UpdateDeployKeyOptions, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error)
 	}
 
 	// DeployKeysService handles communication with the keys related methods
@@ -130,7 +130,7 @@ type ListProjectDeployKeysOptions ListOptions
 //
 // GitLab API docs:
 // https://docs.gitlab.com/api/deploy_keys/#list-deploy-keys-for-project
-func (s *DeployKeysService) ListProjectDeployKeys(pid interface{}, opt *ListProjectDeployKeysOptions, options ...RequestOptionFunc) ([]*ProjectDeployKey, *Response, error) {
+func (s *DeployKeysService) ListProjectDeployKeys(pid any, opt *ListProjectDeployKeysOptions, options ...RequestOptionFunc) ([]*ProjectDeployKey, *Response, error) {
 	project, err := parseID(pid)
 	if err != nil {
 		return nil, nil, err
@@ -155,7 +155,7 @@ func (s *DeployKeysService) ListProjectDeployKeys(pid interface{}, opt *ListProj
 //
 // GitLab API docs:
 // https://docs.gitlab.com/api/deploy_keys/#get-a-single-deploy-key
-func (s *DeployKeysService) GetDeployKey(pid interface{}, deployKey int, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error) {
+func (s *DeployKeysService) GetDeployKey(pid any, deployKey int, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error) {
 	project, err := parseID(pid)
 	if err != nil {
 		return nil, nil, err
@@ -189,11 +189,11 @@ type AddDeployKeyOptions struct {
 
 // AddDeployKey creates a new deploy key for a project. If deploy key already
 // exists in another project - it will be joined to project but only if
-// original one was is accessible by same user.
+// original one is accessible by the same user.
 //
 // GitLab API docs:
 // https://docs.gitlab.com/api/deploy_keys/#add-deploy-key-for-a-project
-func (s *DeployKeysService) AddDeployKey(pid interface{}, opt *AddDeployKeyOptions, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error) {
+func (s *DeployKeysService) AddDeployKey(pid any, opt *AddDeployKeyOptions, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error) {
 	project, err := parseID(pid)
 	if err != nil {
 		return nil, nil, err
@@ -218,7 +218,7 @@ func (s *DeployKeysService) AddDeployKey(pid interface{}, opt *AddDeployKeyOptio
 //
 // GitLab API docs:
 // https://docs.gitlab.com/api/deploy_keys/#delete-deploy-key
-func (s *DeployKeysService) DeleteDeployKey(pid interface{}, deployKey int, options ...RequestOptionFunc) (*Response, error) {
+func (s *DeployKeysService) DeleteDeployKey(pid any, deployKey int, options ...RequestOptionFunc) (*Response, error) {
 	project, err := parseID(pid)
 	if err != nil {
 		return nil, err
@@ -237,7 +237,7 @@ func (s *DeployKeysService) DeleteDeployKey(pid interface{}, deployKey int, opti
 //
 // GitLab API docs:
 // https://docs.gitlab.com/api/deploy_keys/#enable-a-deploy-key
-func (s *DeployKeysService) EnableDeployKey(pid interface{}, deployKey int, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error) {
+func (s *DeployKeysService) EnableDeployKey(pid any, deployKey int, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error) {
 	project, err := parseID(pid)
 	if err != nil {
 		return nil, nil, err
@@ -271,7 +271,7 @@ type UpdateDeployKeyOptions struct {
 //
 // GitLab API docs:
 // https://docs.gitlab.com/api/deploy_keys/#update-deploy-key
-func (s *DeployKeysService) UpdateDeployKey(pid interface{}, deployKey int, opt *UpdateDeployKeyOptions, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error) {
+func (s *DeployKeysService) UpdateDeployKey(pid any, deployKey int, opt *UpdateDeployKeyOptions, options ...RequestOptionFunc) (*ProjectDeployKey, *Response, error) {
 	project, err := parseID(pid)
 	if err != nil {
 		return nil, nil, err

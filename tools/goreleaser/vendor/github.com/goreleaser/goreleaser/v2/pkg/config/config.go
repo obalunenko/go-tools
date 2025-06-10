@@ -79,7 +79,7 @@ func (r Repo) isSCM() bool {
 // RepoRef represents any kind of repo which may differ
 // from the one we are building from and may therefore
 // also require separate authentication
-// e.g. Homebrew Tap, Scoop bucket.
+// e.g. Homebrew, Scoop bucket.
 type RepoRef struct {
 	Owner  string `yaml:"owner,omitempty" json:"owner,omitempty"`
 	Name   string `yaml:"name,omitempty" json:"name,omitempty"`
@@ -118,9 +118,6 @@ type HomebrewDependency struct {
 	Version string `yaml:"version,omitempty" json:"version,omitempty"`
 	OS      string `yaml:"os,omitempty" json:"os,omitempty" jsonschema:"enum=mac,enum=linux"`
 }
-
-// type alias to prevent stack overflowing in the custom unmarshaler.
-type homebrewDependency HomebrewDependency
 
 type AUR struct {
 	Name                  string       `yaml:"name,omitempty" json:"name,omitempty"`
@@ -187,6 +184,8 @@ type AURSource struct {
 }
 
 // Homebrew contains the brew section.
+//
+// Deprecated: in favor of [HomebrewCask].
 type Homebrew struct {
 	Name                  string               `yaml:"name,omitempty" json:"name,omitempty"`
 	Repository            RepoRef              `yaml:"repository,omitempty" json:"repository,omitempty"`
@@ -213,6 +212,83 @@ type Homebrew struct {
 	Goarm                 string               `yaml:"goarm,omitempty" json:"goarm,omitempty" jsonschema:"oneof_type=string;integer"`
 	Goamd64               string               `yaml:"goamd64,omitempty" json:"goamd64,omitempty"`
 	Service               string               `yaml:"service,omitempty" json:"service,omitempty"`
+}
+
+// HomebrewCask contains the homebrew_casks section.
+type HomebrewCask struct {
+	Name                  string       `yaml:"name,omitempty" json:"name,omitempty"`
+	Repository            RepoRef      `yaml:"repository,omitempty" json:"repository,omitempty"`
+	CommitAuthor          CommitAuthor `yaml:"commit_author,omitempty" json:"commit_author,omitempty"`
+	CommitMessageTemplate string       `yaml:"commit_msg_template,omitempty" json:"commit_msg_template,omitempty"`
+	Directory             string       `yaml:"directory,omitempty" json:"directory,omitempty"`
+	Caveats               string       `yaml:"caveats,omitempty" json:"caveats,omitempty"`
+	Description           string       `yaml:"description,omitempty" json:"description,omitempty"`
+	Homepage              string       `yaml:"homepage,omitempty" json:"homepage,omitempty"`
+	License               string       `yaml:"license,omitempty" json:"license,omitempty"` // XXX: seems like casks don't support it?
+	SkipUpload            string       `yaml:"skip_upload,omitempty" json:"skip_upload,omitempty" jsonschema:"oneof_type=string;boolean"`
+	CustomBlock           string       `yaml:"custom_block,omitempty" json:"custom_block,omitempty"`
+	IDs                   []string     `yaml:"ids,omitempty" json:"ids,omitempty"`
+	Service               string       `yaml:"service,omitempty" json:"service,omitempty"`
+
+	// Cask only:
+	Binary       string                   `yaml:"binary,omitempty" json:"binary,omitempty"`
+	Manpage      string                   `yaml:"manpage,omitempty" json:"manpage,omitempty"`
+	URL          HomebrewCaskURL          `yaml:"url,omitempty" json:"url,omitempty"`
+	Completions  HomebrewCaskCompletions  `yaml:"completions,omitempty" json:"completions,omitempty"`
+	Dependencies []HomebrewCaskDependency `yaml:"dependencies,omitempty" json:"dependencies,omitempty"`
+	Conflicts    []HomebrewCaskConflict   `yaml:"conflicts,omitempty" json:"conflicts,omitempty"`
+	Hooks        HomebrewCaskHooks        `yaml:"hooks,omitempty" json:"hooks,omitempty"`
+	Uninstall    HomebrewCaskUninstall    `yaml:"uninstall,omitempty" json:"uninstall,omitempty"`
+	Zap          HomebrewCaskUninstall    `yaml:"zap,omitempty" json:"zap,omitempty"`
+}
+
+type HomebrewCaskURL struct {
+	Template string `yaml:"template,omitempty" json:"template,omitempty"`
+
+	// additional url parameters (https://docs.brew.sh/Cask-Cookbook#additional-url-parameters):
+	Verified  string            `yaml:"verified,omitempty" json:"verified,omitempty"`
+	Using     string            `yaml:"using,omitempty" json:"using,omitempty"`
+	Cookies   map[string]string `yaml:"cookies,omitempty" json:"cookies,omitempty"`
+	Referer   string            `yaml:"referer,omitempty" json:"referer,omitempty"`
+	Headers   []string          `yaml:"headers,omitempty" json:"headers,omitempty"` // Homebrew Cask DSL actually requires `header` key, but we use `headers` for consistency with Homebrew Formula config.
+	UserAgent string            `yaml:"user_agent,omitempty" json:"user_agent,omitempty"`
+	Data      map[string]string `yaml:"data,omitempty" json:"data,omitempty"`
+}
+
+type HomebrewCaskUninstall struct {
+	Launchctl []string `yaml:"launchctl,omitempty" json:"launchctl,omitempty"`
+	Quit      []string `yaml:"quit,omitempty" json:"quit,omitempty"`
+	LoginItem []string `yaml:"login_item,omitempty" json:"login_item,omitempty"`
+	Delete    []string `yaml:"delete,omitempty" json:"delete,omitempty"`
+	Trash     []string `yaml:"trash,omitempty" json:"trash,omitempty"`
+}
+
+type HomebrewCaskHooks struct {
+	Pre  HomebrewCaskHook `yaml:"pre,omitempty" json:"pre,omitempty"`
+	Post HomebrewCaskHook `yaml:"post,omitempty" json:"post,omitempty"`
+}
+
+type HomebrewCaskHook struct {
+	Install   string `yaml:"install,omitempty" json:"install,omitempty"`
+	Uninstall string `yaml:"uninstall,omitempty" json:"uninstall,omitempty"`
+}
+
+type HomebrewCaskConflict struct {
+	Cask    string `yaml:"cask,omitempty" json:"cask,omitempty"`
+	Formula string `yaml:"formula,omitempty" json:"formula,omitempty"`
+}
+
+type HomebrewCaskDependency struct {
+	Cask    string `yaml:"cask,omitempty" json:"cask,omitempty"`
+	Formula string `yaml:"formula,omitempty" json:"formula,omitempty"`
+	// TODO: support macos, arch
+	// https://github.com/Homebrew/brew/blob/master/docs/Cask-Cookbook.md#stanza-depends_on
+}
+
+type HomebrewCaskCompletions struct {
+	Bash string `yaml:"bash,omitempty" json:"bash,omitempty"`
+	Zsh  string `yaml:"zsh,omitempty" json:"zsh,omitempty"`
+	Fish string `yaml:"fish,omitempty" json:"fish,omitempty"`
 }
 
 type Nix struct {
@@ -316,6 +392,7 @@ type Ko struct {
 	Bare                bool              `yaml:"bare,omitempty" json:"bare,omitempty"`
 	PreserveImportPaths bool              `yaml:"preserve_import_paths,omitempty" json:"preserve_import_paths,omitempty"`
 	BaseImportPaths     bool              `yaml:"base_import_paths,omitempty" json:"base_import_paths,omitempty"`
+	LocalDomain         string            `yaml:"local_domain,omitempty" json:"local_domain,omitempty"`
 
 	// v2.7+
 	Disable string `yaml:"disable,omitempty" json:"disable,omitempty" jsonschema:"oneof_type=string;boolean"`
@@ -634,6 +711,7 @@ type NFPMRPM struct {
 	Scripts     NFPMRPMScripts   `yaml:"scripts,omitempty" json:"scripts,omitempty"`
 	Prefixes    []string         `yaml:"prefixes,omitempty" json:"prefixes,omitempty"`
 	Packager    string           `yaml:"packager,omitempty" json:"packager,omitempty"`
+	BuildHost   string           `yaml:"buildhost,omitempty" json:"buildhost,omitempty"`
 }
 
 // NFPMDebScripts is scripts only available on deb packages.
@@ -780,8 +858,11 @@ type SBOM struct {
 	Env       []string `yaml:"env,omitempty" json:"env,omitempty"`
 	Args      []string `yaml:"args,omitempty" json:"args,omitempty"`
 	Documents []string `yaml:"documents,omitempty" json:"documents,omitempty"`
-	Artifacts string   `yaml:"artifacts,omitempty" json:"artifacts,omitempty" jsonschema:"enum=source,enum=package,enum=archive,enum=binary,enum=any,enum=any,default=archive"`
+	Artifacts string   `yaml:"artifacts,omitempty" json:"artifacts,omitempty" jsonschema:"enum=source,enum=package,enum=archive,enum=binary,enum=any,enum=none,default=archive"`
 	IDs       []string `yaml:"ids,omitempty" json:"ids,omitempty"`
+
+	// v2.10+
+	Disable string `yaml:"disable,omitempty" json:"disable,omitempty" jsonschema:"oneof_type=string;boolean"`
 }
 
 // Sign config.
@@ -1061,7 +1142,7 @@ type Project struct {
 	Env             []string         `yaml:"env,omitempty" json:"env,omitempty"`
 	Release         Release          `yaml:"release,omitempty" json:"release,omitempty"`
 	Milestones      []Milestone      `yaml:"milestones,omitempty" json:"milestones,omitempty"`
-	Brews           []Homebrew       `yaml:"brews,omitempty" json:"brews,omitempty"`
+	Casks           []HomebrewCask   `yaml:"homebrew_casks,omitempty" json:"homebrew_casks,omitempty"`
 	Nix             []Nix            `yaml:"nix,omitempty" json:"nix,omitempty"`
 	Winget          []Winget         `yaml:"winget,omitempty" json:"winget,omitempty"`
 	AURs            []AUR            `yaml:"aurs,omitempty" json:"aurs,omitempty"`
@@ -1112,6 +1193,9 @@ type Project struct {
 
 	// should be set if using Gitea
 	GiteaURLs GiteaURLs `yaml:"gitea_urls,omitempty" json:"gitea_urls,omitempty"`
+
+	// Deprecated: use [Project.Casks] instead.
+	Brews []Homebrew `yaml:"brews,omitempty" json:"brews,omitempty"`
 }
 
 type ProjectMetadata struct {
