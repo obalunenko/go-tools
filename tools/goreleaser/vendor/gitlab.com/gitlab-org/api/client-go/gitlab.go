@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"math/rand"
 	"mime/multipart"
@@ -164,6 +165,7 @@ type Client struct {
 	GroupIssueBoards                 GroupIssueBoardsServiceInterface
 	GroupIterations                  GroupIterationsServiceInterface
 	GroupLabels                      GroupLabelsServiceInterface
+	GroupMarkdownUploads             GroupMarkdownUploadsServiceInterface
 	GroupMembers                     GroupMembersServiceInterface
 	GroupMilestones                  GroupMilestonesServiceInterface
 	GroupProtectedEnvironments       GroupProtectedEnvironmentsServiceInterface
@@ -188,7 +190,6 @@ type Client struct {
 	Labels                           LabelsServiceInterface
 	License                          LicenseServiceInterface
 	LicenseTemplates                 LicenseTemplatesServiceInterface
-	ManagedLicenses                  ManagedLicensesServiceInterface
 	Markdown                         MarkdownServiceInterface
 	MemberRolesService               MemberRolesServiceInterface
 	MergeRequestApprovals            MergeRequestApprovalsServiceInterface
@@ -425,6 +426,7 @@ func newClient(options ...ClientOptionFunc) (*Client, error) {
 	c.GroupIssueBoards = &GroupIssueBoardsService{client: c}
 	c.GroupIterations = &GroupIterationsService{client: c}
 	c.GroupLabels = &GroupLabelsService{client: c}
+	c.GroupMarkdownUploads = &GroupMarkdownUploadsService{client: c}
 	c.GroupMembers = &GroupMembersService{client: c}
 	c.GroupMilestones = &GroupMilestonesService{client: c}
 	c.GroupProtectedEnvironments = &GroupProtectedEnvironmentsService{client: c}
@@ -449,7 +451,6 @@ func newClient(options ...ClientOptionFunc) (*Client, error) {
 	c.Labels = &LabelsService{client: c}
 	c.License = &LicenseService{client: c}
 	c.LicenseTemplates = &LicenseTemplatesService{client: c}
-	c.ManagedLicenses = &ManagedLicensesService{client: c}
 	c.Markdown = &MarkdownService{client: c}
 	c.MemberRolesService = &MemberRolesService{client: c}
 	c.MergeRequestApprovals = &MergeRequestApprovalsService{client: c}
@@ -647,7 +648,7 @@ func (c *Client) setBaseURL(urlStr string) error {
 // Relative URL paths should always be specified without a preceding slash.
 // If specified, the value pointed to by body is JSON encoded and included
 // as the request body.
-func (c *Client) NewRequest(method, path string, opt interface{}, options []RequestOptionFunc) (*retryablehttp.Request, error) {
+func (c *Client) NewRequest(method, path string, opt any, options []RequestOptionFunc) (*retryablehttp.Request, error) {
 	u := *c.baseURL
 	unescaped, err := url.PathUnescape(path)
 	if err != nil {
@@ -666,7 +667,7 @@ func (c *Client) NewRequest(method, path string, opt interface{}, options []Requ
 		reqHeaders.Set("User-Agent", c.UserAgent)
 	}
 
-	var body interface{}
+	var body any
 	switch {
 	case method == http.MethodPatch || method == http.MethodPost || method == http.MethodPut:
 		reqHeaders.Set("Content-Type", "application/json")
@@ -700,9 +701,7 @@ func (c *Client) NewRequest(method, path string, opt interface{}, options []Requ
 	}
 
 	// Set the request specific headers.
-	for k, v := range reqHeaders {
-		req.Header[k] = v
-	}
+	maps.Copy(req.Header, reqHeaders)
 
 	return req, nil
 }
@@ -712,7 +711,7 @@ func (c *Client) NewRequest(method, path string, opt interface{}, options []Requ
 // URL of the Client. Relative URL paths should always be specified without
 // a preceding slash. If specified, the value pointed to by body is JSON
 // encoded and included as the request body.
-func (c *Client) UploadRequest(method, path string, content io.Reader, filename string, uploadType UploadType, opt interface{}, options []RequestOptionFunc) (*retryablehttp.Request, error) {
+func (c *Client) UploadRequest(method, path string, content io.Reader, filename string, uploadType UploadType, opt any, options []RequestOptionFunc) (*retryablehttp.Request, error) {
 	u := *c.baseURL
 	unescaped, err := url.PathUnescape(path)
 	if err != nil {
@@ -776,9 +775,7 @@ func (c *Client) UploadRequest(method, path string, content io.Reader, filename 
 	}
 
 	// Set the request specific headers.
-	for k, v := range reqHeaders {
-		req.Header[k] = v
-	}
+	maps.Copy(req.Header, reqHeaders)
 
 	return req, nil
 }
@@ -881,7 +878,7 @@ func (r *Response) populateLinkValues() {
 // error if an API error has occurred. If v implements the io.Writer
 // interface, the raw response body will be written to v, without attempting to
 // first decode it.
-func (c *Client) Do(req *retryablehttp.Request, v interface{}) (*Response, error) {
+func (c *Client) Do(req *retryablehttp.Request, v any) (*Response, error) {
 	// Wait will block until the limiter can obtain a new token.
 	err := c.limiter.Wait(req.Context())
 	if err != nil {
@@ -918,7 +915,14 @@ func (c *Client) Do(req *retryablehttp.Request, v interface{}) (*Response, error
 		}
 	}
 
-	resp, err := c.client.Do(req)
+	client := c.client
+
+	if cr := checkRetryFromContext(req.Context()); cr != nil {
+		// for avoid overwriting c.client. Use copy of c.client and apply checkRetry from request context
+		client = c.newRetryableHTTPClientWithRetryCheck(cr)
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -985,16 +989,22 @@ func (c *Client) requestOAuthToken(ctx context.Context, token string) (string, e
 	return c.token, nil
 }
 
+// ErrInvalidIDType is returned when a function expecting an ID as either an integer
+// or string receives a different type. This error commonly occurs when working with
+// GitLab resources like groups and projects which support both numeric IDs and
+// path-based string identifiers.
+var ErrInvalidIDType = errors.New("the ID must be an int or a string")
+
 // Helper function to accept and format both the project ID or name as project
 // identifier for all API calls.
-func parseID(id interface{}) (string, error) {
+func parseID(id any) (string, error) {
 	switch v := id.(type) {
 	case int:
 		return strconv.Itoa(v), nil
 	case string:
 		return v, nil
 	default:
-		return "", fmt.Errorf("invalid ID type %#v, the ID must be an int or a string", id)
+		return "", fmt.Errorf("invalid ID type %#v, %w", id, ErrInvalidIDType)
 	}
 }
 
@@ -1042,7 +1052,7 @@ func CheckResponse(r *http.Response) error {
 	if err == nil && strings.TrimSpace(string(data)) != "" {
 		errorResponse.Body = data
 
-		var raw interface{}
+		var raw any
 		if err := json.Unmarshal(data, &raw); err != nil {
 			errorResponse.Message = fmt.Sprintf("failed to parse unknown error format: %s", data)
 		} else {
@@ -1072,19 +1082,19 @@ func CheckResponse(r *http.Response) error {
 //	    },
 //	    "error": "<error-message>"
 //	}
-func parseError(raw interface{}) string {
+func parseError(raw any) string {
 	switch raw := raw.(type) {
 	case string:
 		return raw
 
-	case []interface{}:
+	case []any:
 		var errs []string
 		for _, v := range raw {
 			errs = append(errs, parseError(v))
 		}
 		return fmt.Sprintf("[%s]", strings.Join(errs, ", "))
 
-	case map[string]interface{}:
+	case map[string]any:
 		var errs []string
 		for k, v := range raw {
 			errs = append(errs, fmt.Sprintf("{%s: %s}", k, parseError(v)))
@@ -1094,5 +1104,20 @@ func parseError(raw interface{}) string {
 
 	default:
 		return fmt.Sprintf("failed to parse unexpected error type: %T", raw)
+	}
+}
+
+// newRetryableHTTPClientWithRetryCheck returns a `retryablehttp.Client` clone of itself with the given CheckRetry function
+func (c *Client) newRetryableHTTPClientWithRetryCheck(cr retryablehttp.CheckRetry) *retryablehttp.Client {
+	return &retryablehttp.Client{
+		Logger:         c.client.Logger,
+		RetryWaitMin:   c.client.RetryWaitMin,
+		RetryWaitMax:   c.client.RetryWaitMax,
+		RetryMax:       c.client.RetryMax,
+		RequestLogHook: c.client.RequestLogHook,
+		CheckRetry:     cr,
+		Backoff:        c.client.Backoff,
+		ErrorHandler:   c.client.ErrorHandler,
+		PrepareRetry:   c.client.PrepareRetry,
 	}
 }

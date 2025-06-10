@@ -799,7 +799,7 @@ func (p *MergeParams) UnmarshalJSON(b []byte) error {
 	type Alias MergeParams
 	raw := struct {
 		*Alias
-		ForceRemoveSourceBranch interface{} `json:"force_remove_source_branch"`
+		ForceRemoveSourceBranch any `json:"force_remove_source_branch"`
 	}{
 		Alias: (*Alias)(p),
 	}

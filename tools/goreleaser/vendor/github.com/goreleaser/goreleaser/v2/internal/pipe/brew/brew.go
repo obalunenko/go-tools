@@ -18,6 +18,7 @@ import (
 	"github.com/goreleaser/goreleaser/v2/internal/artifact"
 	"github.com/goreleaser/goreleaser/v2/internal/client"
 	"github.com/goreleaser/goreleaser/v2/internal/commitauthor"
+	"github.com/goreleaser/goreleaser/v2/internal/deprecate"
 	"github.com/goreleaser/goreleaser/v2/internal/experimental"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe"
 	"github.com/goreleaser/goreleaser/v2/internal/skips"
@@ -44,9 +45,11 @@ func (e ErrNoArchivesFound) Error() string {
 }
 
 // Pipe for brew deployment.
+//
+// Deprecated: in favor of [cask.Pipe].
 type Pipe struct{}
 
-func (Pipe) String() string        { return "homebrew tap formula" }
+func (Pipe) String() string        { return "homebrew formula" }
 func (Pipe) ContinueOnError() bool { return true }
 func (Pipe) Skip(ctx *context.Context) bool {
 	return skips.Any(ctx, skips.Homebrew) || len(ctx.Config.Brews) == 0
@@ -54,6 +57,7 @@ func (Pipe) Skip(ctx *context.Context) bool {
 
 func (Pipe) Default(ctx *context.Context) error {
 	for i := range ctx.Config.Brews {
+		deprecate.Notice(ctx, "brews")
 		brew := &ctx.Config.Brews[i]
 
 		brew.CommitAuthor = commitauthor.Default(brew.CommitAuthor)
@@ -107,7 +111,7 @@ func publishAll(ctx *context.Context, cli client.Client) error {
 	// even if one of them skips, we run them all, and then show return the skips all at once.
 	// this is needed so we actually create the `dist/foo.rb` file, which is useful for debugging.
 	skips := pipe.SkipMemento{}
-	for _, formula := range ctx.Artifacts.Filter(artifact.ByType(artifact.BrewTap)).List() {
+	for _, formula := range ctx.Artifacts.Filter(artifact.ByType(artifact.BrewFormula)).List() {
 		err := doPublish(ctx, formula, cli)
 		if err != nil && pipe.IsSkip(err) {
 			skips.Remember(err)
@@ -215,7 +219,7 @@ func doRun(ctx *context.Context, brew config.Homebrew, cl client.ReleaseURLTempl
 		),
 		artifact.Or(
 			artifact.And(
-				artifact.ByFormats("zip", "tar.gz", "tar.xz"),
+				artifact.Not(artifact.ByFormats("gz")),
 				artifact.ByType(artifact.UploadableArchive),
 			),
 			artifact.ByType(artifact.UploadableBinary),
@@ -272,7 +276,7 @@ func doRun(ctx *context.Context, brew config.Homebrew, cl client.ReleaseURLTempl
 	ctx.Artifacts.Add(&artifact.Artifact{
 		Name: filename,
 		Path: path,
-		Type: artifact.BrewTap,
+		Type: artifact.BrewFormula,
 		Extra: map[string]any{
 			brewConfigExtra: brew,
 		},
@@ -294,7 +298,7 @@ func buildFormula(ctx *context.Context, brew config.Homebrew, client client.Rele
 }
 
 func doBuildFormula(ctx *context.Context, data templateData) (string, error) {
-	t := template.New("cask.rb")
+	t := template.New("formula.rb")
 	var err error
 	t, err = t.Funcs(map[string]any{
 		"include": func(name string, data any) (string, error) {

@@ -63,8 +63,12 @@ const (
 	Certificate
 	// UploadableSourceArchive is the archive with the current commit source code.
 	UploadableSourceArchive
-	// BrewTap is an uploadable homebrew tap recipe file.
-	BrewTap
+	// BrewFormula is an uploadable homebrew formula file.
+	//
+	// Deprecated: use [BrewCask] instead.
+	BrewFormula
+	// BrewCask is an uploadable homebrew cask file.
+	BrewCask
 	// Nixpkg is an uploadable nix package.
 	Nixpkg
 	// WingetInstaller winget installer file.
@@ -109,6 +113,8 @@ const (
 func (t Type) isUploadable() bool {
 	switch t {
 	case UniversalBinary, Binary, // See: [UploadableBinary].
+		DockerImage,            // See: [PublishableDockerImage].
+		Snapcraft,              // See [PublishableSnapcraft].
 		Metadata,               // Local only.
 		SrcInfo, SourceSrcInfo, // It's always named `.SRCINFO`
 		PkgBuild, SourcePkgBuild: // It's always named `.PKGBUILD`
@@ -144,8 +150,10 @@ func (t Type) String() string {
 		return "Certificate"
 	case UploadableSourceArchive:
 		return "Source"
-	case BrewTap:
-		return "Brew Tap"
+	case BrewFormula:
+		return "Homebrew Formula"
+	case BrewCask:
+		return "Homebrew Cask"
 	case KrewPluginManifest:
 		return "Krew Plugin Manifest"
 	case ScoopManifest:
@@ -597,6 +605,13 @@ func ByFormats(formats ...string) Filter {
 		})
 	}
 	return Or(filters...)
+}
+
+// Not negates the given filter.
+func Not(filter Filter) Filter {
+	return func(a *Artifact) bool {
+		return !filter(a)
+	}
 }
 
 // ByIDs filter artifacts by an `ID` extra field.
