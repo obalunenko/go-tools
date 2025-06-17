@@ -19,7 +19,6 @@ import (
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	pvcel "buf.build/go/protovalidate/cel"
-	"buf.build/go/protovalidate/resolve"
 	"github.com/google/cel-go/cel"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -129,9 +128,22 @@ func (c *cache) resolveRules(
 			fieldDesc.FullName(),
 		)}
 	}
-	if !ok || !refRules.Has(setOneof) {
-		return nil, nil, true, nil
+
+	if !ok {
+		// The only expected rule descriptor for message fields is for well known types.
+		// If we didn't find a descriptor and this is a message, there must be a mismatch.
+		if fieldDesc.Kind() == protoreflect.MessageKind {
+			return nil, nil, true, &CompilationError{cause: fmt.Errorf(
+				"mismatched message rules, %q is not a valid rule for field %q",
+				setOneof.FullName(),
+				fieldDesc.FullName(),
+			)}
+		}
+		if !refRules.Has(setOneof) {
+			return nil, nil, true, nil
+		}
 	}
+
 	rules = refRules.Get(setOneof).Message()
 	return rules, setOneof, false, nil
 }
@@ -169,7 +181,7 @@ func (c *cache) loadOrCompileStandardRule(
 	if cachedRule, ok := c.cache[ruleFieldDesc]; ok {
 		return cachedRule, nil
 	}
-	predefinedRules, _ := resolve.PredefinedRules(
+	predefinedRules, _ := ResolvePredefinedRules(
 		ruleFieldDesc,
 	)
 	exprs := expressions{

@@ -17,12 +17,12 @@ package protovalidate
 import (
 	"fmt"
 	"maps"
+	"slices"
 	"sync"
 	"sync/atomic"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	pvcel "buf.build/go/protovalidate/cel"
-	"buf.build/go/protovalidate/resolve"
 	"github.com/google/cel-go/cel"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -123,7 +123,7 @@ func (bldr *builder) buildMessage(
 	desc protoreflect.MessageDescriptor, msgEval *message,
 	cache messageCache,
 ) {
-	msgRules, _ := resolve.MessageRules(desc)
+	msgRules, _ := ResolveMessageRules(desc)
 	if msgRules.GetDisabled() {
 		return
 	}
@@ -135,6 +135,7 @@ func (bldr *builder) buildMessage(
 		cache messageCache,
 	){
 		bldr.processMessageExpressions,
+		bldr.processMessageOneofRules,
 		bldr.processOneofRules,
 		bldr.processFields,
 	}
@@ -169,6 +170,48 @@ func (bldr *builder) processMessageExpressions(
 	})
 }
 
+func (bldr *builder) processMessageOneofRules(
+	desc protoreflect.MessageDescriptor,
+	msgRules *validate.MessageRules,
+	msgEval *message,
+	_ messageCache,
+) {
+	oneofRules := msgRules.GetOneof()
+	for _, rule := range oneofRules {
+		fields := rule.GetFields()
+		if len(fields) == 0 {
+			msgEval.Err = &CompilationError{
+				cause: fmt.Errorf("at least one field must be specified in oneof rule for the message %s", desc.FullName()),
+			}
+			return
+		}
+		seen := make(map[string]struct{}, len(fields))
+		fdescs := make([]protoreflect.FieldDescriptor, 0, len(fields))
+		for _, name := range fields {
+			if _, ok := seen[name]; ok {
+				msgEval.Err = &CompilationError{
+					cause: fmt.Errorf("duplicate %s in oneof rule for the message %s", name, desc.FullName()),
+				}
+				return
+			}
+			seen[name] = struct{}{}
+			fdesc := desc.Fields().ByName(protoreflect.Name(name))
+			if fdesc == nil {
+				msgEval.Err = &CompilationError{
+					cause: fmt.Errorf("field %s not found in message %s", name, desc.FullName()),
+				}
+				return
+			}
+			fdescs = append(fdescs, fdesc)
+		}
+		oneofEval := &messageOneof{
+			Fields:   fdescs,
+			Required: rule.GetRequired(),
+		}
+		msgEval.AppendNested(oneofEval)
+	}
+}
+
 func (bldr *builder) processOneofRules(
 	desc protoreflect.MessageDescriptor,
 	_ *validate.MessageRules,
@@ -178,7 +221,7 @@ func (bldr *builder) processOneofRules(
 	oneofs := desc.Oneofs()
 	for i := range oneofs.Len() {
 		oneofDesc := oneofs.Get(i)
-		oneofRules, _ := resolve.OneofRules(oneofDesc)
+		oneofRules, _ := ResolveOneofRules(oneofDesc)
 		oneofEval := oneof{
 			Descriptor: oneofDesc,
 			Required:   oneofRules.GetRequired(),
@@ -189,15 +232,15 @@ func (bldr *builder) processOneofRules(
 
 func (bldr *builder) processFields(
 	desc protoreflect.MessageDescriptor,
-	_ *validate.MessageRules,
+	msgRules *validate.MessageRules,
 	msgEval *message,
 	cache messageCache,
 ) {
 	fields := desc.Fields()
 	for i := range fields.Len() {
 		fdesc := fields.Get(i)
-		fieldRules, _ := resolve.FieldRules(fdesc)
-		fldEval, err := bldr.buildField(fdesc, fieldRules, cache)
+		fieldRules, _ := ResolveFieldRules(fdesc)
+		fldEval, err := bldr.buildField(fdesc, fieldRules, msgRules, cache)
 		if err != nil {
 			fldEval.Err = err
 		}
@@ -208,8 +251,16 @@ func (bldr *builder) processFields(
 func (bldr *builder) buildField(
 	fieldDescriptor protoreflect.FieldDescriptor,
 	fieldRules *validate.FieldRules,
+	msgRules *validate.MessageRules,
 	cache messageCache,
 ) (field, error) {
+	if !fieldRules.HasIgnore() && isPartOfMessageOneof(msgRules, fieldDescriptor) {
+		fieldRules = proto.CloneOf(fieldRules)
+		if fieldRules == nil {
+			fieldRules = &validate.FieldRules{}
+		}
+		fieldRules.SetIgnore(validate.Ignore_IGNORE_IF_UNPOPULATED)
+	}
 	fld := field{
 		Value: value{
 			Descriptor: fieldDescriptor,
@@ -355,8 +406,22 @@ func (bldr *builder) processWrapperRules(
 		(fdesc.IsList() && valEval.NestedRule == nil) {
 		return nil
 	}
+	refRules := rules.ProtoReflect()
+	setOneof := refRules.WhichOneof(fieldRulesOneofDesc)
+	if setOneof == nil {
+		return nil
+	}
 
 	expectedWrapperDescriptor, ok := expectedWrapperRules(fdesc.Message().FullName())
+	if ok && setOneof.FullName() != expectedWrapperDescriptor.FullName() {
+		return &CompilationError{cause: fmt.Errorf(
+			"expected rule %q, got %q on field %q",
+			expectedWrapperDescriptor.FullName(),
+			setOneof.FullName(),
+			fdesc.FullName(),
+		)}
+	}
+
 	if !ok || !rules.ProtoReflect().Has(expectedWrapperDescriptor) {
 		return nil
 	}
@@ -378,6 +443,14 @@ func (bldr *builder) processStandardRules(
 	valEval *value,
 	_ messageCache,
 ) error {
+	// If this is a wrapper field, just return. Wrapper fields are handled by
+	// processWrapperRules and their wrapped values are passed through the process gauntlet.
+	if isMessageField(fdesc) {
+		if _, ok := expectedWrapperRules(fdesc.Message().FullName()); ok {
+			return nil
+		}
+	}
+
 	stdRules, err := bldr.rules.Build(
 		bldr.env,
 		fdesc,
@@ -545,4 +618,10 @@ func (c messageCache) SyncTo(other messageCache) {
 func isMessageField(fdesc protoreflect.FieldDescriptor) bool {
 	return fdesc.Kind() == protoreflect.MessageKind ||
 		fdesc.Kind() == protoreflect.GroupKind
+}
+
+func isPartOfMessageOneof(msgRules *validate.MessageRules, field protoreflect.FieldDescriptor) bool {
+	return slices.ContainsFunc(msgRules.GetOneof(), func(oneof *validate.MessageOneofRule) bool {
+		return slices.Contains(oneof.GetFields(), string(field.Name()))
+	})
 }
