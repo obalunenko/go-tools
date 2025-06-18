@@ -2,7 +2,7 @@ module go-enum
 
 go 1.24
 
-require github.com/abice/go-enum v0.6.1
+require github.com/abice/go-enum v0.7.0
 
 require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
