@@ -3,15 +3,21 @@ package log
 import (
 	"io"
 	"os"
+
+	"github.com/charmbracelet/colorprofile"
 )
 
-// singletons ftw?
+// Log is a singleton instance of [Logger].
 var Log Interface = New(os.Stderr)
 
 // New creates a new logger.
 func New(w io.Writer) *Logger {
+	env := os.Environ()
+	if os.Getenv("CI") != "" {
+		env = append(env, "CLICOLOR_FORCE=1")
+	}
 	return &Logger{
-		Writer:  w,
+		Writer:  colorprofile.NewWriter(w, env),
 		Padding: defaultPadding,
 		Level:   InfoLevel,
 	}
@@ -47,7 +53,7 @@ func DecreasePadding() {
 }
 
 // WithField returns a new entry with the `key` and `value` set.
-func WithField(key string, value interface{}) *Entry {
+func WithField(key string, value any) *Entry {
 	return Log.WithField(key, value)
 }
 
@@ -87,26 +93,26 @@ func Fatal(msg string) {
 }
 
 // Debugf level formatted message.
-func Debugf(msg string, v ...interface{}) {
+func Debugf(msg string, v ...any) {
 	Log.Debugf(msg, v...)
 }
 
 // Infof level formatted message.
-func Infof(msg string, v ...interface{}) {
+func Infof(msg string, v ...any) {
 	Log.Infof(msg, v...)
 }
 
 // Warnf level formatted message.
-func Warnf(msg string, v ...interface{}) {
+func Warnf(msg string, v ...any) {
 	Log.Warnf(msg, v...)
 }
 
 // Errorf level formatted message.
-func Errorf(msg string, v ...interface{}) {
+func Errorf(msg string, v ...any) {
 	Log.Errorf(msg, v...)
 }
 
 // Fatalf level formatted message, followed by an exit.
-func Fatalf(msg string, v ...interface{}) {
+func Fatalf(msg string, v ...any) {
 	Log.Fatalf(msg, v...)
 }

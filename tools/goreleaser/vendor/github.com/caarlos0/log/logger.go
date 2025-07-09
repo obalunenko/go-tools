@@ -2,11 +2,11 @@ package log
 
 import (
 	"fmt"
-	"io"
 	"strings"
 	"sync"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/colorprofile"
+	"github.com/charmbracelet/lipgloss/v2"
 )
 
 // Styles mapping.
@@ -35,7 +35,7 @@ var _ Interface = (*Logger)(nil)
 // Logger represents a logger with configurable Level and Handler.
 type Logger struct {
 	mu      sync.Mutex
-	Writer  io.Writer
+	Writer  *colorprofile.Writer
 	Level   Level
 	Padding int
 }
@@ -73,16 +73,16 @@ func (l *Logger) handleLog(e *Entry) {
 	)
 
 	var previousMultiline bool
-	for it := e.Fields.Front(); it != nil; it = it.Next() {
-		if s, ok := it.Value.(string); ok && strings.Contains(s, "\n") {
+	for key, value := range e.Fields.All() {
+		if s, ok := value.(string); ok && strings.Contains(s, "\n") {
 			indent := style.
 				PaddingLeft(e.Padding).
 				SetString(indentSeparator).
 				String()
 			fmt.Fprintln(l.Writer)
 			fmt.Fprint(l.Writer, strings.Repeat(" ", e.Padding+2))
-			fmt.Fprint(l.Writer, style.Render(it.Key)+"=")
-			for _, line := range strings.Split(s, "\n") {
+			fmt.Fprint(l.Writer, style.Render(key)+"=")
+			for line := range strings.SplitSeq(s, "\n") {
 				if strings.TrimSpace(line) == "" {
 					continue
 				}
@@ -95,15 +95,15 @@ func (l *Logger) handleLog(e *Entry) {
 			fmt.Fprintln(l.Writer)
 			fmt.Fprint(l.Writer, strings.Repeat(" ", e.Padding+1))
 		}
-		fmt.Fprintf(l.Writer, " %s=%v", style.Render(it.Key), it.Value)
+		fmt.Fprintf(l.Writer, " %s=%v", style.Render(key), value)
 		previousMultiline = false
 	}
 
 	fmt.Fprintln(l.Writer)
 }
 
-func (l *Logger) rightPadding(names []string, padding int) int {
-	if len(names) == 0 {
+func (l *Logger) rightPadding(keys []string, padding int) int {
+	if len(keys) == 0 {
 		return 0
 	}
 	return 50 - padding
@@ -113,7 +113,7 @@ func (l *Logger) rightPadding(names []string, padding int) int {
 //
 // Note that the `key` should not have spaces in it - use camel
 // case or underscores
-func (l *Logger) WithField(key string, value interface{}) *Entry {
+func (l *Logger) WithField(key string, value any) *Entry {
 	return NewEntry(l).WithField(key, value)
 }
 
@@ -153,27 +153,27 @@ func (l *Logger) Fatal(msg string) {
 }
 
 // Debugf level formatted message.
-func (l *Logger) Debugf(msg string, v ...interface{}) {
+func (l *Logger) Debugf(msg string, v ...any) {
 	NewEntry(l).Debugf(msg, v...)
 }
 
 // Infof level formatted message.
-func (l *Logger) Infof(msg string, v ...interface{}) {
+func (l *Logger) Infof(msg string, v ...any) {
 	NewEntry(l).Infof(msg, v...)
 }
 
 // Warnf level formatted message.
-func (l *Logger) Warnf(msg string, v ...interface{}) {
+func (l *Logger) Warnf(msg string, v ...any) {
 	NewEntry(l).Warnf(msg, v...)
 }
 
 // Errorf level formatted message.
-func (l *Logger) Errorf(msg string, v ...interface{}) {
+func (l *Logger) Errorf(msg string, v ...any) {
 	NewEntry(l).Errorf(msg, v...)
 }
 
 // Fatalf level formatted message, followed by an exit.
-func (l *Logger) Fatalf(msg string, v ...interface{}) {
+func (l *Logger) Fatalf(msg string, v ...any) {
 	NewEntry(l).Fatalf(msg, v...)
 }
 
