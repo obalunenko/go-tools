@@ -5,10 +5,11 @@ updates:
       - /tools/buf
       - /tools/coverbadger
       - /tools/enumer
+      - /tools/envdoc
       - /tools/fiximports
       - /tools/go-enum
-      - /tools/gocov-html
       - /tools/gocov
+      - /tools/gocov-html
       - /tools/gofumpt
       - /tools/goimports
       - /tools/golangci-lint
@@ -28,10 +29,6 @@ updates:
       interval: "daily"
     labels:
       - "dependencies"
-    assignees:
-      - "obalunenko"
-    reviewers:
-      - "obalunenko"
     commit-message:
       prefix: "chore"
       include: "scope"
