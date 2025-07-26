@@ -50,6 +50,7 @@ type (
 		UnstarProject(pid any, options ...RequestOptionFunc) (*Project, *Response, error)
 		ArchiveProject(pid any, options ...RequestOptionFunc) (*Project, *Response, error)
 		UnarchiveProject(pid any, options ...RequestOptionFunc) (*Project, *Response, error)
+		RestoreProject(pid any, options ...RequestOptionFunc) (*Project, *Response, error)
 		DeleteProject(pid any, opt *DeleteProjectOptions, options ...RequestOptionFunc) (*Response, error)
 		ShareProjectWithGroup(pid any, opt *ShareWithGroupOptions, options ...RequestOptionFunc) (*Response, error)
 		DeleteSharedProjectFromGroup(pid any, groupID int, options ...RequestOptionFunc) (*Response, error)
@@ -1247,6 +1248,31 @@ func (s *ProjectsService) UnarchiveProject(pid any, options ...RequestOptionFunc
 		return nil, nil, err
 	}
 	u := fmt.Sprintf("projects/%s/unarchive", PathEscape(project))
+
+	req, err := s.client.NewRequest(http.MethodPost, u, nil, options)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	p := new(Project)
+	resp, err := s.client.Do(req, p)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return p, resp, nil
+}
+
+// RestoreProject restores a project that is marked for deletion.
+//
+// GitLab API docs:
+// https://docs.gitlab.com/api/projects/#restore-a-project-marked-for-deletion
+func (s *ProjectsService) RestoreProject(pid any, options ...RequestOptionFunc) (*Project, *Response, error) {
+	project, err := parseID(pid)
+	if err != nil {
+		return nil, nil, err
+	}
+	u := fmt.Sprintf("projects/%s/restore", PathEscape(project))
 
 	req, err := s.client.NewRequest(http.MethodPost, u, nil, options)
 	if err != nil {

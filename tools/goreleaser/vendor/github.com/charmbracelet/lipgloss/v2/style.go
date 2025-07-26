@@ -10,8 +10,7 @@ import (
 )
 
 const (
-	// NBSP is the non-breaking space rune.
-	NBSP            = '\u00A0'
+	nbsp            = '\u00A0'
 	tabWidthDefault = 4
 )
 
@@ -45,7 +44,6 @@ const (
 	paddingRightKey
 	paddingBottomKey
 	paddingLeftKey
-	paddingCharKey
 
 	// Margins.
 	marginTopKey
@@ -53,7 +51,6 @@ const (
 	marginBottomKey
 	marginLeftKey
 	marginBackgroundKey
-	marginCharKey
 
 	// Border runes.
 	borderStyleKey
@@ -131,14 +128,12 @@ type Style struct {
 	paddingRight  int
 	paddingBottom int
 	paddingLeft   int
-	paddingChar   rune
 
 	marginTop     int
 	marginRight   int
 	marginBottom  int
 	marginLeft    int
 	marginBgColor color.Color
-	marginChar    rune
 
 	borderStyle         Border
 	borderTopFgColor    color.Color
@@ -392,24 +387,23 @@ func (s Style) Render(strs ...string) string {
 
 	// Padding
 	if !inline { //nolint:nestif
-		padChar := s.paddingChar
-		if padChar == 0 {
-			padChar = ' '
-		}
 		if leftPadding > 0 {
 			var st *ansi.Style
 			if colorWhitespace || styleWhitespace {
 				st = &teWhitespace
 			}
-			str = padLeft(str, leftPadding, st, padChar)
+			str = padLeft(str, leftPadding, st, nbsp)
 		}
+
+		// XXX: We use a non-breaking space to pad so that the padding is
+		// preserved when the string is copied and pasted.
 
 		if rightPadding > 0 {
 			var st *ansi.Style
 			if colorWhitespace || styleWhitespace {
 				st = &teWhitespace
 			}
-			str = padRight(str, rightPadding, st, padChar)
+			str = padRight(str, rightPadding, st, nbsp)
 		}
 
 		if topPadding > 0 {
@@ -500,12 +494,8 @@ func (s Style) applyMargins(str string, inline bool) string {
 	}
 
 	// Add left and right margin
-	marginChar := s.marginChar
-	if marginChar == 0 {
-		marginChar = ' '
-	}
-	str = padLeft(str, leftMargin, &style, marginChar)
-	str = padRight(str, rightMargin, &style, marginChar)
+	str = padLeft(str, leftMargin, &style, ' ')
+	str = padRight(str, rightMargin, &style, ' ')
 
 	// Top/bottom margin
 	if !inline {
@@ -570,6 +560,20 @@ func pad(str string, n int, style *ansi.Style, r rune) string {
 	}
 
 	return b.String()
+}
+
+func max(a, b int) int { //nolint:unparam,predeclared
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a, b int) int { //nolint:predeclared
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func abs(a int) int {
