@@ -12,7 +12,9 @@ type whitespace struct {
 	style Style
 }
 
-// newWhitespace creates a new whitespace renderer.
+// newWhitespace creates a new whitespace renderer. The order of the options
+// matters, if you're using WithWhitespaceRenderer, make sure it comes first as
+// other options might depend on it.
 func newWhitespace(opts ...WhitespaceOption) *whitespace {
 	w := &whitespace{}
 	for _, opt := range opts {

@@ -44,16 +44,28 @@ stages:
   variables:
     GOPATH: $CI_PROJECT_DIR/.go
     GOLANGCI_LINT_CACHE: $CI_PROJECT_DIR/.golangci-lint
+    MISE_VERSION: v2025.6.1
+    MISE_DATA_DIR: $CI_PROJECT_DIR/.mise/mise-data
   before_script:
     - mkdir -p "${GOPATH}" "${GOLANGCI_LINT_CACHE}"
     - export PATH="${GOPATH}/bin:$PATH"
+    # Install mise
+    - curl --retry 6 https://mise.run | MISE_VERSION=${MISE_VERSION} MISE_INSTALL_PATH=/usr/local/bin/mise sh
+    - eval "$(mise activate bash --shims)"
+    - mise install
   cache:
-    paths:
-      - $GOPATH/pkg/mod/
-      - $GOLANGCI_LINT_CACHE/
-    key:
-      files:
-        - go.sum
+    - key:
+        files:
+          - go.sum
+      paths:
+        - $GOPATH/pkg/mod/
+        - $GOLANGCI_LINT_CACHE/
+    - key:
+        prefix: mise-
+        files: ['.tool-versions']
+      paths:
+        - $MISE_DATA_DIR
+
   # We only need to run Go-related jobs when actual Go files changed
   # or when running either on the default branch or for a tag.
   rules:
@@ -74,7 +86,7 @@ golangci-lint:
   needs: []
   variables:
     REPORT_FILENAME: 'gl-code-quality-report.json'
-  image: golangci/golangci-lint:v2.2.1
+  image: golangci/golangci-lint:v2.2.2
   script:
     - golangci-lint run
   artifacts:
@@ -82,6 +94,15 @@ golangci-lint:
       codequality: $REPORT_FILENAME
     paths: [$REPORT_FILENAME]
     when: always
+
+buf-lint:
+  extends:
+    - .go:base
+  stage: lint
+  needs: []
+  script:
+    - buf format --exit-code
+    - buf lint
 
 verify-generated-code:
   extends:
