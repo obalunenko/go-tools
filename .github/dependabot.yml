@@ -27,6 +27,8 @@ updates:
       - /tools/tparse
     schedule:
       interval: "daily"
+    allow:
+      - dependency-type: "direct"
     labels:
       - "dependencies"
     commit-message:
