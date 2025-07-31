@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Buf Technologies, Inc.
+// Copyright 2023-2025 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -124,9 +124,6 @@ func (bldr *builder) buildMessage(
 	cache messageCache,
 ) {
 	msgRules, _ := ResolveMessageRules(desc)
-	if msgRules.GetDisabled() {
-		return
-	}
 
 	steps := []func(
 		desc protoreflect.MessageDescriptor,
@@ -254,12 +251,9 @@ func (bldr *builder) buildField(
 	msgRules *validate.MessageRules,
 	cache messageCache,
 ) (field, error) {
-	if !fieldRules.HasIgnore() && isPartOfMessageOneof(msgRules, fieldDescriptor) {
+	if fieldRules != nil && !fieldRules.HasIgnore() && isPartOfMessageOneof(msgRules, fieldDescriptor) {
 		fieldRules = proto.CloneOf(fieldRules)
-		if fieldRules == nil {
-			fieldRules = &validate.FieldRules{}
-		}
-		fieldRules.SetIgnore(validate.Ignore_IGNORE_IF_UNPOPULATED)
+		fieldRules.SetIgnore(validate.Ignore_IGNORE_IF_ZERO_VALUE)
 	}
 	fld := field{
 		Value: value{
@@ -268,9 +262,6 @@ func (bldr *builder) buildField(
 		HasPresence: fieldDescriptor.HasPresence(),
 		Required:    fieldRules.GetRequired(),
 		Ignore:      fieldRules.GetIgnore(),
-	}
-	if fld.shouldIgnoreDefault() {
-		fld.Zero = bldr.zeroValue(fieldDescriptor, false)
 	}
 	err := bldr.buildValue(fieldDescriptor, fieldRules, &fld.Value, cache)
 	return fld, err
@@ -580,8 +571,7 @@ func (bldr *builder) shouldIgnoreAlways(rules *validate.FieldRules) bool {
 }
 
 func (bldr *builder) shouldIgnoreEmpty(rules *validate.FieldRules) bool {
-	return rules.GetIgnore() == validate.Ignore_IGNORE_IF_UNPOPULATED ||
-		rules.GetIgnore() == validate.Ignore_IGNORE_IF_DEFAULT_VALUE
+	return rules.GetIgnore() == validate.Ignore_IGNORE_IF_ZERO_VALUE
 }
 
 func (bldr *builder) zeroValue(fdesc protoreflect.FieldDescriptor, forItems bool) protoreflect.Value {

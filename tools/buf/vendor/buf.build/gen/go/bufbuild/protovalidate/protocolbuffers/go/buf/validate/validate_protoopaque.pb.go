@@ -39,147 +39,89 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Specifies how FieldRules.ignore behaves. See the documentation for
-// FieldRules.required for definitions of "populated" and "nullable".
+// Specifies how `FieldRules.ignore` behaves, depending on the field's value, and
+// whether the field tracks presence.
 type Ignore int32
 
 const (
-	// Validation is only skipped if it's an unpopulated nullable field.
+	// Ignore rules if the field tracks presence and is unset. This is the default
+	// behavior.
+	//
+	// In proto3, only message fields, members of a Protobuf `oneof`, and fields
+	// with the `optional` label track presence. Consequently, the following fields
+	// are always validated, whether a value is set or not:
 	//
 	// ```proto
 	// syntax="proto3";
 	//
-	//	message Request {
-	//	  // The uri rule applies to any value, including the empty string.
-	//	  string foo = 1 [
-	//	    (buf.validate.field).string.uri = true
+	//	message RulesApply {
+	//	  string email = 1 [
+	//	    (buf.validate.field).string.email = true
 	//	  ];
-	//
-	//	  // The uri rule only applies if the field is set, including if it's
-	//	  // set to the empty string.
-	//	  optional string bar = 2 [
-	//	    (buf.validate.field).string.uri = true
+	//	  int32 age = 2 [
+	//	    (buf.validate.field).int32.gt = 0
 	//	  ];
-	//
-	//	  // The min_items rule always applies, even if the list is empty.
-	//	  repeated string baz = 3 [
-	//	    (buf.validate.field).repeated.min_items = 3
+	//	  repeated string labels = 3 [
+	//	    (buf.validate.field).repeated.min_items = 1
 	//	  ];
+	//	}
 	//
-	//	  // The custom CEL rule applies only if the field is set, including if
-	//	  // it's the "zero" value of that message.
-	//	  SomeMessage quux = 4 [
+	// ```
+	//
+	// In contrast, the following fields track presence, and are only validated if
+	// a value is set:
+	//
+	// ```proto
+	// syntax="proto3";
+	//
+	//	message RulesApplyIfSet {
+	//	  optional string email = 1 [
+	//	    (buf.validate.field).string.email = true
+	//	  ];
+	//	  oneof ref {
+	//	    string reference = 2 [
+	//	      (buf.validate.field).string.uuid = true
+	//	    ];
+	//	    string name = 3 [
+	//	      (buf.validate.field).string.min_len = 4
+	//	    ];
+	//	  }
+	//	  SomeMessage msg = 4 [
 	//	    (buf.validate.field).cel = {/* ... */}
 	//	  ];
 	//	}
 	//
 	// ```
+	//
+	// To ensure that such a field is set, add the `required` rule.
+	//
+	// To learn which fields track presence, see the
+	// [Field Presence cheat sheet](https://protobuf.dev/programming-guides/field_presence/#cheat).
 	Ignore_IGNORE_UNSPECIFIED Ignore = 0
-	// Validation is skipped if the field is unpopulated. This rule is redundant
-	// if the field is already nullable.
+	// Ignore rules if the field is unset, or set to the zero value.
 	//
-	// ```proto
-	// syntax="proto3
+	// The zero value depends on the field type:
+	// - For strings, the zero value is the empty string.
+	// - For bytes, the zero value is empty bytes.
+	// - For bool, the zero value is false.
+	// - For numeric types, the zero value is zero.
+	// - For enums, the zero value is the first defined enum value.
+	// - For repeated fields, the zero is an empty list.
+	// - For map fields, the zero is an empty map.
+	// - For message fields, absence of the message (typically a null-value) is considered zero value.
 	//
-	//	message Request {
-	//	  // The uri rule applies only if the value is not the empty string.
-	//	  string foo = 1 [
-	//	    (buf.validate.field).string.uri = true,
-	//	    (buf.validate.field).ignore = IGNORE_IF_UNPOPULATED
-	//	  ];
+	// For fields that track presence (e.g. adding the `optional` label in proto3),
+	// this a no-op and behavior is the same as the default `IGNORE_UNSPECIFIED`.
+	Ignore_IGNORE_IF_ZERO_VALUE Ignore = 1
+	// Always ignore rules, including the `required` rule.
 	//
-	//	  // IGNORE_IF_UNPOPULATED is equivalent to IGNORE_UNSPECIFIED in this
-	//	  // case: the uri rule only applies if the field is set, including if
-	//	  // it's set to the empty string.
-	//	  optional string bar = 2 [
-	//	    (buf.validate.field).string.uri = true,
-	//	    (buf.validate.field).ignore = IGNORE_IF_UNPOPULATED
-	//	  ];
-	//
-	//	  // The min_items rule only applies if the list has at least one item.
-	//	  repeated string baz = 3 [
-	//	    (buf.validate.field).repeated.min_items = 3,
-	//	    (buf.validate.field).ignore = IGNORE_IF_UNPOPULATED
-	//	  ];
-	//
-	//	  // IGNORE_IF_UNPOPULATED is equivalent to IGNORE_UNSPECIFIED in this
-	//	  // case: the custom CEL rule applies only if the field is set, including
-	//	  // if it's the "zero" value of that message.
-	//	  SomeMessage quux = 4 [
-	//	    (buf.validate.field).cel = {/* ... */},
-	//	    (buf.validate.field).ignore = IGNORE_IF_UNPOPULATED
-	//	  ];
-	//	}
-	//
-	// ```
-	Ignore_IGNORE_IF_UNPOPULATED Ignore = 1
-	// Validation is skipped if the field is unpopulated or if it is a nullable
-	// field populated with its default value. This is typically the zero or
-	// empty value, but proto2 scalars support custom defaults. For messages, the
-	// default is a non-null message with all its fields unpopulated.
-	//
-	// ```proto
-	// syntax="proto3
-	//
-	//	message Request {
-	//	  // IGNORE_IF_DEFAULT_VALUE is equivalent to IGNORE_IF_UNPOPULATED in
-	//	  // this case; the uri rule applies only if the value is not the empty
-	//	  // string.
-	//	  string foo = 1 [
-	//	    (buf.validate.field).string.uri = true,
-	//	    (buf.validate.field).ignore = IGNORE_IF_DEFAULT_VALUE
-	//	  ];
-	//
-	//	  // The uri rule only applies if the field is set to a value other than
-	//	  // the empty string.
-	//	  optional string bar = 2 [
-	//	    (buf.validate.field).string.uri = true,
-	//	    (buf.validate.field).ignore = IGNORE_IF_DEFAULT_VALUE
-	//	  ];
-	//
-	//	  // IGNORE_IF_DEFAULT_VALUE is equivalent to IGNORE_IF_UNPOPULATED in
-	//	  // this case; the min_items rule only applies if the list has at least
-	//	  // one item.
-	//	  repeated string baz = 3 [
-	//	    (buf.validate.field).repeated.min_items = 3,
-	//	    (buf.validate.field).ignore = IGNORE_IF_DEFAULT_VALUE
-	//	  ];
-	//
-	//	  // The custom CEL rule only applies if the field is set to a value other
-	//	  // than an empty message (i.e., fields are unpopulated).
-	//	  SomeMessage quux = 4 [
-	//	    (buf.validate.field).cel = {/* ... */},
-	//	    (buf.validate.field).ignore = IGNORE_IF_DEFAULT_VALUE
-	//	  ];
-	//	}
-	//
-	// ```
-	//
-	// This rule is affected by proto2 custom default values:
-	//
-	// ```proto
-	// syntax="proto2";
-	//
-	//	message Request {
-	//	  // The gt rule only applies if the field is set and it's value is not
-	//	  the default (i.e., not -42). The rule even applies if the field is set
-	//	  to zero since the default value differs.
-	//	  optional int32 value = 1 [
-	//	    default = -42,
-	//	    (buf.validate.field).int32.gt = 0,
-	//	    (buf.validate.field).ignore = IGNORE_IF_DEFAULT_VALUE
-	//	  ];
-	//	}
-	Ignore_IGNORE_IF_DEFAULT_VALUE Ignore = 2
-	// The validation rules of this field will be skipped and not evaluated. This
-	// is useful for situations that necessitate turning off the rules of a field
-	// containing a message that may not make sense in the current context, or to
-	// temporarily disable rules during development.
+	// This is useful for ignoring the rules of a referenced message, or to
+	// temporarily ignore rules during development.
 	//
 	// ```proto
 	//
 	//	message MyMessage {
-	//	  // The field's rules will always be ignored, including any validation's
+	//	  // The field's rules will always be ignored, including any validations
 	//	  // on value's fields.
 	//	  MyOtherMessage value = 1 [
 	//	    (buf.validate.field).ignore = IGNORE_ALWAYS];
@@ -193,15 +135,13 @@ const (
 var (
 	Ignore_name = map[int32]string{
 		0: "IGNORE_UNSPECIFIED",
-		1: "IGNORE_IF_UNPOPULATED",
-		2: "IGNORE_IF_DEFAULT_VALUE",
+		1: "IGNORE_IF_ZERO_VALUE",
 		3: "IGNORE_ALWAYS",
 	}
 	Ignore_value = map[string]int32{
-		"IGNORE_UNSPECIFIED":      0,
-		"IGNORE_IF_UNPOPULATED":   1,
-		"IGNORE_IF_DEFAULT_VALUE": 2,
-		"IGNORE_ALWAYS":           3,
+		"IGNORE_UNSPECIFIED":   0,
+		"IGNORE_IF_ZERO_VALUE": 1,
+		"IGNORE_ALWAYS":        3,
 	}
 )
 
@@ -448,14 +388,11 @@ func (b0 Rule_builder) Build() *Rule {
 // MessageRules represents validation rules that are applied to the entire message.
 // It includes disabling options and a list of Rule messages representing Common Expression Language (CEL) validation rules.
 type MessageRules struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Disabled    bool                   `protobuf:"varint,1,opt,name=disabled"`
-	xxx_hidden_Cel         *[]*Rule               `protobuf:"bytes,3,rep,name=cel"`
-	xxx_hidden_Oneof       *[]*MessageOneofRule   `protobuf:"bytes,4,rep,name=oneof"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Cel   *[]*Rule               `protobuf:"bytes,3,rep,name=cel"`
+	xxx_hidden_Oneof *[]*MessageOneofRule   `protobuf:"bytes,4,rep,name=oneof"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *MessageRules) Reset() {
@@ -483,13 +420,6 @@ func (x *MessageRules) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *MessageRules) GetDisabled() bool {
-	if x != nil {
-		return x.xxx_hidden_Disabled
-	}
-	return false
-}
-
 func (x *MessageRules) GetCel() []*Rule {
 	if x != nil {
 		if x.xxx_hidden_Cel != nil {
@@ -508,11 +438,6 @@ func (x *MessageRules) GetOneof() []*MessageOneofRule {
 	return nil
 }
 
-func (x *MessageRules) SetDisabled(v bool) {
-	x.xxx_hidden_Disabled = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
-}
-
 func (x *MessageRules) SetCel(v []*Rule) {
 	x.xxx_hidden_Cel = &v
 }
@@ -521,33 +446,9 @@ func (x *MessageRules) SetOneof(v []*MessageOneofRule) {
 	x.xxx_hidden_Oneof = &v
 }
 
-func (x *MessageRules) HasDisabled() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *MessageRules) ClearDisabled() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Disabled = false
-}
-
 type MessageRules_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// `disabled` is a boolean flag that, when set to true, nullifies any validation rules for this message.
-	// This includes any fields within the message that would otherwise support validation.
-	//
-	// ```proto
-	//
-	//	message MyMessage {
-	//	  // validation will be bypassed for this message
-	//	  option (buf.validate.message).disabled = true;
-	//	}
-	//
-	// ```
-	Disabled *bool
 	// `cel` is a repeated field of type Rule. Each Rule specifies a validation rule to be applied to this message.
 	// These rules are written in Common Expression Language (CEL) syntax. For more information,
 	// [see our documentation](https://buf.build/docs/protovalidate/schemas/custom-rules/).
@@ -584,7 +485,7 @@ type MessageRules_builder struct {
 	//     silently ignored when unmarshalling, with only the last field being set when
 	//     unmarshalling completes.
 	//
-	// Note that adding a field to a `oneof` will also set the IGNORE_IF_UNPOPULATED on the fields. This means
+	// Note that adding a field to a `oneof` will also set the IGNORE_IF_ZERO_VALUE on the fields. This means
 	// only the field that is set will be validated and the unset fields are not validated according to the field rules.
 	// This behavior can be overridden by setting `ignore` against a field.
 	//
@@ -609,10 +510,6 @@ func (b0 MessageRules_builder) Build() *MessageRules {
 	m0 := &MessageRules{}
 	b, x := &b0, m0
 	_, _ = b, x
-	if b.Disabled != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
-		x.xxx_hidden_Disabled = *b.Disabled
-	}
 	x.xxx_hidden_Cel = &b.Cel
 	x.xxx_hidden_Oneof = &b.Oneof
 	return m0
@@ -774,9 +671,8 @@ func (x *OneofRules) ClearRequired() {
 type OneofRules_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// If `required` is true, exactly one field of the oneof must be present. A
-	// validation error is returned if no fields in the oneof are present. The
-	// field itself may still be a default value; further rules
+	// If `required` is true, exactly one field of the oneof must be set. A
+	// validation error is returned if no fields in the oneof are set. Further rules
 	// should be placed on the fields themselves to ensure they are valid values,
 	// such as `min_len` or `gt`.
 	//
@@ -1666,39 +1562,69 @@ type FieldRules_builder struct {
 	//
 	// ```
 	Cel []*Rule
-	// If `required` is true, the field must be populated. A populated field can be
-	// described as "serialized in the wire format," which includes:
-	//
-	// - the following "nullable" fields must be explicitly set to be considered populated:
-	//   - singular message fields (whose fields may be unpopulated/default values)
-	//   - member fields of a oneof (may be their default value)
-	//   - proto3 optional fields (may be their default value)
-	//   - proto2 scalar fields (both optional and required)
-	//
-	// - proto3 scalar fields must be non-zero to be considered populated
-	// - repeated and map fields must be non-empty to be considered populated
-	// - map keys/values and repeated items are always considered populated
+	// If `required` is true, the field must be set. A validation error is returned
+	// if the field is not set.
 	//
 	// ```proto
+	// syntax="proto3";
 	//
-	//	message MyMessage {
-	//	  // The field `value` must be set to a non-null value.
-	//	  optional MyOtherMessage value = 1 [(buf.validate.field).required = true];
+	//	message FieldsWithPresence {
+	//	  // Requires any string to be set, including the empty string.
+	//	  optional string link = 1 [
+	//	    (buf.validate.field).required = true
+	//	  ];
+	//	  // Requires true or false to be set.
+	//	  optional bool disabled = 2 [
+	//	    (buf.validate.field).required = true
+	//	  ];
+	//	  // Requires a message to be set, including the empty message.
+	//	  SomeMessage msg = 4 [
+	//	    (buf.validate.field).required = true
+	//	  ];
 	//	}
 	//
 	// ```
+	//
+	// All fields in the example above track presence. By default, Protovalidate
+	// ignores rules on those fields if no value is set. `required` ensures that
+	// the fields are set and valid.
+	//
+	// Fields that don't track presence are always validated by Protovalidate,
+	// whether they are set or not. It is not necessary to add `required`:
+	//
+	// ```proto
+	// syntax="proto3";
+	//
+	//	message FieldsWithoutPresence {
+	//	  // `string.email` always applies, even to an empty string.
+	//	  string link = 1 [
+	//	    (buf.validate.field).string.email = true
+	//	  ];
+	//	  // `repeated.min_items` always applies, even to an empty list.
+	//	  repeated string labels = 4 [
+	//	    (buf.validate.field).repeated.min_items = 1
+	//	  ];
+	//	}
+	//
+	// ```
+	//
+	// To learn which fields track presence, see the
+	// [Field Presence cheat sheet](https://protobuf.dev/programming-guides/field_presence/#cheat).
+	//
+	// Note: While field rules can be applied to repeated items, map keys, and map
+	// values, the elements are always considered to be set. Consequently,
+	// specifying `repeated.items.required` is redundant.
 	Required *bool
-	// Skip validation on the field if its value matches the specified criteria.
-	// See Ignore enum for details.
+	// Ignore validation rules on the field if its value matches the specified
+	// criteria. See the `Ignore` enum for details.
 	//
 	// ```proto
 	//
 	//	message UpdateRequest {
-	//	  // The uri rule only applies if the field is populated and not an empty
-	//	  // string.
-	//	  optional string url = 1 [
-	//	    (buf.validate.field).ignore = IGNORE_IF_DEFAULT_VALUE,
-	//	    (buf.validate.field).string.uri = true,
+	//	  // The uri rule only applies if the field is not an empty string.
+	//	  string url = 1 [
+	//	    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE,
+	//	    (buf.validate.field).string.uri = true
 	//	  ];
 	//	}
 	//
@@ -11795,10 +11721,7 @@ type RepeatedRules_builder struct {
 	Unique *bool
 	// `items` details the rules to be applied to each item
 	// in the field. Even for repeated message fields, validation is executed
-	// against each item unless skip is explicitly specified.
-	//
-	// Note that repeated items are always considered populated. The `required`
-	// rule does not apply.
+	// against each item unless `ignore` is specified.
 	//
 	// ```proto
 	//
@@ -11813,6 +11736,9 @@ type RepeatedRules_builder struct {
 	//	}
 	//
 	// ```
+	//
+	// Note that the `required` rule does not apply. Repeated items
+	// cannot be unset.
 	Items *FieldRules
 }
 
@@ -11996,9 +11922,6 @@ type MapRules_builder struct {
 	MaxPairs *uint64
 	// Specifies the rules to be applied to each key in the field.
 	//
-	// Note that map keys are always considered populated. The `required`
-	// rule does not apply.
-	//
 	// ```proto
 	//
 	//	message MyMap {
@@ -12012,13 +11935,12 @@ type MapRules_builder struct {
 	//	}
 	//
 	// ```
+	//
+	// Note that the `required` rule does not apply. Map keys cannot be unset.
 	Keys *FieldRules
 	// Specifies the rules to be applied to the value of each key in the
 	// field. Message values will still have their validations evaluated unless
-	// skip is specified here.
-	//
-	// Note that map values are always considered populated. The `required`
-	// rule does not apply.
+	// `ignore` is specified.
 	//
 	// ```proto
 	//
@@ -12033,6 +11955,7 @@ type MapRules_builder struct {
 	//	}
 	//
 	// ```
+	// Note that the `required` rule does not apply. Map values cannot be unset.
 	Values *FieldRules
 }
 
@@ -14343,11 +14266,10 @@ const file_buf_validate_validate_proto_rawDesc = "" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1e\n" +
 	"\n" +
 	"expression\x18\x03 \x01(\tR\n" +
-	"expression\"\x86\x01\n" +
-	"\fMessageRules\x12\x1a\n" +
-	"\bdisabled\x18\x01 \x01(\bR\bdisabled\x12$\n" +
+	"expression\"z\n" +
+	"\fMessageRules\x12$\n" +
 	"\x03cel\x18\x03 \x03(\v2\x12.buf.validate.RuleR\x03cel\x124\n" +
-	"\x05oneof\x18\x04 \x03(\v2\x1e.buf.validate.MessageOneofRuleR\x05oneof\"F\n" +
+	"\x05oneof\x18\x04 \x03(\v2\x1e.buf.validate.MessageOneofRuleR\x05oneofJ\x04\b\x01\x10\x02R\bdisabled\"F\n" +
 	"\x10MessageOneofRule\x12\x16\n" +
 	"\x06fields\x18\x01 \x03(\tR\x06fields\x12\x1a\n" +
 	"\brequired\x18\x02 \x01(\bR\brequired\"(\n" +
@@ -14381,9 +14303,9 @@ const file_buf_validate_validate_proto_rawDesc = "" +
 	"\x03any\x18\x14 \x01(\v2\x16.buf.validate.AnyRulesH\x00R\x03any\x129\n" +
 	"\bduration\x18\x15 \x01(\v2\x1b.buf.validate.DurationRulesH\x00R\bduration\x12<\n" +
 	"\ttimestamp\x18\x16 \x01(\v2\x1c.buf.validate.TimestampRulesH\x00R\ttimestampB\x06\n" +
-	"\x04typeJ\x04\b\x18\x10\x19J\x04\b\x1a\x10\x1bR\askippedR\fignore_empty\"X\n" +
+	"\x04typeJ\x04\b\x18\x10\x19J\x04\b\x1a\x10\x1bR\askippedR\fignore_empty\"Z\n" +
 	"\x0fPredefinedRules\x12$\n" +
-	"\x03cel\x18\x01 \x03(\v2\x12.buf.validate.RuleR\x03celJ\x04\b\x18\x10\x19J\x04\b\x1a\x10\x1bR\x13skippedignore_empty\"\x90\x18\n" +
+	"\x03cel\x18\x01 \x03(\v2\x12.buf.validate.RuleR\x03celJ\x04\b\x18\x10\x19J\x04\b\x1a\x10\x1bR\askippedR\fignore_empty\"\x90\x18\n" +
 	"\n" +
 	"FloatRules\x12\x8a\x01\n" +
 	"\x05const\x18\x01 \x01(\x02Bt\xc2Hq\n" +
@@ -15290,12 +15212,11 @@ const file_buf_validate_validate_proto_rawDesc = "" +
 	"\n" +
 	"string_key\x18\n" +
 	" \x01(\tH\x00R\tstringKeyB\v\n" +
-	"\tsubscript*\x87\x01\n" +
+	"\tsubscript*\xa1\x01\n" +
 	"\x06Ignore\x12\x16\n" +
-	"\x12IGNORE_UNSPECIFIED\x10\x00\x12\x19\n" +
-	"\x15IGNORE_IF_UNPOPULATED\x10\x01\x12\x1b\n" +
-	"\x17IGNORE_IF_DEFAULT_VALUE\x10\x02\x12\x11\n" +
-	"\rIGNORE_ALWAYS\x10\x03*\x1aIGNORE_EMPTYIGNORE_DEFAULT*n\n" +
+	"\x12IGNORE_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14IGNORE_IF_ZERO_VALUE\x10\x01\x12\x11\n" +
+	"\rIGNORE_ALWAYS\x10\x03\"\x04\b\x02\x10\x02*\fIGNORE_EMPTY*\x0eIGNORE_DEFAULT*\x17IGNORE_IF_DEFAULT_VALUE*\x15IGNORE_IF_UNPOPULATED*n\n" +
 	"\n" +
 	"KnownRegex\x12\x1b\n" +
 	"\x17KNOWN_REGEX_UNSPECIFIED\x10\x00\x12 \n" +
