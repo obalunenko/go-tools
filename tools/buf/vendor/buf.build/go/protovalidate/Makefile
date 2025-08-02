@@ -7,7 +7,7 @@ MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 MAKEFLAGS += --no-print-directory
 BIN := .tmp/bin
-COPYRIGHT_YEARS := 2023-2024
+COPYRIGHT_YEARS := 2023-2025
 LICENSE_IGNORE := -e internal/testdata/
 # Set to use a different compiler. For example, `GO=go1.18rc1 make test`.
 GO ?= go
@@ -16,7 +16,7 @@ GOLANGCI_LINT_VERSION ?= v2.1.2
 # Set to use a different version of protovalidate-conformance.
 # Should be kept in sync with the version referenced in buf.yaml and
 # 'buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go' in go.mod.
-CONFORMANCE_VERSION ?= v0.13.3
+CONFORMANCE_VERSION ?= v0.14.0
 
 .PHONY: help
 help: ## Describe useful make targets
@@ -62,7 +62,7 @@ generate: generate-proto generate-license ## Regenerate code and license headers
 .PHONY: generate-proto
 generate-proto: $(BIN)/buf
 	rm -rf internal/gen/*/
-	$(BIN)/buf generate buf.build/bufbuild/protovalidate-testing:$(CONFORMANCE_VERSION)
+	$(BIN)/buf generate https://github.com/bufbuild/protovalidate.git#branch=next,subdir=proto/protovalidate-testing
 	$(BIN)/buf generate
 
 .PHONY: generate-license

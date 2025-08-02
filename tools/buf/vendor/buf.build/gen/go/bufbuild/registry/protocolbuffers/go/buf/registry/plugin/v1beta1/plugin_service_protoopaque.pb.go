@@ -1147,9 +1147,9 @@ const file_buf_registry_plugin_v1beta1_plugin_service_proto_rawDesc = "" +
 	"source_url\x18\x05 \x01(\tB\x0e\xbaH\v\xd8\x01\x01r\x06\x18\xff\x01\x88\x01\x01R\tsourceUrl\x12H\n" +
 	"\x04type\x18\x06 \x01(\x0e2'.buf.registry.plugin.v1beta1.PluginTypeB\v\xbaH\b\xc8\x01\x01\x82\x01\x02\x10\x01R\x04type\"`\n" +
 	"\x15CreatePluginsResponse\x12G\n" +
-	"\aplugins\x18\x01 \x03(\v2#.buf.registry.plugin.v1beta1.PluginB\b\xbaH\x05\x92\x01\x02\b\x01R\aplugins\"\x9b\x04\n" +
+	"\aplugins\x18\x01 \x03(\v2#.buf.registry.plugin.v1beta1.PluginB\b\xbaH\x05\x92\x01\x02\b\x01R\aplugins\"\xdd\x04\n" +
 	"\x14UpdatePluginsRequest\x12\\\n" +
-	"\x06values\x18\x01 \x03(\v27.buf.registry.plugin.v1beta1.UpdatePluginsRequest.ValueB\v\xbaH\b\x92\x01\x05\b\x01\x10\xfa\x01R\x06values\x1a\xa4\x03\n" +
+	"\x06values\x18\x01 \x03(\v27.buf.registry.plugin.v1beta1.UpdatePluginsRequest.ValueB\v\xbaH\b\x92\x01\x05\b\x01\x10\xfa\x01R\x06values\x1a\xe6\x03\n" +
 	"\x05Value\x12M\n" +
 	"\n" +
 	"plugin_ref\x18\x01 \x01(\v2&.buf.registry.plugin.v1beta1.PluginRefB\x06\xbaH\x03\xc8\x01\x01R\tpluginRef\x12^\n" +
@@ -1159,9 +1159,10 @@ const file_buf_registry_plugin_v1beta1_plugin_service_proto_rawDesc = "" +
 	"visibility\x88\x01\x01\x12O\n" +
 	"\x05state\x18\x03 \x01(\x0e2(.buf.registry.plugin.v1beta1.PluginStateB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00H\x01R\x05state\x88\x01\x01\x12/\n" +
-	"\vdescription\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\xde\x02H\x02R\vdescription\x88\x01\x01\x122\n" +
+	"\vdescription\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\xde\x02H\x02R\vdescription\x88\x01\x01\x12t\n" +
 	"\n" +
-	"source_url\x18\x05 \x01(\tB\x0e\xbaH\v\xd8\x01\x02r\x06\x18\xff\x01\x88\x01\x01H\x03R\tsourceUrl\x88\x01\x01B\r\n" +
+	"source_url\x18\x05 \x01(\tBP\xbaHM\xba\x01E\n" +
+	"\furi_or_empty\x12\x19value must be a valid URI\x1a\x1athis == '' || this.isUri()r\x03\x18\xff\x01H\x03R\tsourceUrl\x88\x01\x01B\r\n" +
 	"\v_visibilityB\b\n" +
 	"\x06_stateB\x0e\n" +
 	"\f_descriptionB\r\n" +
