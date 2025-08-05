@@ -2,7 +2,7 @@ module go-enum
 
 go 1.24
 
-require github.com/abice/go-enum v0.9.0
+require github.com/abice/go-enum v0.9.1
 
 require (
 	dario.cat/mergo v1.0.1 // indirect
@@ -31,7 +31,7 @@ require (
 	golang.org/x/mod v0.26.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
 	golang.org/x/tools v0.35.0 // indirect
 	golang.org/x/tools/cmd/cover v0.1.0-deprecated // indirect
 )
