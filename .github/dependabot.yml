@@ -20,6 +20,9 @@ updates:
       - /tools/goveralls
       - /tools/govulncheck
       - /tools/pkgsite
+      - /tools/gowrap
+      - /tools/mockery
+      - /tools/mockgen
       - /tools/stringer
       - /tools/svu
       - /tools/swag
