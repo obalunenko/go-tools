@@ -15,7 +15,10 @@ on:
       - "**/tools.go"
       - "**/**/go.mod"
       - "**/**/go.sum"
-      - "**/**/vendor/**"
+      - "**/tools.go"
+      - "**/go.mod"
+      - "**/go.sum"
+      - "**/vendor/**"
       - "scripts"
       - ".github/**/**"
 
