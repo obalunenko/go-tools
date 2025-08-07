@@ -12,7 +12,7 @@ on:
       - "!**"
       - "Dockerfile"
       - "docker-bake.hcl"
-      - "**/**/tools.go"
+      - "**/tools.go"
       - "**/**/go.mod"
       - "**/**/go.sum"
       - "**/**/vendor/**"
