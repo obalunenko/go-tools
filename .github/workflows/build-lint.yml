@@ -16,7 +16,6 @@ on:
       - "**/**/go.mod"
       - "**/go.sum"
       - "**/tools.go"
-      - "**/go.mod"
       - "**/go.sum"
       - "**/vendor/**"
       - "scripts"
