@@ -14,7 +14,7 @@ on:
       - "docker-bake.hcl"
       - "**/tools.go"
       - "**/**/go.mod"
-      - "**/**/go.sum"
+      - "**/go.sum"
       - "**/tools.go"
       - "**/go.mod"
       - "**/go.sum"
