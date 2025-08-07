@@ -12,12 +12,10 @@ on:
       - "!**"
       - "Dockerfile"
       - "docker-bake.hcl"
-      - "tools.go"
-      - "go.mod"
-      - "go.sum"
-      - "vendor/**"
-      - "scripts"
+      - "tools/**/**"
+      - "scripts/**/**"
       - ".github/**/**"
+      - "Makefile"
 
 jobs:
   lint-dockerfiles:
