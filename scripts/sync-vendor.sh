@@ -7,6 +7,7 @@ SCRIPT_NAME="$(basename "$0")"
 SCRIPT_DIR="$(dirname "$0")"
 REPO_ROOT="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
 TOOLS_DIR="${REPO_ROOT}/tools"
+GO_VERSION=$(go version | awk '{print $3}' | cut -d. -f1-2)
 
 echo "${SCRIPT_NAME} is running..."
 
@@ -14,7 +15,7 @@ echo "${SCRIPT_NAME} is running..."
 sync_vendor() {
   echo "Syncing vendor..."
   rm -rf ./vendor
-  go mod tidy
+  go mod tidy -go=${GO_VERSION}
   go mod vendor
 }
 
