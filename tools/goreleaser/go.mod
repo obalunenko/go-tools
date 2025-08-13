@@ -1,6 +1,6 @@
 module goreleaser
 
-go 1.24.0
+go 1.25
 
 require github.com/goreleaser/goreleaser/v2 v2.11.2
 

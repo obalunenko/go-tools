@@ -1,6 +1,6 @@
 module go-enum
 
-go 1.24
+go 1.25
 
 require github.com/abice/go-enum v0.9.1
 
