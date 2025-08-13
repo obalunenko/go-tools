@@ -1,6 +1,6 @@
 module tparse
 
-go 1.25
+go 1.25.0
 
 require github.com/mfridman/tparse v0.17.0
 

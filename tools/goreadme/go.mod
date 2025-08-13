@@ -1,6 +1,6 @@
 module goreadme
 
-go 1.25
+go 1.25.0
 
 require github.com/posener/goreadme v1.4.2
 

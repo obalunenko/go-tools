@@ -7,7 +7,7 @@ SCRIPT_NAME="$(basename "$0")"
 SCRIPT_DIR="$(dirname "$0")"
 REPO_ROOT="$(cd "${SCRIPT_DIR}" && git rev-parse --show-toplevel)"
 TOOLS_DIR="${REPO_ROOT}/tools"
-GO_VERSION=$(go version | sed -E 's/.*go([0-9]+\.[0-9]+)\.[0-9]+.*/\1/')
+GO_VERSION=$(go version | sed -E 's/.*go([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
 
 echo "${SCRIPT_NAME} is running..."
 

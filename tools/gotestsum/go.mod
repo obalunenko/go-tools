@@ -1,6 +1,6 @@
 module gotestsum
 
-go 1.25
+go 1.25.0
 
 require gotest.tools/gotestsum v1.12.3
 
