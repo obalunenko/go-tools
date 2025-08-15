@@ -82,7 +82,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install GoReleaser
-        uses: goreleaser/goreleaser-action@v6.3.0
+        uses: goreleaser/goreleaser-action@v6.4.0
         with:
           install-only: true
 
