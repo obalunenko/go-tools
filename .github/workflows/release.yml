@@ -52,7 +52,7 @@ jobs:
             type=sha
 
       - name: Build and push Docker images
-        uses: docker/bake-action@v6.8.0
+        uses: docker/bake-action@v6.9.0
         env:
           TAGS: ${{ steps.meta.outputs.bake-file-tags }}
           LABELS: ${{ steps.meta.outputs.bake-file-labels }}
