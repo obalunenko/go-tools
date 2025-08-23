@@ -2,7 +2,7 @@ module gowrap
 
 go 1.25.0
 
-require github.com/hexdigest/gowrap v1.4.2
+require github.com/hexdigest/gowrap v1.4.3
 
 require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
@@ -16,9 +16,9 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
-	golang.org/x/mod v0.17.0 // indirect
-	golang.org/x/sync v0.10.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
-	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
+	golang.org/x/crypto v0.35.0 // indirect
+	golang.org/x/mod v0.27.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/tools v0.36.0 // indirect
 )

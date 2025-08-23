@@ -3,13 +3,12 @@ package generator
 import (
 	"bytes"
 	"fmt"
-	"path/filepath"
-	"sort"
-	"strings"
-
 	"go/ast"
 	"go/token"
 	"io"
+	"path/filepath"
+	"sort"
+	"strings"
 	"text/template"
 
 	"github.com/pkg/errors"
@@ -106,6 +105,9 @@ type Options struct {
 	//SourcePackage is an import path or a relative path of the package that contains the source interface
 	SourcePackage string
 
+	//SourcePackageInstance is the already loaded package (optional)
+	SourcePackageInstance *packages.Package
+
 	//SourcePackageAlias is an import selector defauls is source package name
 	SourcePackageAlias string
 
@@ -137,7 +139,7 @@ type methodsList map[string]Method
 type processInput struct {
 	fileSet        *token.FileSet
 	currentPackage *packages.Package
-	astPackage     *ast.Package
+	astPackage     *pkg.Package
 	targetName     string
 	genericParams  genericParams
 }
@@ -181,9 +183,15 @@ func NewGenerator(options Options) (*Generator, error) {
 
 	fs := token.NewFileSet()
 
-	srcPackage, err := pkg.Load(options.SourcePackage)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to load source package")
+	var srcPackage *packages.Package
+	// Use the preloaded package if available, only load if not
+	if options.SourcePackageInstance != nil {
+		srcPackage = options.SourcePackageInstance
+	} else {
+		srcPackage, err = pkg.Load(options.SourcePackage)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load source package")
+		}
 	}
 
 	dstPackagePath := filepath.Dir(options.OutputFile)
@@ -427,7 +435,7 @@ func findSourcePackage(ident *ast.Ident, imports []*ast.ImportSpec) string {
 	return ""
 }
 
-func iterateFiles(p *ast.Package, name string) (selectedType *ast.TypeSpec, imports []*ast.ImportSpec, types []*ast.TypeSpec) {
+func iterateFiles(p *pkg.Package, name string) (selectedType *ast.TypeSpec, imports []*ast.ImportSpec, types []*ast.TypeSpec) {
 	for _, f := range p.Files {
 		if f != nil {
 			for _, ts := range typeSpecs(f) {
@@ -444,7 +452,7 @@ func iterateFiles(p *ast.Package, name string) (selectedType *ast.TypeSpec, impo
 }
 
 func typeSpecs(f *ast.File) []*ast.TypeSpec {
-	result := []*ast.TypeSpec{}
+	var result []*ast.TypeSpec
 
 	for _, decl := range f.Decls {
 		if gd, ok := decl.(*ast.GenDecl); ok && gd.Tok == token.TYPE {
@@ -459,7 +467,7 @@ func typeSpecs(f *ast.File) []*ast.TypeSpec {
 	return result
 }
 
-func getEmbeddedMethods(t ast.Expr, pr typePrinter, input targetProcessInput) (param genericParam, methods methodsList, err error) {
+func getEmbeddedMethods(t ast.Expr, pr typePrinter, input targetProcessInput, checkInterface bool) (param genericParam, methods methodsList, err error) {
 	param.Name, err = pr.PrintType(t)
 	if err != nil {
 		return
@@ -471,13 +479,13 @@ func getEmbeddedMethods(t ast.Expr, pr typePrinter, input targetProcessInput) (p
 		return
 
 	case *ast.Ident:
-		methods, err = processIdent(v, input)
+		methods, err = processIdent(v, input, checkInterface)
 		return
 	}
 	return
 }
 
-func processEmbedded(t ast.Expr, pr typePrinter, input targetProcessInput) (genericParam genericParam, embeddedMethods methodsList, err error) {
+func processEmbedded(t ast.Expr, pr typePrinter, input targetProcessInput, checkInterface bool) (genericParam genericParam, embeddedMethods methodsList, err error) {
 	var x ast.Expr
 	var hasGenericsParams bool
 	var genericParams genericParams
@@ -486,8 +494,12 @@ func processEmbedded(t ast.Expr, pr typePrinter, input targetProcessInput) (gene
 	case *ast.IndexExpr:
 		x = v.X
 		hasGenericsParams = true
-
-		genericParam, _, err = processEmbedded(v.Index, pr, input)
+		//	Don't check if embedded interface's generic params are also interfaces, e.g. given the interface:
+		//		type SomeInterface {
+		//	      EmbeddedGenericInterface[Bar]
+		//		}
+		//	we won't be checking if Bar is also an interface
+		genericParam, _, err = processEmbedded(v.Index, pr, input, false)
 		if err != nil {
 			return
 		}
@@ -501,7 +513,12 @@ func processEmbedded(t ast.Expr, pr typePrinter, input targetProcessInput) (gene
 
 		if v.Indices != nil {
 			for _, index := range v.Indices {
-				genericParam, _, err = processEmbedded(index, pr, input)
+				//	Don't check if embedded interface's generic params are also interfaces, e.g. given the interface:
+				//		type SomeInterface {
+				//	      EmbeddedGenericInterface[Bar]
+				//		}
+				//	we won't be checking if Bar is also an interface
+				genericParam, _, err = processEmbedded(index, pr, input, false)
 				if err != nil {
 					return
 				}
@@ -515,7 +532,7 @@ func processEmbedded(t ast.Expr, pr typePrinter, input targetProcessInput) (gene
 	}
 
 	input.genericParams = genericParams
-	genericParam, embeddedMethods, err = getEmbeddedMethods(x, pr, input)
+	genericParam, embeddedMethods, err = getEmbeddedMethods(x, pr, input, checkInterface)
 	if err != nil {
 		return
 	}
@@ -551,7 +568,7 @@ func processInterface(it *ast.InterfaceType, targetInput targetProcessInput) (me
 			}
 
 		default:
-			_, embeddedMethods, err = processEmbedded(v, pr, targetInput)
+			_, embeddedMethods, err = processEmbedded(v, pr, targetInput, true)
 		}
 
 		if err != nil {
@@ -618,19 +635,23 @@ func mergeMethods(methods, embeddedMethods methodsList) (methodsList, error) {
 
 var errNotAnInterface = errors.New("embedded type is not an interface")
 
-func processIdent(i *ast.Ident, input targetProcessInput) (methodsList, error) {
+func processIdent(i *ast.Ident, input targetProcessInput, checkInterface bool) (methodsList, error) {
 	var embeddedInterface *ast.InterfaceType
 	var genericsTypes genericTypes
 	for _, t := range input.types {
 		if t.Name.Name == i.Name {
 			var ok bool
 			embeddedInterface, ok = t.Type.(*ast.InterfaceType)
-			if !ok {
-				return nil, errors.Wrap(errNotAnInterface, t.Name.Name)
+			if ok {
+				genericsTypes = buildGenericTypesFromSpec(t, input.types, input.typesPrefix)
+				break
 			}
 
-			genericsTypes = buildGenericTypesFromSpec(t, input.types, input.typesPrefix)
-			break
+			if !checkInterface {
+				break
+			}
+
+			return nil, errors.Wrap(errNotAnInterface, t.Name.Name)
 		}
 	}
 
