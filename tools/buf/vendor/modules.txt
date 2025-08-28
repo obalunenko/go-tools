@@ -1,29 +1,29 @@
-# buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go v1.36.6-20250718181942-e35f9b667443.1
-## explicit; go 1.22
+# buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go v1.36.8-20250718181942-e35f9b667443.1
+## explicit; go 1.23
 buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go/buf/plugin/check/v1
 buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go/buf/plugin/descriptor/v1
 buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go/buf/plugin/info/v1
 buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go/buf/plugin/option/v1
-# buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250717185734-6c6e0d3c608e.1
-## explicit; go 1.22
+# buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.8-20250717185734-6c6e0d3c608e.1
+## explicit; go 1.23
 buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate
-# buf.build/gen/go/bufbuild/registry/connectrpc/go v1.18.1-20250721151928-2b7ae473b098.1
+# buf.build/gen/go/bufbuild/registry/connectrpc/go v1.18.1-20250819211657-a3dd0d3ea69b.1
 ## explicit; go 1.21
 buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1/modulev1connect
 buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/module/v1beta1/modulev1beta1connect
 buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/owner/v1/ownerv1connect
 buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/plugin/v1beta1/pluginv1beta1connect
 buf.build/gen/go/bufbuild/registry/connectrpc/go/buf/registry/policy/v1beta1/policyv1beta1connect
-# buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.36.6-20250721151928-2b7ae473b098.1
-## explicit; go 1.22
+# buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.36.8-20250819211657-a3dd0d3ea69b.1
+## explicit; go 1.23
 buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1
 buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/module/v1beta1
 buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/owner/v1
 buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/plugin/v1beta1
 buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/policy/v1beta1
 buf.build/gen/go/bufbuild/registry/protocolbuffers/go/buf/registry/priv/extension/v1beta1
-# buf.build/gen/go/pluginrpc/pluginrpc/protocolbuffers/go v1.36.6-20241007202033-cf42259fcbfc.1
-## explicit; go 1.22
+# buf.build/gen/go/pluginrpc/pluginrpc/protocolbuffers/go v1.36.8-20241007202033-cf42259fcbfc.1
+## explicit; go 1.23
 buf.build/gen/go/pluginrpc/pluginrpc/protocolbuffers/go/pluginrpc/v1
 # buf.build/go/app v0.1.0
 ## explicit; go 1.23.0
@@ -87,8 +87,8 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/antlr4-go/antlr/v4 v4.13.1
 ## explicit; go 1.22
 github.com/antlr4-go/antlr/v4
-# github.com/bufbuild/buf v1.56.0
-## explicit; go 1.24
+# github.com/bufbuild/buf v1.57.0
+## explicit; go 1.24.0
 github.com/bufbuild/buf/cmd/buf
 github.com/bufbuild/buf/private/buf/bufapp
 github.com/bufbuild/buf/private/buf/bufcli
@@ -151,6 +151,9 @@ github.com/bufbuild/buf/private/buf/cmd/buf/command/mod/modopen
 github.com/bufbuild/buf/private/buf/cmd/buf/command/plugin/pluginprune
 github.com/bufbuild/buf/private/buf/cmd/buf/command/plugin/pluginpush
 github.com/bufbuild/buf/private/buf/cmd/buf/command/plugin/pluginupdate
+github.com/bufbuild/buf/private/buf/cmd/buf/command/policy/policyprune
+github.com/bufbuild/buf/private/buf/cmd/buf/command/policy/policypush
+github.com/bufbuild/buf/private/buf/cmd/buf/command/policy/policyupdate
 github.com/bufbuild/buf/private/buf/cmd/buf/command/push
 github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/module/modulecommit/modulecommitaddlabel
 github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/module/modulecommit/modulecommitinfo
@@ -182,6 +185,18 @@ github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/plugin/pluginlabel/
 github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/plugin/pluginlabel/pluginlabellist
 github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/plugin/pluginlabel/pluginlabelunarchive
 github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/plugin/pluginsettings/pluginsettingsupdate
+github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/policy/policycommit/policycommitaddlabel
+github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/policy/policycommit/policycommitinfo
+github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/policy/policycommit/policycommitlist
+github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/policy/policycommit/policycommitresolve
+github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/policy/policycreate
+github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/policy/policydelete
+github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/policy/policyinfo
+github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/policy/policylabel/policylabelarchive
+github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/policy/policylabel/policylabelinfo
+github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/policy/policylabel/policylabellist
+github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/policy/policylabel/policylabelunarchive
+github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/policy/policysettings/policysettingsupdate
 github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/registrycc
 github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/registrylogin
 github.com/bufbuild/buf/private/buf/cmd/buf/command/registry/registrylogout
@@ -365,7 +380,7 @@ github.com/docker/docker/pkg/stringid
 ## explicit; go 1.21
 github.com/docker/docker-credential-helpers/client
 github.com/docker/docker-credential-helpers/credentials
-# github.com/docker/go-connections v0.5.0
+# github.com/docker/go-connections v0.6.0
 ## explicit; go 1.18
 github.com/docker/go-connections/nat
 github.com/docker/go-connections/sockets
@@ -645,8 +660,8 @@ go.opentelemetry.io/otel/trace
 go.opentelemetry.io/otel/trace/embedded
 go.opentelemetry.io/otel/trace/internal/telemetry
 go.opentelemetry.io/otel/trace/noop
-# go.uber.org/mock v0.5.2
-## explicit; go 1.23
+# go.uber.org/mock v0.6.0
+## explicit; go 1.23.0
 go.uber.org/mock/mockgen
 go.uber.org/mock/mockgen/model
 # go.uber.org/multierr v1.11.0
@@ -663,7 +678,7 @@ go.uber.org/zap/internal/exit
 go.uber.org/zap/internal/pool
 go.uber.org/zap/internal/stacktrace
 go.uber.org/zap/zapcore
-# golang.org/x/crypto v0.40.0
+# golang.org/x/crypto v0.41.0
 ## explicit; go 1.23.0
 golang.org/x/crypto/chacha20
 golang.org/x/crypto/chacha20poly1305
@@ -671,16 +686,16 @@ golang.org/x/crypto/hkdf
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
 golang.org/x/crypto/sha3
-# golang.org/x/exp v0.0.0-20250718183923-645b1fa84792
-## explicit; go 1.23.0
+# golang.org/x/exp v0.0.0-20250819193227-8b4c13bb791b
+## explicit; go 1.24.0
 golang.org/x/exp/slices
-# golang.org/x/mod v0.26.0
+# golang.org/x/mod v0.27.0
 ## explicit; go 1.23.0
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/modfile
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.42.0
+# golang.org/x/net v0.43.0
 ## explicit; go 1.23.0
 golang.org/x/net/bpf
 golang.org/x/net/http/httpguts
@@ -697,16 +712,16 @@ golang.org/x/net/ipv6
 ## explicit; go 1.23.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.34.0
+# golang.org/x/sys v0.35.0
 ## explicit; go 1.23.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.33.0
+# golang.org/x/term v0.34.0
 ## explicit; go 1.23.0
 golang.org/x/term
-# golang.org/x/text v0.27.0
+# golang.org/x/text v0.28.0
 ## explicit; go 1.23.0
 golang.org/x/text/feature/plural
 golang.org/x/text/internal
@@ -726,7 +741,7 @@ golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 # golang.org/x/time v0.6.0
 ## explicit; go 1.18
-# golang.org/x/tools v0.35.0
+# golang.org/x/tools v0.36.0
 ## explicit; go 1.23.0
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/gcexportdata
@@ -750,14 +765,14 @@ golang.org/x/tools/internal/stdlib
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
-# google.golang.org/genproto/googleapis/api v0.0.0-20250728155136-f173205681a0
-## explicit; go 1.23.0
+# google.golang.org/genproto/googleapis/api v0.0.0-20250826171959-ef028d996bc1
+## explicit; go 1.24.0
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20250728155136-f173205681a0
-## explicit; go 1.23.0
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20250826171959-ef028d996bc1
+## explicit; go 1.24.0
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/protobuf v1.36.6
-## explicit; go 1.22
+# google.golang.org/protobuf v1.36.8
+## explicit; go 1.23
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
