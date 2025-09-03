@@ -7,7 +7,7 @@
 Enforce a stricter format than `gofmt`, while being backwards compatible.
 That is, `gofumpt` is happy with a subset of the formats that `gofmt` is happy with.
 
-The tool is a fork of `gofmt` as of Go 1.24.0, and requires Go 1.23 or later.
+The tool is a fork of `gofmt` as of Go 1.25.0, and requires Go 1.24 or later.
 It can be used as a drop-in replacement to format your Go code,
 and running `gofmt` after `gofumpt` should produce no changes.
 For example:
@@ -15,13 +15,16 @@ For example:
 	gofumpt -l -w .
 
 Some of the Go source files in this repository belong to the Go project.
-The project includes copies of `go/printer` and `go/doc/comment` as of Go 1.24.0
+The project includes copies of `go/printer` and `go/doc/comment` as of Go 1.25.0
 to ensure consistent formatting independent of what Go version is being used.
 The [added formatting rules](#Added-rules) are implemented in the `format` package.
 
 `vendor` and `testdata` directories are skipped unless given as explicit arguments.
 Similarly, the added rules do not apply to generated Go files unless they are
 given as explicit arguments.
+
+[`ignore` directives](https://go.dev/ref/mod#go-mod-file-ignore) in `go.mod` files are obeyed as well,
+unless directories or files within them are given as explicit arguments.
 
 Finally, note that the `-r` rewrite flag is removed in favor of `gofmt -r`,
 and the `-s` flag is hidden as it is always enabled.
@@ -435,7 +438,25 @@ type ZeroFields struct {
 
 </details>
 
-#### Extra rules behind `-extra`
+**Avoid naked returns for the sake of clarity**
+
+<details><summary><i>Example</i></summary>
+
+```go
+func Foo() (err error) {
+	return
+}
+```
+
+```go
+func Foo() (err error) {
+	return err
+}
+```
+
+</details>
+
+### Extra rules behind `-extra`
 
 **Adjacent parameters with the same type should be grouped together**
 
@@ -582,6 +603,19 @@ including setting `lsp_format_on_save` to `true`.
 			"gofumpt": true,
 		}
 	}
+}
+```
+
+### Zed
+For `gofumpt` to be used in Zed, you need to set the `gofumpt` option in the LSP settings. This is done by providing the `"gofumpt": true` in `initialization_options`.
+
+```json
+"lsp": {
+  "gopls": {
+    "initialization_options": {
+      "gofumpt": true
+    }
+  }
 }
 ```
 

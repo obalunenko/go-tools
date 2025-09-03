@@ -7,7 +7,7 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -17,7 +17,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -25,6 +24,7 @@ import (
 	"strings"
 	"sync"
 
+	"golang.org/x/mod/modfile"
 	"golang.org/x/sync/semaphore"
 
 	gformat "mvdan.cc/gofumpt/format"
@@ -108,10 +108,8 @@ func initParserMode() {
 	}
 }
 
-func isGoFile(f fs.DirEntry) bool {
-	// ignore non-Go files
-	name := f.Name()
-	return !strings.HasPrefix(name, ".") && strings.HasSuffix(name, ".go") && !f.IsDir()
+func isGoFilename(name string) bool {
+	return !strings.HasPrefix(name, ".") && strings.HasSuffix(name, ".go")
 }
 
 var rxCodeGenerated = regexp.MustCompile(`^// Code generated .* DO NOT EDIT\.$`)
@@ -302,20 +300,22 @@ func processFile(filename string, info fs.FileInfo, in io.Reader, r *reporter, e
 	lang := *langVersion
 	modpath := *modulePath
 	if lang == "" || modpath == "" {
-		dir := filepath.Dir(filename)
-		mod, ok := moduleCacheByDir.Load(dir)
-		if ok && mod != nil {
-			mod := mod.(*module)
-			if mod.Go == "" {
-				// If the go directive is missing, go 1.16 is assumed.
-				// https://go.dev/ref/mod#go-mod-file-go
-				mod.Go = "1.16"
-			}
+		path, err := filepath.Abs(filename)
+		if err != nil {
+			return err
+		}
+		if mod := loadModule(filepath.Dir(path)); mod != nil {
 			if lang == "" {
-				lang = "go" + mod.Go
+				if mod.file.Go == nil {
+					// If the go directive is missing, go 1.16 is assumed.
+					// https://go.dev/ref/mod#go-mod-file-go
+					lang = "go1.16"
+				} else {
+					lang = "go" + mod.file.Go.Version
+				}
 			}
 			if modpath == "" {
-				modpath = mod.Module.Path
+				modpath = mod.file.Module.Mod.Path
 			}
 		}
 	}
@@ -511,86 +511,140 @@ func gofmtMain(s *sequencer) {
 	}
 
 	for _, arg := range args {
-		switch info, err := os.Stat(arg); {
-		case err != nil:
-			s.AddReport(err)
-		case !info.IsDir():
-			// Non-directory arguments are always formatted.
-			arg := arg
-			s.Add(fileWeight(arg, info), func(r *reporter) error {
-				return processFile(arg, info, nil, r, true)
-			})
-		default:
-			// Directories are walked, ignoring non-Go files.
-			err := filepath.WalkDir(arg, func(path string, f fs.DirEntry, err error) error {
-				// vendor and testdata directories are skipped,
-				// unless they are explicitly passed as an argument.
-				base := filepath.Base(path)
-				if path != arg && (base == "vendor" || base == "testdata") {
+		// Walk each given argument as a directory tree.
+		// If the argument is not a directory, it's always formatted as a Go file.
+		// If the argument is a directory, we walk it, ignoring non-Go files.
+		arg = filepath.Clean(arg) // ensure consistency
+		if err := filepath.WalkDir(arg, func(path string, d fs.DirEntry, err error) error {
+			explicit := path == arg
+			switch {
+			case err != nil:
+				return err
+			case d.IsDir():
+				if !explicit && shouldIgnore(path) {
 					return filepath.SkipDir
 				}
-
-				if err != nil || !isGoFile(f) {
-					return err
-				}
-				info, err := f.Info()
-				if err != nil {
-					s.AddReport(err)
-					return nil
-				}
-				s.Add(fileWeight(path, info), func(r *reporter) error {
-					return processFile(path, info, nil, r, false)
-				})
-				return nil
-			})
-			if err != nil {
-				s.AddReport(err)
+				return nil // simply recurse into directories
+			case explicit:
+				// non-directories given as explicit arguments are always formatted
+			case !isGoFilename(d.Name()):
+				return nil // skip walked non-Go files
 			}
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			s.Add(fileWeight(path, info), func(r *reporter) error {
+				return processFile(path, info, nil, r, explicit)
+			})
+			return nil
+		}); err != nil {
+			s.AddReport(err)
 		}
 	}
 }
 
-type module struct {
-	Go     string
-	Module struct {
-		Path string
+func shouldIgnore(path string) bool {
+	switch filepath.Base(path) {
+	case "vendor", "testdata":
+		return true
 	}
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return false // unclear how this could happen; don't ignore in any case
+	}
+	mod := loadModule(path)
+	if mod == nil {
+		return false // no module file to declare ignore paths
+	}
+	relPath, err := filepath.Rel(mod.absDir, path)
+	if err != nil {
+		return false // unclear how this could happen; don't ignore in any case
+	}
+	relPath = normalizePath(relPath)
+	for _, ignore := range mod.file.Ignore {
+		if matchIgnore(ignore.Path, relPath) {
+			return true
+		}
+	}
+	return false
 }
 
-func loadModuleInfo(dir string) any {
-	cmd := exec.Command("go", "mod", "edit", "-json")
-	cmd.Dir = dir
-
-	// Spawning "go mod edit" will open files by design,
-	// such as the named pipe to obtain stdout.
-	// TODO(mvdan): if we run into "too many open files" errors again in the
-	// future, we probably need to turn fdSem into a weighted semaphore so this
-	// operation can acquire a weight larger than 1.
-	fdSem <- true
-	out, err := cmd.Output()
-	defer func() { <-fdSem }()
-
-	if err != nil || len(out) == 0 {
-		return nil
+// normalizePath adds slashes to the front and end of the given path.
+func normalizePath(path string) string {
+	path = filepath.ToSlash(path) // ensure Windows support
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
 	}
-	mod := new(module)
-	if err := json.Unmarshal(out, mod); err != nil {
-		return nil
+	if !strings.HasSuffix(path, "/") {
+		path += "/"
+	}
+	return path
+}
+
+func matchIgnore(ignore, relPath string) bool {
+	ignore, rooted := strings.CutPrefix(ignore, "./")
+	ignore = normalizePath(ignore)
+	// Note that we only match the directory to be ignored itself,
+	// and not any directories underneath it.
+	// This way, using `gofumpt -w ignored` allows `ignored/subdir` to be formatted.
+	if rooted {
+		return relPath == ignore
+	}
+	return strings.HasSuffix(relPath, ignore)
+}
+
+// A nil entry means the directory is not part of a Go module,
+// or a go.mod file was found but it's invalid.
+// A non-nil entry means this directory, or a parent, is in a valid Go module.
+var cachedModuleByDir sync.Map // map[dirString]*cachedModfile
+
+type cachedModule struct {
+	absDir string // the directory where the go.mod file was found
+	file   *modfile.File
+}
+
+func loadModule(dir string) *cachedModule {
+	if cached, ok := cachedModuleByDir.Load(dir); ok {
+		mf, _ := cached.(*cachedModule)
+		return mf
+	}
+	mod := func() *cachedModule {
+		path := filepath.Join(dir, "go.mod")
+		fdSem <- true
+		data, err := os.ReadFile(path)
+		<-fdSem
+		if errors.Is(err, fs.ErrNotExist) {
+			parent := filepath.Dir(dir)
+			if parent == "." {
+				panic("loadModule was not given an absolute path?")
+			}
+			if parent == dir {
+				return nil // reached the filesystem root
+			}
+			return loadModule(parent) // try the parent directory
+		}
+		if err != nil {
+			return nil // some other file reading error
+		}
+		file, err := modfile.Parse(filepath.Join(dir, "go.mod"), data, nil)
+		if err != nil {
+			return nil // invalid go.mod file
+		}
+		return &cachedModule{
+			absDir: dir,
+			file:   file,
+		}
+	}()
+	if mod != nil {
+		cachedModuleByDir.Store(dir, mod)
+	} else {
+		cachedModuleByDir.Store(dir, nil)
 	}
 	return mod
 }
 
-// Written to by fileWeight, read from fileWeight and processFile.
-// A present but nil value means that loading the module info failed.
-// Note that we don't require the keys to be absolute directories,
-// so duplicates are possible. The same can happen with symlinks.
-var moduleCacheByDir sync.Map // map[dirString]*module
-
 func fileWeight(path string, info fs.FileInfo) int64 {
-	dir := filepath.Dir(path)
-	if _, ok := moduleCacheByDir.Load(dir); !ok {
-		moduleCacheByDir.Store(dir, loadModuleInfo(dir))
-	}
 	if info == nil {
 		return exclusive
 	}
