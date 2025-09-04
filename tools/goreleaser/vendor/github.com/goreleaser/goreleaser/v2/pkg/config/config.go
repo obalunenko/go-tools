@@ -277,7 +277,9 @@ type HomebrewCaskHook struct {
 }
 
 type HomebrewCaskConflict struct {
-	Cask    string `yaml:"cask,omitempty" json:"cask,omitempty"`
+	Cask string `yaml:"cask,omitempty" json:"cask,omitempty"`
+
+	// Deprecated: by homebrew.
 	Formula string `yaml:"formula,omitempty" json:"formula,omitempty"`
 }
 
@@ -1014,7 +1016,16 @@ type Checksum struct {
 	ExtraFiles   []ExtraFile `yaml:"extra_files,omitempty" json:"extra_files,omitempty"`
 }
 
+// Retry config for operations that support retries.
+// Added in v2.12.
+type Retry struct {
+	Attempts uint          `yaml:"attempts,omitempty" json:"attempts,omitempty"`
+	Delay    time.Duration `yaml:"delay,omitempty" json:"delay,omitempty"`
+	MaxDelay time.Duration `yaml:"max_delay,omitempty" json:"max_delay,omitempty"`
+}
+
 // Docker image config.
+// Deprecated: use [DockerV2] instead.
 type Docker struct {
 	ID                 string   `yaml:"id,omitempty" json:"id,omitempty"`
 	IDs                []string `yaml:"ids,omitempty" json:"ids,omitempty"`
@@ -1029,9 +1040,11 @@ type Docker struct {
 	BuildFlagTemplates []string `yaml:"build_flag_templates,omitempty" json:"build_flag_templates,omitempty"`
 	PushFlags          []string `yaml:"push_flags,omitempty" json:"push_flags,omitempty"`
 	Use                string   `yaml:"use,omitempty" json:"use,omitempty" jsonschema:"enum=docker,enum=buildx,default=docker"`
+	Retry              Retry    `yaml:"retry,omitempty" json:"retry,omitempty"`
 }
 
 // DockerManifest config.
+// Deprecated: use [DockerV2] instead.
 type DockerManifest struct {
 	ID             string   `yaml:"id,omitempty" json:"id,omitempty"`
 	NameTemplate   string   `yaml:"name_template,omitempty" json:"name_template,omitempty"`
@@ -1040,6 +1053,29 @@ type DockerManifest struct {
 	CreateFlags    []string `yaml:"create_flags,omitempty" json:"create_flags,omitempty"`
 	PushFlags      []string `yaml:"push_flags,omitempty" json:"push_flags,omitempty"`
 	Use            string   `yaml:"use,omitempty" json:"use,omitempty"`
+	Retry          Retry    `yaml:"retry,omitempty" json:"retry,omitempty"`
+}
+
+// DockerV2 is the new Docker build pipe options.
+type DockerV2 struct {
+	ID          string            `yaml:"id,omitempty" json:"id,omitempty"`
+	IDs         []string          `yaml:"ids,omitempty" json:"ids,omitempty"`
+	Dockerfile  string            `yaml:"dockerfile,omitempty" json:"dockerfile,omitempty"`
+	Images      []string          `yaml:"images,omitempty" json:"images,omitempty"`
+	Tags        []string          `yaml:"tags,omitempty" json:"tags,omitempty"`
+	Labels      map[string]string `yaml:"labels,omitempty" json:"labels,omitempty"`
+	Annotations map[string]string `yaml:"annotations,omitempty" json:"annotations,omitempty"`
+	ExtraFiles  []string          `yaml:"extra_files,omitempty" json:"extra_files,omitempty"`
+	Platforms   []string          `yaml:"platforms,omitempty" json:"platforms,omitempty"`
+	BuildArgs   map[string]string `yaml:"build_args,omitempty" json:"build_args,omitempty"`
+	Retry       Retry             `yaml:"retry,omitempty" json:"retry,omitempty"`
+	Flags       []string          `yaml:"flags,omitempty" json:"flags,omitempty"`
+}
+
+// DockerDigest config.
+type DockerDigest struct {
+	Disable      string `yaml:"disable,omitempty" json:"disable,omitempty" jsonschema:"oneof_type=string;boolean"`
+	NameTemplate string `yaml:"name_template,omitempty" json:"name_template,omitempty"`
 }
 
 // Filters config.
@@ -1120,6 +1156,9 @@ type Upload struct {
 	ExtraFiles         []ExtraFile       `yaml:"extra_files,omitempty" json:"extra_files,omitempty"`
 	ExtraFilesOnly     bool              `yaml:"extra_files_only,omitempty" json:"extra_files_only,omitempty"`
 	Skip               string            `yaml:"skip,omitempty" json:"skip,omitempty" jsonschema:"oneof_type=string;boolean"`
+
+	// Since v2.12
+	Password string `yaml:"password,omitempty" json:"password,omitempty"`
 }
 
 // Publisher configuration.
@@ -1168,6 +1207,8 @@ type Project struct {
 	Snapshot        Snapshot         `yaml:"snapshot,omitempty" json:"snapshot,omitempty"`
 	Checksum        Checksum         `yaml:"checksum,omitempty" json:"checksum,omitempty"`
 	Dockers         []Docker         `yaml:"dockers,omitempty" json:"dockers,omitempty"`
+	DockersV2       []DockerV2       `yaml:"dockers_v2,omitempty" json:"dockers_v2,omitempty"`
+	DockerDigest    DockerDigest     `yaml:"docker_digest,omitempty" json:"docker_digest,omitempty"`
 	DockerManifests []DockerManifest `yaml:"docker_manifests,omitempty" json:"docker_manifests,omitempty"`
 	Artifactories   []Upload         `yaml:"artifactories,omitempty" json:"artifactories,omitempty"`
 	Uploads         []Upload         `yaml:"uploads,omitempty" json:"uploads,omitempty"`
@@ -1190,6 +1231,7 @@ type Project struct {
 	ReportSizes     bool             `yaml:"report_sizes,omitempty" json:"report_sizes,omitempty"`
 	Metadata        ProjectMetadata  `yaml:"metadata,omitempty" json:"metadata,omitempty"`
 
+	Makeselfs         []Makeself        `yaml:"makeselfs,omitempty" json:"makeselfs,omitempty"`
 	UniversalBinaries []UniversalBinary `yaml:"universal_binaries,omitempty" json:"universal_binaries,omitempty"`
 	UPXs              []UPX             `yaml:"upx,omitempty" json:"upx,omitempty"`
 
@@ -1386,4 +1428,31 @@ type Chocolatey struct {
 type ChocolateyDependency struct {
 	ID      string `yaml:"id,omitempty" json:"id,omitempty"`
 	Version string `yaml:"version,omitempty" json:"version,omitempty"`
+}
+
+// Makeself config.
+type Makeself struct {
+	ID          string         `yaml:"id,omitempty" json:"id,omitempty"`
+	Filename    string         `yaml:"filename,omitempty" json:"filename,omitempty"`
+	Script      string         `yaml:"script" json:"script"`
+	Compression string         `yaml:"compression,omitempty" json:"compression,omitempty" jsonschema:"enum=gzip,enum=bzip2,enum=xz,enum=lzo,enum=compress,enum=none"`
+	ExtraArgs   []string       `yaml:"extra_args,omitempty" json:"extra_args,omitempty"`
+	Files       []MakeselfFile `yaml:"files,omitempty" json:"files,omitempty"`
+	Disable     string         `yaml:"disable,omitempty" json:"disable,omitempty" jsonschema:"oneof_type=string;boolean"`
+	IDs         []string       `yaml:"ids,omitempty" json:"ids,omitempty"`
+	Goos        []string       `yaml:"goos,omitempty" json:"goos,omitempty"`
+	Goarch      []string       `yaml:"goarch,omitempty" json:"goarch,omitempty"`
+	Name        string         `yaml:"name,omitempty" json:"name,omitempty"`
+	Description string         `yaml:"description,omitempty" json:"description,omitempty"`
+	Maintainer  string         `yaml:"maintainer,omitempty" json:"maintainer,omitempty"`
+	Keywords    []string       `yaml:"keywords,omitempty" json:"keywords,omitempty"`
+	Homepage    string         `yaml:"homepage,omitempty" json:"homepage,omitempty"`
+	License     string         `yaml:"license,omitempty" json:"license,omitempty"`
+}
+
+// MakeselfFile is a file inside a makeself archive.
+type MakeselfFile struct {
+	Source      string `yaml:"src,omitempty" json:"src,omitempty"`
+	Destination string `yaml:"dst,omitempty" json:"dst,omitempty"`
+	StripParent bool   `yaml:"strip_parent,omitempty" json:"strip_parent,omitempty"`
 }

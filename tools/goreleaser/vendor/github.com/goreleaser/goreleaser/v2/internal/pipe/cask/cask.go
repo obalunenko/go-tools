@@ -74,6 +74,12 @@ func (Pipe) Default(ctx *context.Context) error {
 			deprecate.Notice(ctx, "homebrew_casks.manpage")
 			brew.Manpages = append(brew.Manpages, brew.Manpage)
 		}
+		for _, conflict := range brew.Conflicts {
+			if conflict.Formula != "" {
+				deprecate.Notice(ctx, "homebrew_casks.conflicts.formula")
+				break
+			}
+		}
 	}
 
 	return nil
@@ -201,15 +207,8 @@ func doRun(ctx *context.Context, brew config.HomebrewCask, cl client.ReleaseURLT
 	}
 
 	filters := []artifact.Filter{
-		artifact.Or(
-			artifact.ByGoos("darwin"),
-			artifact.ByGoos("linux"),
-		),
-		artifact.Or(
-			artifact.ByGoarch("amd64"),
-			artifact.ByGoarch("arm64"),
-			artifact.ByGoarch("all"),
-		),
+		artifact.ByGooses("darwin", "linux"),
+		artifact.ByGoarches("amd64", "arm64", "all"),
 		artifact.Or(
 			artifact.And(
 				artifact.Not(artifact.ByFormats("gz")),
@@ -393,6 +392,7 @@ func dataFor(ctx *context.Context, cfg config.HomebrewCask, cl client.ReleaseURL
 		if err != nil {
 			return result, err
 		}
+		url.Download = strings.ReplaceAll(url.Download, ctx.Version, "#{version}")
 
 		pkg := releasePackage{
 			URL:    url,

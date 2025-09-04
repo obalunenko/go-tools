@@ -18,12 +18,14 @@ import (
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/defaults"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/dist"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/docker"
+	dockerv2 "github.com/goreleaser/goreleaser/v2/internal/pipe/docker/v2"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/effectiveconfig"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/env"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/git"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/gomod"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/ko"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/krew"
+	"github.com/goreleaser/goreleaser/v2/internal/pipe/makeself"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/metadata"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/nfpm"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/nix"
@@ -123,6 +125,8 @@ var Pipeline = append(
 	sourcearchive.Pipe{},
 	// archive via fpm (deb, rpm) using "native" go impl
 	nfpm.Pipe{},
+	// create makeself self-extracting archives
+	makeself.Pipe{},
 	// archive via snapcraft (snap)
 	snapcraft.Pipe{},
 	// create SBOMs of artifacts
@@ -153,6 +157,7 @@ var Pipeline = append(
 	reportsizes.Pipe{},
 	// create and push docker images
 	docker.Pipe{},
+	dockerv2.Pipe{},
 	// create and push docker images using ko
 	ko.Pipe{},
 	// publishes artifacts
