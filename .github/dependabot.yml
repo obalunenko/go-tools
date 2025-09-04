@@ -19,10 +19,12 @@ updates:
       - /tools/gotestsum
       - /tools/goveralls
       - /tools/govulncheck
-      - /tools/pkgsite
       - /tools/gowrap
       - /tools/mockery
       - /tools/mockgen
+      - /tools/oapi-codegen
+      - /tools/pkgsite
+      - /tools/sqlc
       - /tools/stringer
       - /tools/svu
       - /tools/swag
