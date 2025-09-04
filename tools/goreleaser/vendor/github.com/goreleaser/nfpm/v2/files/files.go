@@ -146,6 +146,8 @@ func (c *Content) WithFileInfoDefaults(umask fs.FileMode, mtime time.Time) *Cont
 		info, err := os.Stat(cc.Source)
 		if err == nil {
 			if cc.FileInfo.MTime.IsZero() {
+				// if we can stat the file and mtime not set, use original
+				// file's mtime
 				cc.FileInfo.MTime = info.ModTime()
 			}
 			if cc.FileInfo.Mode == 0 {
@@ -155,8 +157,9 @@ func (c *Content) WithFileInfoDefaults(umask fs.FileMode, mtime time.Time) *Cont
 		}
 	}
 
+	// finally, if mtime is still 0, set time.Now()
 	if cc.FileInfo.MTime.IsZero() {
-		cc.FileInfo.MTime = mtime
+		cc.FileInfo.MTime = time.Now()
 	}
 	return cc
 }
@@ -260,7 +263,7 @@ func PrepareForPackager(
 				return nil, contentCollisionError(content, presentContent)
 			}
 
-			err := addParents(contentMap, content.Destination, mtime)
+			err := addParents(contentMap, content.Destination, mtime, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -279,7 +282,7 @@ func PrepareForPackager(
 				return nil, contentCollisionError(content, presentContent)
 			}
 
-			err := addParents(contentMap, content.Destination, mtime)
+			err := addParents(contentMap, content.Destination, mtime, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -345,7 +348,7 @@ func isRelevantForPackager(packager string, content *Content) bool {
 	return true
 }
 
-func addParents(contentMap map[string]*Content, path string, mtime time.Time) error {
+func addParents(contentMap map[string]*Content, path string, mtime time.Time, fileInfo *ContentFileInfo) error {
 	for _, parent := range sortedParents(path) {
 		parent = NormalizeAbsoluteDirPath(parent)
 		// check for content collision and just overwrite previously created
@@ -364,12 +367,25 @@ func addParents(contentMap map[string]*Content, path string, mtime time.Time) er
 			}, c)
 		}
 
+		owner := "root"
+		group := "root"
+
+		// Use provided ownership for directories that are not owned by the filesystem
+		if fileInfo != nil && !ownedByFilesystem(parent) {
+			if fileInfo.Owner != "" {
+				owner = fileInfo.Owner
+			}
+			if fileInfo.Group != "" {
+				group = fileInfo.Group
+			}
+		}
+
 		contentMap[parent] = &Content{
 			Destination: parent,
 			Type:        TypeImplicitDir,
 			FileInfo: &ContentFileInfo{
-				Owner: "root",
-				Group: "root",
+				Owner: owner,
+				Group: group,
 				Mode:  0o755,
 				MTime: mtime,
 			},
@@ -415,7 +431,7 @@ func addGlobbedFiles(
 			return contentCollisionError(&c, presentContent)
 		}
 
-		if err := addParents(all, dst, mtime); err != nil {
+		if err := addParents(all, dst, mtime, origFile.FileInfo); err != nil {
 			return err
 		}
 
@@ -458,7 +474,7 @@ func addTree(
 		}
 	}
 
-	err := addParents(all, tree.Destination, mtime)
+	err := addParents(all, tree.Destination, mtime, tree.FileInfo)
 	if err != nil {
 		return err
 	}
@@ -478,7 +494,7 @@ func addTree(
 		c := &Content{
 			FileInfo: &ContentFileInfo{},
 		}
-		if tree.FileInfo != nil && !ownedByFilesystem(tree.Destination) {
+		if tree.FileInfo != nil && !ownedByFilesystem(c.Destination) {
 			c.FileInfo.Owner = tree.FileInfo.Owner
 			c.FileInfo.Group = tree.FileInfo.Group
 		}

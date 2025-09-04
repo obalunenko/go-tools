@@ -20,10 +20,13 @@ import (
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/discord"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/dist"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/docker"
+	dockerv2 "github.com/goreleaser/goreleaser/v2/internal/pipe/docker/v2"
+	"github.com/goreleaser/goreleaser/v2/internal/pipe/dockerdigest"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/gomod"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/ko"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/krew"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/linkedin"
+	"github.com/goreleaser/goreleaser/v2/internal/pipe/makeself"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/mastodon"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/mattermost"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe/milestone"
@@ -79,6 +82,7 @@ var Defaulters = []Defaulter{
 	notary.MacOS{},
 	sourcearchive.Pipe{},
 	archive.Pipe{},
+	makeself.Pipe{},
 	nfpm.Pipe{},
 	snapcraft.Pipe{},
 	checksums.Pipe{},
@@ -86,7 +90,9 @@ var Defaulters = []Defaulter{
 	sign.DockerPipe{},
 	sbom.Pipe{},
 	docker.Pipe{},
+	dockerv2.Pipe{},
 	docker.ManifestPipe{},
+	dockerdigest.Pipe{},
 	artifactory.Pipe{},
 	blob.Pipe{},
 	upload.Pipe{},
