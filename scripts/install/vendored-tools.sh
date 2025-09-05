@@ -63,7 +63,7 @@ AUTO_JOBS=$(( MEM_MB / PER_JOB_MB ))
 # не больше, чем CPU
 (( AUTO_JOBS > CPU_CORES )) && AUTO_JOBS=$CPU_CORES
 
-# Пользователь может переопределить JOBS из окружения
+# The user can override JOBS from the environment
 JOBS="${JOBS:-$AUTO_JOBS}"
 
 # Internal parallelism of the Go compiler (default 1 to save RAM)
