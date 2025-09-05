@@ -43,7 +43,7 @@ detect_mem_bytes() {
   if [[ -r /sys/fs/cgroup/memory/memory.limit_in_bytes ]]; then
     local m
     m="$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes)"
-    # большие «фиктивные» числа указывают на отсутствие лимита
+    # large 'dummy' numbers indicate no memory limit
     if (( m < 1<<60 )); then
       echo "$m"; return
     fi
