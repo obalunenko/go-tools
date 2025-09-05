@@ -104,7 +104,7 @@ build_one() {
     # Ограничиваем внутреннюю параллельность компилятора
     if ! go build $mod_flag -p "${GO_BUILD_P}" -o "$out" "$dep"; then
       echo "[ERROR]: $(basename "$tool_dir"): build failed for ${dep}"
-      # 255 просим xargs завершить остальные задачи
+      # 255 requests xargs to terminate the remaining tasks
       exit 255
     fi
 
