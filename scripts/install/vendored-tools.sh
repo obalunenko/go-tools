@@ -66,7 +66,7 @@ AUTO_JOBS=$(( MEM_MB / PER_JOB_MB ))
 # Пользователь может переопределить JOBS из окружения
 JOBS="${JOBS:-$AUTO_JOBS}"
 
-# Внутренняя параллельность компилятора Go (по умолчанию 1 для экономии RAM)
+# Internal parallelism of the Go compiler (default 1 to save RAM)
 GO_BUILD_P="${GO_BUILD_P:-1}"
 
 echo "[INFO]: CPU=${CPU_CORES}, Mem=${MEM_MB} MiB, PER_JOB_MB=${PER_JOB_MB}, auto-JOBS=${AUTO_JOBS}"
