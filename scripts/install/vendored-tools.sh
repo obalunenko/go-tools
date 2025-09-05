@@ -56,8 +56,8 @@ CPU_CORES="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || sysct
 MEM_BYTES="$(detect_mem_bytes || echo $((1024*1024*1024*32)))"
 MEM_MB=$(( MEM_BYTES / 1048576 ))
 
-# Сколько памяти «закладываем» на одну параллельную сборку
-PER_JOB_MB="${PER_JOB_MB:-900}"   # регулировать при необходимости (500..900)
+# Amount of memory allocated per parallel build job
+PER_JOB_MB="${PER_JOB_MB:-900}"   # adjust if necessary (500..900)
 AUTO_JOBS=$(( MEM_MB / PER_JOB_MB ))
 (( AUTO_JOBS < 1 )) && AUTO_JOBS=1
 # не больше, чем CPU
