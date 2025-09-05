@@ -136,7 +136,7 @@ if [[ ! -s "$tmp_jobs" ]]; then
 fi
 
 # ---- run builds in parallel --------------------------------------------------
-# Примечание: пути с пробелами не поддерживаются.
+# Note: paths with spaces are not supported.
 cat "$tmp_jobs" \
   | xargs -r -n 2 -P "$JOBS" bash -c 'build_one "$1" "$2"' _
 
