@@ -1,6 +1,6 @@
 module pkgsite
 
-go 1.25.0
+go 1.25.1
 
 require golang.org/x/pkgsite v0.0.0-20250606033525-6805ff32e9c8
 

@@ -1,6 +1,6 @@
 module swagger
 
-go 1.25.0
+go 1.25.1
 
 require github.com/go-swagger/go-swagger v0.32.3
 
