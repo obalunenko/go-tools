@@ -57,7 +57,7 @@ sync_one() {
     # Clean vendor to avoid stale content, then re‑vendor under the target Go version
     rm -rf vendor
     go mod tidy -go="${GO_VERSION}"
-    go mod vendor
+    go mod download
 
     echo "[OK]:   $(basename "$tool_dir"): ${module:-<unknown>} vendor synced."
   ) || {
