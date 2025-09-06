@@ -1,6 +1,6 @@
 module gocov
 
-go 1.25.0
+go 1.25.1
 
 require github.com/axw/gocov v1.2.1
 

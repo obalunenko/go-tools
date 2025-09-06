@@ -1,6 +1,6 @@
 module goimports
 
-go 1.25.0
+go 1.25.1
 
 require golang.org/x/tools v0.36.0
 
