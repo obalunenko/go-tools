@@ -2,7 +2,7 @@ module gofumpt
 
 go 1.25.1
 
-require mvdan.cc/gofumpt v0.9.0
+require mvdan.cc/gofumpt v0.9.1
 
 require (
 	github.com/google/go-cmp v0.7.0 // indirect
