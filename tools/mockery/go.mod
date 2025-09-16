@@ -2,13 +2,13 @@ module mockery
 
 go 1.25.1
 
-require github.com/vektra/mockery/v3 v3.5.4
+require github.com/vektra/mockery/v3 v3.5.5
 
 require (
 	github.com/brunoga/deep v1.2.4 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
-	github.com/go-viper/mapstructure/v2 v2.3.0 // indirect
+	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jedib0t/go-pretty/v6 v6.6.7 // indirect
@@ -18,7 +18,7 @@ require (
 	github.com/knadh/koanf/providers/file v1.1.2 // indirect
 	github.com/knadh/koanf/providers/posflag v0.1.0 // indirect
 	github.com/knadh/koanf/providers/structs v0.1.0 // indirect
-	github.com/knadh/koanf/v2 v2.2.1 // indirect
+	github.com/knadh/koanf/v2 v2.3.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
