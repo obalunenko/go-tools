@@ -1,11 +1,11 @@
-[![Latest release artifacts](https://img.shields.io/github/v/release/obalunenko/go-tools)](https://github.com/obalunenko/go-tools/releases/latest)
-
 # Go Tools
+
+[![Latest release artifacts](https://img.shields.io/github/v/release/obalunenko/go-tools)](https://github.com/obalunenko/go-tools/releases/latest)
 
 This repository, **go-tools**,
 includes a compilation of common tools used across various projects by the repository owner.
 
-These accompany a Docker image, which you can swiftly pull using the following command: 
+These accompany a Docker image, which you can swiftly pull using the following command:
 
 ```shell
 docker pull ghcr.io/obalunenko/go-tools:latest
@@ -17,9 +17,7 @@ docker pull ghcr.io/obalunenko/go-tools:latest
 
 The base image is built on top of the official image [golang:1.25.1-alpine3.22](https://hub.docker.com/_/golang) and includes the following tools:
 
-
-##### Below is a full manifest of the tools available
-
+#### Below is a full manifest of the tools available
 
 | Tool                                                         | Version                            | Description                                                                                                                                                                       |
 |--------------------------------------------------------------|------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -27,7 +25,7 @@ The base image is built on top of the official image [golang:1.25.1-alpine3.22](
 | [coverbadger](https://github.com/obalunenko/coverbadger)     | v1.4.0                             | Generate coverage badge images for Markdown files using Go                                                                                                                        |
 | [enumer](https://github.com/alvaroloes/enumer)               | v1.1.2                             | A Go tool to auto generate methods for your enums                                                                                                                                 |
 | [envdoc](https://github.com/g4s8/envdoc)                     | v1.6.0                             | Go tool to generate documentation for environment variables                                                                                                                       |
-| [fiximports](https://golang.org/x/tools/cmd/fiximports)      | v0.36.0                            | The fiximports command fixes import declarations to use the canonical import path for packages that have an "import comment" as defined by https://golang.org/s/go14customimport. |
+| [fiximports](https://golang.org/x/tools/cmd/fiximports)      | v0.36.0                            | The fiximports command fixes import declarations to use the canonical import path for packages that have an "import comment" as defined by <https://golang.org/s/go14customimport>. |
 | [go-enum](https://github.com/abice/go-enum)                  | v0.9.1                             | An enum generator for go                                                                                                                                                          |
 | [gocov](https://github.com/axw/gocov)                        | v1.2.1                             | Coverage testing tool for The Go Programming Language                                                                                                                             |
 | [gocov-html](https://github.com/matm/gocov-html)             | v1.4.0                             | Make pretty HTML output from gocov, a coverage testing tool for Go                                                                                                                |
@@ -44,23 +42,23 @@ The base image is built on top of the official image [golang:1.25.1-alpine3.22](
 | [mockery](https://github.com/vektra/mockery)                 | v3.5.4                             | A mock code autogenerator for Go                                                                                                                                                  |
 | [mockgen](https://github.com/uber-go/mock)                   | v0.6.0                             | GoMock is a mocking framework for the Go programming language.                                                                                                                    |
 | [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) | v2.5.0                             | Generate Go client and server boilerplate from OpenAPI 3 specifications                                                                                                           |
+| [pp](https://github.com/maruel/panicparse/v2)          | v2.5.0 | Panicparse Parses panic stack traces, densifies and deduplicates goroutines with similar stack traces. Helps debugging crashes and deadlocks in heavily parallelized process.                                               |
 | [pkgsite](https://golang.org/x/pkgsite/cmd/pkgsite)          | v0.0.0-20250606033525-6805ff32e9c8 | Pkgsite extracts and generates documentation for Go programs. It runs as a web server and presents the documentation as a web page.                                               |
 | [sqlc](https://github.com/sqlc-dev/sqlc)                     | v1.30.0                            | Generate type-safe code from SQL                                                                                                                                                  |
 | [stringer](https://golang.org/x/tools/cmd/stringer)          | v0.36.0                            | Stringer is a tool to automate the creation of methods that satisfy the fmt.Stringer interface.                                                                                   |
 | [svu](https://github.com/caarlos0/svu)                       | v3.2.3                             | Semantic Version Util                                                                                                                                                             |
 | [swag](github.com/swaggo/swag/cmd/swag)                      | v2.0.0-rc4                         | Automatically generate RESTful API documentation with Swagger 2.0 for Go                                                                                                          |
 | [swagger](https://github.com/go-swagger/go-swagger)          | v0.32.3                            | Client/Server from OpenAPI docs generation tool                                                                                                                                   |
+| [tbls](https://github.com/k1LoW/tbls)                 | v1.88.0                            | tbls is a CI-Friendly tool to document a database, written in Go.                                                                                                           |
 | [tparse](https://github.com/mfridman/tparse)                 | v0.17.0                            | CLI tool for summarizing go test output. Pipe friendly. CI/CD friendly.                                                                                                           |
-
 
 ## How to Use
 
 The go-tools Docker image is engineered to allow for seamless implementation with your code.
 
- - Pull the image
- - Run the image with your code mounted as a volume
- - Execute the desired commands.
+- Pull the image
+- Run the image with your code mounted as a volume
+- Execute the desired commands.
 
-This container is available at 
+This container is available at
 [go-tools container on GitHub Packages](https://github.com/obalunenko/go-tools/pkgs/container/go-tools)
-

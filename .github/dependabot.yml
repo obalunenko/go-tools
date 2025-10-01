@@ -23,6 +23,7 @@ updates:
       - /tools/mockery
       - /tools/mockgen
       - /tools/oapi-codegen
+      - /tools/panicparse
       - /tools/pkgsite
       - /tools/sqlc
       - /tools/stringer
@@ -30,6 +31,7 @@ updates:
       - /tools/swag
       - /tools/swagger
       - /tools/tparse
+      - /tools/tbls
     schedule:
       interval: "daily"
     allow:
