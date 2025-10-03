@@ -2,7 +2,7 @@ module goose
 
 go 1.25.1
 
-require github.com/pressly/goose/v3 v3.25.0
+require github.com/pressly/goose/v3 v3.26.0
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
