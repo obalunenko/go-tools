@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fast parallel tools builder (docker/memory friendly)
+# Fast parallel tools builder (docker/memory/disk friendly)
 
 set -Eeuo pipefail
 
@@ -15,7 +15,7 @@ if [[ ! -d "$TOOLS_DIR" ]]; then
   exit 2
 fi
 
-for cmd in go xargs awk; do
+for cmd in go xargs awk df; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "[FATAL]: required command '$cmd' not found"
     exit 2
@@ -29,26 +29,25 @@ if [[ -z "$BIN_DIR" ]]; then
 fi
 mkdir -p "$BIN_DIR"
 
-# ---- memory-aware concurrency -----------------------------------------------
+# ---- ensure Go cache and tmp dirs --------------------------------------------
+: "${XDG_CACHE_HOME:=${HOME}/.cache}"
+: "${GOCACHE:=${XDG_CACHE_HOME}/go-build}"
+: "${GOTMPDIR:=${XDG_CACHE_HOME}/go-build-tmp}"
+mkdir -p "$GOCACHE" "$GOTMPDIR"
+export XDG_CACHE_HOME GOCACHE GOTMPDIR
+
+# ---- memory-aware concurrency ------------------------------------------------
 detect_mem_bytes() {
-  # cgroup v2
   if [[ -r /sys/fs/cgroup/memory.max ]]; then
     local m
     m="$(cat /sys/fs/cgroup/memory.max)"
-    if [[ "$m" != "max" ]]; then
-      echo "$m"; return
-    fi
+    [[ "$m" != "max" ]] && echo "$m" && return
   fi
-  # cgroup v1
   if [[ -r /sys/fs/cgroup/memory/memory.limit_in_bytes ]]; then
     local m
     m="$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes)"
-    # large 'dummy' numbers indicate no memory limit
-    if (( m < 1<<60 )); then
-      echo "$m"; return
-    fi
+    (( m < 1<<60 )) && echo "$m" && return
   fi
-  # fallback: доступная память хоста/контейнера
   awk '/MemAvailable:/ {print $2*1024}' /proc/meminfo
 }
 
@@ -56,23 +55,32 @@ CPU_CORES="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || sysct
 MEM_BYTES="$(detect_mem_bytes || echo $((1024*1024*1024*32)))"
 MEM_MB=$(( MEM_BYTES / 1048576 ))
 
-# Amount of memory allocated per parallel build job
-PER_JOB_MB="${PER_JOB_MB:-900}"   # adjust if necessary (500..900)
+PER_JOB_MB="${PER_JOB_MB:-900}"
 AUTO_JOBS=$(( MEM_MB / PER_JOB_MB ))
 (( AUTO_JOBS < 1 )) && AUTO_JOBS=1
-# не больше, чем CPU
 (( AUTO_JOBS > CPU_CORES )) && AUTO_JOBS=$CPU_CORES
 
-# The user can override JOBS from the environment
-JOBS="${JOBS:-$AUTO_JOBS}"
+# ---- disk-aware concurrency --------------------------------------------------
+disk_free_bytes() {
+  df -Pk "$GOTMPDIR" | awk 'NR==2 {print $4*1024}'
+}
+TMP_BYTES="$(disk_free_bytes || echo $((1024*1024*1024)))"
+TMP_MB=$(( TMP_BYTES / 1048576 ))
 
-# Internal parallelism of the Go compiler (default 1 to save RAM)
+PER_JOB_TMP_MB="${PER_JOB_TMP_MB:-1500}"  # примерно 1.5 ГБ на тяжелый тул
+AUTO_JOBS_TMP=$(( TMP_MB / PER_JOB_TMP_MB ))
+(( AUTO_JOBS_TMP < 1 )) && AUTO_JOBS_TMP=1
+
+(( AUTO_JOBS > AUTO_JOBS_TMP )) && AUTO_JOBS=$AUTO_JOBS_TMP
+
+# ---- final job settings ------------------------------------------------------
+JOBS="${JOBS:-$AUTO_JOBS}"
 GO_BUILD_P="${GO_BUILD_P:-1}"
 
-echo "[INFO]: CPU=${CPU_CORES}, Mem=${MEM_MB} MiB, PER_JOB_MB=${PER_JOB_MB}, auto-JOBS=${AUTO_JOBS}"
+echo "[INFO]: CPU=${CPU_CORES}, Mem=${MEM_MB} MiB, DiskFree=${TMP_MB} MiB, auto-JOBS=${AUTO_JOBS}"
 echo "[INFO]: Using ${JOBS} parallel jobs. go build -p ${GO_BUILD_P}. Binaries -> ${BIN_DIR}"
 
-# ---- helpers ----------------------------------------------------------------
+# ---- helpers -----------------------------------------------------------------
 bin_name() {
   local path="$1"
   awk -F/ '{
@@ -88,7 +96,6 @@ build_one() {
 
   (
     cd "$tool_dir"
-
     local mod_flag="-mod=mod"
     [[ -d vendor ]] && mod_flag="-mod=vendor"
 
@@ -101,10 +108,8 @@ build_one() {
 
     echo "[INFO]: $(basename "$tool_dir"): building ${dep}${modver:+ (${modver})} -> ${out}"
 
-    # Ограничиваем внутреннюю параллельность компилятора
     if ! go build $mod_flag -p "${GO_BUILD_P}" -o "$out" "$dep"; then
       echo "[ERROR]: $(basename "$tool_dir"): build failed for ${dep}"
-      # 255 requests xargs to terminate the remaining tasks
       exit 255
     fi
 
@@ -115,7 +120,7 @@ build_one() {
 export -f build_one bin_name
 export BIN_DIR GO_BUILD_P
 
-# ---- collect jobs (tool_dir, dep) -------------------------------------------
+# ---- collect jobs ------------------------------------------------------------
 tmp_jobs="$(mktemp)"
 trap 'rm -f "$tmp_jobs"' EXIT
 
@@ -136,8 +141,6 @@ if [[ ! -s "$tmp_jobs" ]]; then
 fi
 
 # ---- run builds in parallel --------------------------------------------------
-# Note: paths with spaces are not supported.
-cat "$tmp_jobs" \
-  | xargs -r -n 2 -P "$JOBS" bash -c 'build_one "$1" "$2"' _
+cat "$tmp_jobs" | xargs -r -n 2 -P "$JOBS" bash -c 'build_one "$1" "$2"' _
 
 echo "[SUCCESS]: All tools built."
