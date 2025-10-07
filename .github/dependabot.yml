@@ -24,7 +24,6 @@ updates:
       - /tools/mockgen
       - /tools/oapi-codegen
       - /tools/panicparse
-      - /tools/pkgsite
       - /tools/sqlc
       - /tools/stringer
       - /tools/svu

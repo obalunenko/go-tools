@@ -11,31 +11,37 @@ ARG APK_BINUTILS_VERSION=~2
 
 RUN apk add --no-cache \
     "bash=${APK_BASH_VERSION}" \
-	"git=${APK_GIT_VERSION}" \
-	"make=${APK_MAKE_VERSION}" \
-	"build-base=${APK_BUILDBASE_VERSION}" \
+    "git=${APK_GIT_VERSION}" \
+    "make=${APK_MAKE_VERSION}" \
+    "build-base=${APK_BUILDBASE_VERSION}" \
     "gcc=${APK_GCC_VERSION}" \
     "binutils-gold=${APK_BINUTILS_VERSION}"
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 
+ENV XDG_CACHE_HOME=/root/.cache \
+    GOCACHE=/root/.cache/go-build \
+    GOTMPDIR=/root/.cache/go-build-tmp
+ENV GOPATH=/go \
+    GOMODCACHE=/go/pkg/mod
+
 ENV PROJECT_DIR="/src/github.com/obalunenko/common-go-projects-scripts"
 ENV GOBIN=${PROJECT_DIR}/bin
 
 RUN mkdir -p "${PROJECT_DIR}"
-
 WORKDIR "${PROJECT_DIR}"
 
 RUN echo "I am running on ${BUILDPLATFORM}, building for ${TARGETPLATFORM}" > ./log_build.txt
-
-
 
 ARG TARGETOS
 ARG TARGETARCH
 RUN --mount=type=bind,source=./scripts,target=./scripts \
     --mount=type=bind,source=./tools,rw,target=./tools \
     --mount=type=bind,source=Makefile,target=Makefile \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/root/.cache/go-build-tmp \
+    --mount=type=cache,target=/go/pkg/mod \
     GOOS=$TARGETOS GOARCH=$TARGETARCH make install-tools
 
 
@@ -53,7 +59,7 @@ ARG APK_TINI_VERSION=~0
 RUN apk add --no-cache \
     "bash=${APK_BASH_VERSION}" \
     "git=${APK_GIT_VERSION}" \
-	"build-base=${APK_BUILDBASE_VERSION}" \
+    "build-base=${APK_BUILDBASE_VERSION}" \
     "docker-cli=${APK_DOCKER_CLI_VERSION}" \
     "docker-cli-buildx=${APK_DOCKER_CLI_BUILDX_VERSION}" \
     "docker-cli-compose=${APK_DOCKER_CLI_COMPOSE_VERSION}" \
@@ -62,5 +68,4 @@ RUN apk add --no-cache \
 
 ENV GOROOT=/usr/local/go
 
-# don't place it into $GOPATH/bin because Drone mounts $GOPATH as volume
 COPY --from=builder /src/github.com/obalunenko/common-go-projects-scripts/bin/. /usr/bin/
