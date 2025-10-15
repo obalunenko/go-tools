@@ -1,6 +1,6 @@
 module swag
 
-go 1.25.1
+go 1.25.3
 
 require github.com/swaggo/swag/v2 v2.0.0-rc4
 

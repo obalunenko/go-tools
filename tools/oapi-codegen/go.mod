@@ -1,6 +1,6 @@
 module oapi-codegen
 
-go 1.25.1
+go 1.25.3
 
 require github.com/oapi-codegen/oapi-codegen/v2 v2.5.0
 

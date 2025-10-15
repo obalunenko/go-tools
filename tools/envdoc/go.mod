@@ -1,6 +1,6 @@
 module envdoc
 
-go 1.25.1
+go 1.25.3
 
 require github.com/g4s8/envdoc v1.7.0
 
