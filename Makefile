@@ -7,7 +7,11 @@ SHELL := env APP_NAME=$(APP_NAME) $(SHELL)
 RELEASE_BRANCH?=master
 SHELL := env RELEASE_BRANCH=$(RELEASE_BRANCH) $(SHELL)
 
-GOVERSION:=1.25
+# Go versions
+# GOVERSION controls go.mod language version (major.minor)
+# GOIMAGEVERSION controls the base image tag (major.minor[.patch]); defaults to GOVERSION
+GOVERSION?=1.25
+GOIMAGEVERSION?=$(GOVERSION)
 
 TARGET_MAX_CHAR_NUM=20
 
@@ -63,9 +67,18 @@ check-releaser:
 	./scripts/release/check.sh
 .PHONY: check-releaser
 
+## Bump Go version across the repo (go.mod, Dockerfile, bake, CI)
+# Usage examples:
+#   make bump-go-version GOVERSION=1.26              # image will use 1.26
+#   make bump-go-version GOVERSION=1.26 GOIMAGEVERSION=1.26.2
 bump-go-version:
-	./scripts/bump-go.sh $(GOVERSION)
+	./scripts/bump-go.sh $(GOVERSION) $(GOIMAGEVERSION)
 .PHONY: bump-go-version
+
+## Update versions in README from go.mod and Dockerfile
+update-readme-versions:
+	./scripts/update-readme-versions.sh
+.PHONY: update-readme-versions
 
 .DEFAULT_GOAL := help
 

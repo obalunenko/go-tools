@@ -1,6 +1,6 @@
 module enumer
 
-go 1.25.1
+go 1.25.3
 
 require github.com/alvaroloes/enumer v1.1.2
 

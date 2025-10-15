@@ -1,0 +1,42 @@
+name: Update README tool versions
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 6 * * 1' # Every Monday 06:00 UTC
+  push:
+    branches: [ master ]
+    paths:
+      - 'tools/**/go.mod'
+      - 'Dockerfile'
+      - 'scripts/update-readme-versions.sh'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update README versions
+        run: |
+          bash ./scripts/update-readme-versions.sh
+
+      - name: Create Pull Request if changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: 'chore(readme): sync tool versions from go.mod and Dockerfile'
+          title: 'chore(readme): sync tool versions'
+          body: |
+            This PR updates README tool versions and base image from the project sources.
+          branch: chore/update-readme-versions
+          base: master
+          add-paths: |
+            README.md
+          signoff: true

@@ -1,6 +1,6 @@
 module stringer
 
-go 1.25.1
+go 1.25.3
 
 require golang.org/x/tools v0.38.0
 
