@@ -67,5 +67,10 @@ bump-go-version:
 	./scripts/bump-go.sh $(GOVERSION)
 .PHONY: bump-go-version
 
+## Update versions in README from go.mod and Dockerfile
+update-readme-versions:
+	./scripts/update-readme-versions.sh
+.PHONY: update-readme-versions
+
 .DEFAULT_GOAL := help
 
