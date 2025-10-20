@@ -2,7 +2,7 @@ module tbls
 
 go 1.25.3
 
-require github.com/k1LoW/tbls v1.89.1
+require github.com/k1LoW/tbls v1.90.0
 
 require (
 	cel.dev/expr v0.24.0 // indirect
