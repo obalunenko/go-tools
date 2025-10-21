@@ -21,7 +21,7 @@ The base image is built on top of the official image [golang:1.25.3-alpine3.22](
 
 | Tool                                                         | Version                            | Description                                                                                                                                                                       |
 |--------------------------------------------------------------|------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [buf](https://github.com/bufbuild/buf)                       | v1.58.0 | The buf CLI is the best tool for working with Protocol Buffers                                                                                                                    |
+| [buf](https://github.com/bufbuild/buf)                       | v1.59.0 | The buf CLI is the best tool for working with Protocol Buffers                                                                                                                    |
 | [coverbadger](https://github.com/obalunenko/coverbadger)     | v1.4.0 | Generate coverage badge images for Markdown files using Go                                                                                                                        |
 | [enumer](https://github.com/alvaroloes/enumer)               | v1.1.2 | A Go tool to auto generate methods for your enums                                                                                                                                 |
 | [envdoc](https://github.com/g4s8/envdoc)                     | v1.7.0 | Go tool to generate documentation for environment variables                                                                                                                       |
@@ -48,7 +48,7 @@ The base image is built on top of the official image [golang:1.25.3-alpine3.22](
 | [svu](https://github.com/caarlos0/svu)                       | v3.2.4 | Semantic Version Util                                                                                                                                                             |
 | [swag](github.com/swaggo/swag/cmd/swag)                      | v2.0.0-rc4                         | Automatically generate RESTful API documentation with Swagger 2.0 for Go                                                                                                          |
 | [swagger](https://github.com/go-swagger/go-swagger)          | v0.33.1 | Client/Server from OpenAPI docs generation tool                                                                                                                                   |
-| [tbls](https://github.com/k1LoW/tbls)                 | v1.89.1 | tbls is a CI-Friendly tool to document a database, written in Go.                                                                                                           |
+| [tbls](https://github.com/k1LoW/tbls)                 | v1.90.0 | tbls is a CI-Friendly tool to document a database, written in Go.                                                                                                           |
 | [tparse](https://github.com/mfridman/tparse)                 | v0.18.0 | CLI tool for summarizing go test output. Pipe friendly. CI/CD friendly.                                                                                                           |
 
 ## How to Use
