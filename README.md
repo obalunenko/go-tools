@@ -48,7 +48,7 @@ The base image is built on top of the official image [golang:1.25.3-alpine3.22](
 | [svu](https://github.com/caarlos0/svu)                       | v3.2.4 | Semantic Version Util                                                                                                                                                             |
 | [swag](github.com/swaggo/swag/cmd/swag)                      | v2.0.0-rc4                         | Automatically generate RESTful API documentation with Swagger 2.0 for Go                                                                                                          |
 | [swagger](https://github.com/go-swagger/go-swagger)          | v0.33.1 | Client/Server from OpenAPI docs generation tool                                                                                                                                   |
-| [tbls](https://github.com/k1LoW/tbls)                 | v1.89.1 | tbls is a CI-Friendly tool to document a database, written in Go.                                                                                                           |
+| [tbls](https://github.com/k1LoW/tbls)                 | v1.90.0 | tbls is a CI-Friendly tool to document a database, written in Go.                                                                                                           |
 | [tparse](https://github.com/mfridman/tparse)                 | v0.18.0 | CLI tool for summarizing go test output. Pipe friendly. CI/CD friendly.                                                                                                           |
 
 ## How to Use
