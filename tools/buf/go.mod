@@ -1,6 +1,6 @@
 module buf
 
-go 1.25.3
+go 1.25.4
 
 require github.com/bufbuild/buf v1.59.0
 
