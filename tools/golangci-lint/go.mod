@@ -2,7 +2,7 @@ module golangci-lint
 
 go 1.25.4
 
-require github.com/golangci/golangci-lint/v2 v2.6.1
+require github.com/golangci/golangci-lint/v2 v2.6.2
 
 require (
 	4d63.com/gocheckcompilerdirectives v1.3.0 // indirect
@@ -121,8 +121,8 @@ require (
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/manuelarte/embeddedstructfieldcheck v0.4.0 // indirect
 	github.com/manuelarte/funcorder v0.5.0 // indirect
-	github.com/maratori/testableexamples v1.0.0 // indirect
-	github.com/maratori/testpackage v1.1.1 // indirect
+	github.com/maratori/testableexamples v1.0.1 // indirect
+	github.com/maratori/testpackage v1.1.2 // indirect
 	github.com/matoous/godox v1.1.0 // indirect
 	github.com/matryer/is v1.4.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -202,7 +202,7 @@ require (
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20251023183803-a4bb9ffd2546 // indirect
 	golang.org/x/mod v0.29.0 // indirect
-	golang.org/x/sync v0.17.0 // indirect
+	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
 	golang.org/x/tools v0.38.0 // indirect
