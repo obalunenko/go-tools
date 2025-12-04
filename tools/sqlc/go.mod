@@ -1,6 +1,6 @@
 module sqlc
 
-go 1.25.4
+go 1.25.5
 
 require github.com/sqlc-dev/sqlc v1.30.0
 
