@@ -35,7 +35,7 @@ target "gotools-latest" {
         "linux/arm64"
     ]
     args = {
-        GO_VERSION = "1.25.4"
+        GO_VERSION = "1.25.5"
         ALPINE_VERSION = "3.22"
     }
     labels = {

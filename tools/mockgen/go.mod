@@ -1,6 +1,6 @@
 module mockgen
 
-go 1.25.4
+go 1.25.5
 
 require go.uber.org/mock v0.6.0
 

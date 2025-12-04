@@ -1,6 +1,6 @@
 module coverbadger
 
-go 1.25.4
+go 1.25.5
 
 require github.com/obalunenko/coverbadger v1.4.0
 
