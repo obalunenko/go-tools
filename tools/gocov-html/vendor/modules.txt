@@ -1,0 +1,11 @@
+# github.com/axw/gocov v1.2.1
+## explicit; go 1.22.0
+github.com/axw/gocov
+# github.com/matm/gocov-html v1.4.0
+## explicit; go 1.11
+github.com/matm/gocov-html/cmd/gocov-html
+github.com/matm/gocov-html/pkg/config
+github.com/matm/gocov-html/pkg/themes
+# github.com/rotisserie/eris v0.5.4
+## explicit; go 1.18
+github.com/rotisserie/eris

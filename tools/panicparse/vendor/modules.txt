@@ -1,0 +1,18 @@
+# github.com/maruel/panicparse/v2 v2.5.0
+## explicit; go 1.23.0
+github.com/maruel/panicparse/v2/cmd/pp
+github.com/maruel/panicparse/v2/internal
+github.com/maruel/panicparse/v2/stack
+# github.com/mattn/go-colorable v0.1.14
+## explicit; go 1.18
+github.com/mattn/go-colorable
+# github.com/mattn/go-isatty v0.0.20
+## explicit; go 1.15
+github.com/mattn/go-isatty
+# github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
+## explicit
+github.com/mgutz/ansi
+# golang.org/x/sys v0.31.0
+## explicit; go 1.23.0
+golang.org/x/sys/unix
+golang.org/x/sys/windows

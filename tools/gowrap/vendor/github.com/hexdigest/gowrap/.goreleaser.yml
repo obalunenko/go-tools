@@ -1,0 +1,31 @@
+project_name: gowrap
+before:
+  hooks:
+    - make test
+builds:
+- 
+  main: ./cmd/gowrap/
+  binary: gowrap
+  env:
+    - CGO_ENABLED=0
+    - GO386=softfloat
+  goos:
+    - darwin
+    - linux
+    - windows
+
+  ldflags:
+    - -X github.com/hexdigest/gowrap.version={{.Version}}
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+    - '^docs:'
+    - '^test:'
+
+env_files:
+  github_token: .gh_token

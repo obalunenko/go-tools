@@ -9,6 +9,9 @@ TOOLS_DIR="${TOOLS_DIR:-${REPO_ROOT}/tools}"
 
 echo "[$SCRIPT_NAME]: starting…"
 
+REQUIRE_VENDOR="${REQUIRE_VENDOR:-1}"
+export REQUIRE_VENDOR
+
 # ---- sanity checks -----------------------------------------------------------
 if [[ ! -d "$TOOLS_DIR" ]]; then
   echo "[FATAL]: tools directory not found: $TOOLS_DIR"
@@ -21,6 +24,30 @@ for cmd in go xargs awk df; do
     exit 2
   fi
 done
+
+# ---- helpers -----------------------------------------------------------------
+ensure_vendor_dir() {
+  local tool_dir="$1"
+  if [[ -d "${tool_dir}/vendor" ]]; then
+    return 0
+  fi
+
+  if [[ "$REQUIRE_VENDOR" == "1" ]]; then
+    echo "[FATAL]: $(basename "$tool_dir"): vendor directory not found. Run 'make sync-vendor' before installing tools."
+    exit 3
+  fi
+
+  echo "[WARN]: $(basename "$tool_dir"): vendor directory missing; falling back to module proxy."
+}
+
+mod_flag_for_dir() {
+  local tool_dir="$1"
+  if [[ -d "${tool_dir}/vendor" ]]; then
+    echo "-mod=vendor"
+  else
+    echo "-mod=mod"
+  fi
+}
 
 # Resolve binary output dir
 BIN_DIR="$(go env GOBIN)"
@@ -96,8 +123,13 @@ build_one() {
 
   (
     cd "$tool_dir"
-    local mod_flag="-mod=mod"
-    [[ -d vendor ]] && mod_flag="-mod=vendor"
+    local mod_flag
+    mod_flag="$(mod_flag_for_dir "$tool_dir")"
+
+    if [[ "$mod_flag" != "-mod=vendor" && "$REQUIRE_VENDOR" == "1" ]]; then
+      echo "[ERROR]: $(basename "$tool_dir"): vendor directory missing while REQUIRE_VENDOR=1"
+      exit 3
+    fi
 
     local name out
     name="$(bin_name "$dep")"
@@ -118,6 +150,7 @@ build_one() {
 }
 
 export -f build_one bin_name
+export -f mod_flag_for_dir
 export BIN_DIR GO_BUILD_P
 
 # ---- collect jobs ------------------------------------------------------------
@@ -126,7 +159,10 @@ trap 'rm -f "$tmp_jobs"' EXIT
 
 while IFS= read -r -d '' d; do
   [[ -f "$d/go.mod" ]] || { echo "[WARN]: skipping $(basename "$d") (no go.mod)"; continue; }
-  if imports="$(cd "$d" && go list -mod=mod -e -f '{{ join .Imports "\n" }}' -tags=tools . 2>/dev/null | sed '/^$/d' | sort -u)"; then
+  ensure_vendor_dir "$d"
+  mod_flag="$(mod_flag_for_dir "$d")"
+
+  if imports="$(cd "$d" && go list "$mod_flag" -e -f '{{ join .Imports "\n" }}' -tags=tools . 2>/dev/null | sed '/^$/d' | sort -u)"; then
     while IFS= read -r dep; do
       printf '%s\t%s\n' "$d" "$dep" >> "$tmp_jobs"
     done <<< "$imports"

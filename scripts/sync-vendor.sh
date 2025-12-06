@@ -23,9 +23,23 @@ for cmd in go git xargs find awk sed; do
   fi
 done
 
-# Normalize Go version to MAJOR.MINOR (what 'go mod tidy -go' expects)
-# Examples: go1.22.1 -> 1.22 ; go1.21.3 -> 1.21
-export GO_VERSION=$(go version | sed -E 's/.*go([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+# Normalize Go version for go mod tidy/vendoring.
+# Prefer the full patch version when available (e.g. 1.25.5) to match go.mod directives,
+# but gracefully fall back to MAJOR.MINOR if the patch component is absent.
+GO_RAW_VERSION="$(go version | awk '{print $3}')"
+if [[ -z "$GO_RAW_VERSION" ]]; then
+  echo "[FATAL]: unable to detect Go version"
+  exit 2
+fi
+if [[ "$GO_RAW_VERSION" =~ ^go([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+  GO_VERSION="${BASH_REMATCH[1]}"
+elif [[ "$GO_RAW_VERSION" =~ ^go([0-9]+\.[0-9]+) ]]; then
+  GO_VERSION="${BASH_REMATCH[1]}"
+else
+  echo "[FATAL]: unexpected Go version format: ${GO_RAW_VERSION}"
+  exit 2
+fi
+export GO_VERSION
 
 # Concurrency
 CPU_CORES="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
@@ -57,7 +71,7 @@ sync_one() {
     # Clean vendor to avoid stale content, then re‑vendor under the target Go version
     rm -rf vendor
     go mod tidy -go="${GO_VERSION}"
-    go mod download
+    go mod vendor
 
     echo "[OK]:   $(basename "$tool_dir"): ${module:-<unknown>} vendor synced."
   ) || {
