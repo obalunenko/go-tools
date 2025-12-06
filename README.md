@@ -56,3 +56,7 @@ The go-tools Docker image is engineered to allow for seamless implementation wit
 
 This container is available at
 [go-tools container on GitHub Packages](https://github.com/obalunenko/go-tools/pkgs/container/go-tools)
+
+## Development
+
+All tool modules under `tools/` commit their `vendor/` trees so Docker builds can run fully offline. When bumping a tool version, run `make sync-vendor` to refresh the vendored sources before committing. The installer (`scripts/install/vendored-tools.sh`) requires these directories by default (override with `REQUIRE_VENDOR=0` only when experimenting locally).

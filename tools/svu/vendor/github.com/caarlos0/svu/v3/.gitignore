@@ -1,0 +1,5 @@
+dist/
+completions/
+manpages/
+svu
+!internal/svu

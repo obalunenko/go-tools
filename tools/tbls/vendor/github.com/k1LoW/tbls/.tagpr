@@ -1,0 +1,7 @@
+[tagpr]
+	vPrefix = true
+	releaseBranch = main
+	versionFile = version/version.go
+	majorLabels = "tagpr:major"
+	minorLabels = "tagpr:minor"
+	release = draft

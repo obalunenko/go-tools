@@ -1,0 +1,567 @@
+# filippo.io/edwards25519 v1.1.0
+## explicit; go 1.20
+filippo.io/edwards25519
+filippo.io/edwards25519/field
+# github.com/ClickHouse/ch-go v0.67.0
+## explicit; go 1.23.0
+github.com/ClickHouse/ch-go/compress
+github.com/ClickHouse/ch-go/proto
+# github.com/ClickHouse/clickhouse-go/v2 v2.40.1
+## explicit; go 1.23.0
+github.com/ClickHouse/clickhouse-go/v2
+github.com/ClickHouse/clickhouse-go/v2/contributors
+github.com/ClickHouse/clickhouse-go/v2/ext
+github.com/ClickHouse/clickhouse-go/v2/lib/binary
+github.com/ClickHouse/clickhouse-go/v2/lib/chcol
+github.com/ClickHouse/clickhouse-go/v2/lib/column
+github.com/ClickHouse/clickhouse-go/v2/lib/driver
+github.com/ClickHouse/clickhouse-go/v2/lib/proto
+github.com/ClickHouse/clickhouse-go/v2/lib/timezone
+github.com/ClickHouse/clickhouse-go/v2/resources
+# github.com/andybalholm/brotli v1.2.0
+## explicit; go 1.22
+github.com/andybalholm/brotli
+github.com/andybalholm/brotli/matchfinder
+# github.com/antlr4-go/antlr/v4 v4.13.1
+## explicit; go 1.22
+github.com/antlr4-go/antlr/v4
+# github.com/coder/websocket v1.8.13
+## explicit; go 1.19
+github.com/coder/websocket
+github.com/coder/websocket/internal/bpool
+github.com/coder/websocket/internal/errd
+github.com/coder/websocket/internal/util
+github.com/coder/websocket/internal/wsjs
+github.com/coder/websocket/wsjson
+# github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
+## explicit
+# github.com/dustin/go-humanize v1.0.1
+## explicit; go 1.16
+github.com/dustin/go-humanize
+# github.com/elastic/go-sysinfo v1.15.4
+## explicit; go 1.23.0
+github.com/elastic/go-sysinfo
+github.com/elastic/go-sysinfo/internal/registry
+github.com/elastic/go-sysinfo/providers/aix
+github.com/elastic/go-sysinfo/providers/darwin
+github.com/elastic/go-sysinfo/providers/linux
+github.com/elastic/go-sysinfo/providers/shared
+github.com/elastic/go-sysinfo/providers/windows
+github.com/elastic/go-sysinfo/types
+# github.com/elastic/go-windows v1.0.2
+## explicit; go 1.18
+github.com/elastic/go-windows
+# github.com/go-faster/city v1.0.1
+## explicit; go 1.17
+github.com/go-faster/city
+# github.com/go-faster/errors v0.7.1
+## explicit; go 1.20
+github.com/go-faster/errors
+# github.com/go-sql-driver/mysql v1.9.3
+## explicit; go 1.21.0
+github.com/go-sql-driver/mysql
+# github.com/golang-jwt/jwt/v4 v4.5.2
+## explicit; go 1.16
+github.com/golang-jwt/jwt/v4
+# github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9
+## explicit
+github.com/golang-sql/civil
+# github.com/golang-sql/sqlexp v0.1.0
+## explicit; go 1.16
+github.com/golang-sql/sqlexp
+# github.com/google/uuid v1.6.0
+## explicit
+github.com/google/uuid
+# github.com/jackc/pgpassfile v1.0.0
+## explicit; go 1.12
+github.com/jackc/pgpassfile
+# github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761
+## explicit; go 1.14
+github.com/jackc/pgservicefile
+# github.com/jackc/pgx/v5 v5.7.5
+## explicit; go 1.23.0
+github.com/jackc/pgx/v5
+github.com/jackc/pgx/v5/internal/iobufpool
+github.com/jackc/pgx/v5/internal/pgio
+github.com/jackc/pgx/v5/internal/sanitize
+github.com/jackc/pgx/v5/internal/stmtcache
+github.com/jackc/pgx/v5/pgconn
+github.com/jackc/pgx/v5/pgconn/ctxwatch
+github.com/jackc/pgx/v5/pgconn/internal/bgreader
+github.com/jackc/pgx/v5/pgproto3
+github.com/jackc/pgx/v5/pgtype
+github.com/jackc/pgx/v5/pgxpool
+github.com/jackc/pgx/v5/stdlib
+# github.com/jackc/puddle/v2 v2.2.2
+## explicit; go 1.19
+github.com/jackc/puddle/v2
+github.com/jackc/puddle/v2/internal/genstack
+# github.com/joho/godotenv v1.5.1
+## explicit; go 1.12
+github.com/joho/godotenv
+# github.com/jonboulle/clockwork v0.5.0
+## explicit; go 1.21
+github.com/jonboulle/clockwork
+# github.com/klauspost/compress v1.18.0
+## explicit; go 1.22
+github.com/klauspost/compress
+github.com/klauspost/compress/fse
+github.com/klauspost/compress/huff0
+github.com/klauspost/compress/internal/cpuinfo
+github.com/klauspost/compress/internal/le
+github.com/klauspost/compress/internal/snapref
+github.com/klauspost/compress/zstd
+github.com/klauspost/compress/zstd/internal/xxhash
+# github.com/mattn/go-isatty v0.0.20
+## explicit; go 1.15
+github.com/mattn/go-isatty
+# github.com/mfridman/interpolate v0.0.2
+## explicit; go 1.19
+github.com/mfridman/interpolate
+# github.com/mfridman/xflag v0.1.0
+## explicit; go 1.21.0
+github.com/mfridman/xflag
+# github.com/microsoft/go-mssqldb v1.9.2
+## explicit; go 1.23.0
+github.com/microsoft/go-mssqldb
+github.com/microsoft/go-mssqldb/aecmk
+github.com/microsoft/go-mssqldb/integratedauth
+github.com/microsoft/go-mssqldb/integratedauth/ntlm
+github.com/microsoft/go-mssqldb/integratedauth/winsspi
+github.com/microsoft/go-mssqldb/internal/cp
+github.com/microsoft/go-mssqldb/internal/decimal
+github.com/microsoft/go-mssqldb/internal/github.com/swisscom/mssql-always-encrypted/pkg/algorithms
+github.com/microsoft/go-mssqldb/internal/github.com/swisscom/mssql-always-encrypted/pkg/crypto
+github.com/microsoft/go-mssqldb/internal/github.com/swisscom/mssql-always-encrypted/pkg/encryption
+github.com/microsoft/go-mssqldb/internal/github.com/swisscom/mssql-always-encrypted/pkg/keys
+github.com/microsoft/go-mssqldb/internal/github.com/swisscom/mssql-always-encrypted/pkg/utils
+github.com/microsoft/go-mssqldb/internal/querytext
+github.com/microsoft/go-mssqldb/msdsn
+# github.com/ncruces/go-strftime v0.1.9
+## explicit; go 1.17
+github.com/ncruces/go-strftime
+# github.com/paulmach/orb v0.11.1
+## explicit; go 1.15
+github.com/paulmach/orb
+# github.com/pierrec/lz4/v4 v4.1.22
+## explicit; go 1.14
+github.com/pierrec/lz4/v4
+github.com/pierrec/lz4/v4/internal/lz4block
+github.com/pierrec/lz4/v4/internal/lz4errors
+github.com/pierrec/lz4/v4/internal/lz4stream
+github.com/pierrec/lz4/v4/internal/xxh32
+# github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
+## explicit
+# github.com/pressly/goose/v3 v3.26.0
+## explicit; go 1.23.0
+github.com/pressly/goose/v3
+github.com/pressly/goose/v3/cmd/goose
+github.com/pressly/goose/v3/database
+github.com/pressly/goose/v3/database/dialect
+github.com/pressly/goose/v3/internal/controller
+github.com/pressly/goose/v3/internal/dialects
+github.com/pressly/goose/v3/internal/gooseutil
+github.com/pressly/goose/v3/internal/legacystore
+github.com/pressly/goose/v3/internal/migrationstats
+github.com/pressly/goose/v3/internal/sqlparser
+github.com/pressly/goose/v3/lock
+github.com/pressly/goose/v3/lock/internal/store
+github.com/pressly/goose/v3/lock/internal/table
+# github.com/prometheus/procfs v0.16.0
+## explicit; go 1.21
+github.com/prometheus/procfs
+github.com/prometheus/procfs/internal/fs
+github.com/prometheus/procfs/internal/util
+# github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+## explicit; go 1.12
+github.com/remyoudompheng/bigfft
+# github.com/segmentio/asm v1.2.0
+## explicit; go 1.18
+github.com/segmentio/asm/bswap
+github.com/segmentio/asm/cpu
+github.com/segmentio/asm/cpu/arm
+github.com/segmentio/asm/cpu/arm64
+github.com/segmentio/asm/cpu/cpuid
+github.com/segmentio/asm/cpu/x86
+# github.com/sethvargo/go-retry v0.3.0
+## explicit; go 1.21
+github.com/sethvargo/go-retry
+# github.com/shopspring/decimal v1.4.0
+## explicit; go 1.10
+github.com/shopspring/decimal
+# github.com/tursodatabase/libsql-client-go v0.0.0-20240902231107-85af5b9d094d
+## explicit; go 1.20
+github.com/tursodatabase/libsql-client-go/libsql
+github.com/tursodatabase/libsql-client-go/libsql/internal/hrana
+github.com/tursodatabase/libsql-client-go/libsql/internal/http
+github.com/tursodatabase/libsql-client-go/libsql/internal/http/hranaV2
+github.com/tursodatabase/libsql-client-go/libsql/internal/http/shared
+github.com/tursodatabase/libsql-client-go/libsql/internal/ws
+github.com/tursodatabase/libsql-client-go/sqliteparser
+github.com/tursodatabase/libsql-client-go/sqliteparserutils
+# github.com/vertica/vertica-sql-go v1.3.3
+## explicit; go 1.13
+github.com/vertica/vertica-sql-go
+github.com/vertica/vertica-sql-go/common
+github.com/vertica/vertica-sql-go/logger
+github.com/vertica/vertica-sql-go/msgs
+github.com/vertica/vertica-sql-go/parse
+github.com/vertica/vertica-sql-go/rowcache
+# github.com/ydb-platform/ydb-go-genproto v0.0.0-20241112172322-ea1f63298f77
+## explicit; go 1.16
+github.com/ydb-platform/ydb-go-genproto/Ydb_Auth_V1
+github.com/ydb-platform/ydb-go-genproto/Ydb_Coordination_V1
+github.com/ydb-platform/ydb-go-genproto/Ydb_Discovery_V1
+github.com/ydb-platform/ydb-go-genproto/Ydb_Operation_V1
+github.com/ydb-platform/ydb-go-genproto/Ydb_Query_V1
+github.com/ydb-platform/ydb-go-genproto/Ydb_RateLimiter_V1
+github.com/ydb-platform/ydb-go-genproto/Ydb_Scheme_V1
+github.com/ydb-platform/ydb-go-genproto/Ydb_Scripting_V1
+github.com/ydb-platform/ydb-go-genproto/Ydb_Table_V1
+github.com/ydb-platform/ydb-go-genproto/Ydb_Topic_V1
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Auth
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Coordination
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Discovery
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Export
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Formats
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Import
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Issue
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Operations
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Query
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_RateLimiter
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Scheme
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Scripting
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Table
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_TableStats
+github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Topic
+# github.com/ydb-platform/ydb-go-sdk/v3 v3.108.1
+## explicit; go 1.21
+github.com/ydb-platform/ydb-go-sdk/v3
+github.com/ydb-platform/ydb-go-sdk/v3/balancers
+github.com/ydb-platform/ydb-go-sdk/v3/config
+github.com/ydb-platform/ydb-go-sdk/v3/coordination
+github.com/ydb-platform/ydb-go-sdk/v3/coordination/options
+github.com/ydb-platform/ydb-go-sdk/v3/credentials
+github.com/ydb-platform/ydb-go-sdk/v3/discovery
+github.com/ydb-platform/ydb-go-sdk/v3/internal/background
+github.com/ydb-platform/ydb-go-sdk/v3/internal/backoff
+github.com/ydb-platform/ydb-go-sdk/v3/internal/balancer
+github.com/ydb-platform/ydb-go-sdk/v3/internal/balancer/config
+github.com/ydb-platform/ydb-go-sdk/v3/internal/bind
+github.com/ydb-platform/ydb-go-sdk/v3/internal/certificates
+github.com/ydb-platform/ydb-go-sdk/v3/internal/clone
+github.com/ydb-platform/ydb-go-sdk/v3/internal/closer
+github.com/ydb-platform/ydb-go-sdk/v3/internal/config
+github.com/ydb-platform/ydb-go-sdk/v3/internal/conn
+github.com/ydb-platform/ydb-go-sdk/v3/internal/coordination
+github.com/ydb-platform/ydb-go-sdk/v3/internal/coordination/config
+github.com/ydb-platform/ydb-go-sdk/v3/internal/coordination/conversation
+github.com/ydb-platform/ydb-go-sdk/v3/internal/credentials
+github.com/ydb-platform/ydb-go-sdk/v3/internal/decimal
+github.com/ydb-platform/ydb-go-sdk/v3/internal/discovery
+github.com/ydb-platform/ydb-go-sdk/v3/internal/discovery/config
+github.com/ydb-platform/ydb-go-sdk/v3/internal/dsn
+github.com/ydb-platform/ydb-go-sdk/v3/internal/empty
+github.com/ydb-platform/ydb-go-sdk/v3/internal/endpoint
+github.com/ydb-platform/ydb-go-sdk/v3/internal/feature
+github.com/ydb-platform/ydb-go-sdk/v3/internal/grpcwrapper/rawoptional
+github.com/ydb-platform/ydb-go-sdk/v3/internal/grpcwrapper/rawscheme
+github.com/ydb-platform/ydb-go-sdk/v3/internal/grpcwrapper/rawtopic
+github.com/ydb-platform/ydb-go-sdk/v3/internal/grpcwrapper/rawtopic/rawtopiccommon
+github.com/ydb-platform/ydb-go-sdk/v3/internal/grpcwrapper/rawtopic/rawtopicreader
+github.com/ydb-platform/ydb-go-sdk/v3/internal/grpcwrapper/rawtopic/rawtopicwriter
+github.com/ydb-platform/ydb-go-sdk/v3/internal/grpcwrapper/rawydb
+github.com/ydb-platform/ydb-go-sdk/v3/internal/kv
+github.com/ydb-platform/ydb-go-sdk/v3/internal/meta
+github.com/ydb-platform/ydb-go-sdk/v3/internal/node
+github.com/ydb-platform/ydb-go-sdk/v3/internal/operation
+github.com/ydb-platform/ydb-go-sdk/v3/internal/operation/metadata
+github.com/ydb-platform/ydb-go-sdk/v3/internal/operation/options
+github.com/ydb-platform/ydb-go-sdk/v3/internal/params
+github.com/ydb-platform/ydb-go-sdk/v3/internal/pg
+github.com/ydb-platform/ydb-go-sdk/v3/internal/pool
+github.com/ydb-platform/ydb-go-sdk/v3/internal/query
+github.com/ydb-platform/ydb-go-sdk/v3/internal/query/config
+github.com/ydb-platform/ydb-go-sdk/v3/internal/query/options
+github.com/ydb-platform/ydb-go-sdk/v3/internal/query/result
+github.com/ydb-platform/ydb-go-sdk/v3/internal/query/scanner
+github.com/ydb-platform/ydb-go-sdk/v3/internal/ratelimiter
+github.com/ydb-platform/ydb-go-sdk/v3/internal/ratelimiter/config
+github.com/ydb-platform/ydb-go-sdk/v3/internal/ratelimiter/errors
+github.com/ydb-platform/ydb-go-sdk/v3/internal/ratelimiter/options
+github.com/ydb-platform/ydb-go-sdk/v3/internal/repeater
+github.com/ydb-platform/ydb-go-sdk/v3/internal/scanner
+github.com/ydb-platform/ydb-go-sdk/v3/internal/scheme
+github.com/ydb-platform/ydb-go-sdk/v3/internal/scheme/config
+github.com/ydb-platform/ydb-go-sdk/v3/internal/scheme/helpers
+github.com/ydb-platform/ydb-go-sdk/v3/internal/scripting
+github.com/ydb-platform/ydb-go-sdk/v3/internal/scripting/config
+github.com/ydb-platform/ydb-go-sdk/v3/internal/secret
+github.com/ydb-platform/ydb-go-sdk/v3/internal/stack
+github.com/ydb-platform/ydb-go-sdk/v3/internal/stats
+github.com/ydb-platform/ydb-go-sdk/v3/internal/table
+github.com/ydb-platform/ydb-go-sdk/v3/internal/table/config
+github.com/ydb-platform/ydb-go-sdk/v3/internal/table/scanner
+github.com/ydb-platform/ydb-go-sdk/v3/internal/topic
+github.com/ydb-platform/ydb-go-sdk/v3/internal/topic/topicclientinternal
+github.com/ydb-platform/ydb-go-sdk/v3/internal/topic/topiclistenerinternal
+github.com/ydb-platform/ydb-go-sdk/v3/internal/topic/topicreadercommon
+github.com/ydb-platform/ydb-go-sdk/v3/internal/topic/topicreaderinternal
+github.com/ydb-platform/ydb-go-sdk/v3/internal/topic/topicwriterinternal
+github.com/ydb-platform/ydb-go-sdk/v3/internal/tx
+github.com/ydb-platform/ydb-go-sdk/v3/internal/types
+github.com/ydb-platform/ydb-go-sdk/v3/internal/value
+github.com/ydb-platform/ydb-go-sdk/v3/internal/version
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xcontext
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xiter
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xlist
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xrand
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xresolver
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xslices
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/badconn
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/common
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/xquery
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/xtable
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xstring
+github.com/ydb-platform/ydb-go-sdk/v3/internal/xsync
+github.com/ydb-platform/ydb-go-sdk/v3/log
+github.com/ydb-platform/ydb-go-sdk/v3/meta
+github.com/ydb-platform/ydb-go-sdk/v3/operation
+github.com/ydb-platform/ydb-go-sdk/v3/query
+github.com/ydb-platform/ydb-go-sdk/v3/ratelimiter
+github.com/ydb-platform/ydb-go-sdk/v3/retry
+github.com/ydb-platform/ydb-go-sdk/v3/retry/budget
+github.com/ydb-platform/ydb-go-sdk/v3/scheme
+github.com/ydb-platform/ydb-go-sdk/v3/scripting
+github.com/ydb-platform/ydb-go-sdk/v3/table
+github.com/ydb-platform/ydb-go-sdk/v3/table/options
+github.com/ydb-platform/ydb-go-sdk/v3/table/result
+github.com/ydb-platform/ydb-go-sdk/v3/table/result/indexed
+github.com/ydb-platform/ydb-go-sdk/v3/table/result/named
+github.com/ydb-platform/ydb-go-sdk/v3/table/stats
+github.com/ydb-platform/ydb-go-sdk/v3/table/types
+github.com/ydb-platform/ydb-go-sdk/v3/topic
+github.com/ydb-platform/ydb-go-sdk/v3/topic/topiclistener
+github.com/ydb-platform/ydb-go-sdk/v3/topic/topicoptions
+github.com/ydb-platform/ydb-go-sdk/v3/topic/topicreader
+github.com/ydb-platform/ydb-go-sdk/v3/topic/topictypes
+github.com/ydb-platform/ydb-go-sdk/v3/topic/topicwriter
+github.com/ydb-platform/ydb-go-sdk/v3/trace
+# github.com/ziutek/mymysql v1.5.4
+## explicit
+github.com/ziutek/mymysql/godrv
+github.com/ziutek/mymysql/mysql
+github.com/ziutek/mymysql/native
+# go.opentelemetry.io/otel v1.37.0
+## explicit; go 1.23.0
+go.opentelemetry.io/otel/attribute
+go.opentelemetry.io/otel/attribute/internal
+go.opentelemetry.io/otel/codes
+go.opentelemetry.io/otel/semconv/v1.34.0
+# go.opentelemetry.io/otel/trace v1.37.0
+## explicit; go 1.23.0
+go.opentelemetry.io/otel/trace
+go.opentelemetry.io/otel/trace/embedded
+go.opentelemetry.io/otel/trace/internal/telemetry
+# go.uber.org/mock v0.5.0
+## explicit; go 1.22
+# go.uber.org/multierr v1.11.0
+## explicit; go 1.19
+go.uber.org/multierr
+# golang.org/x/crypto v0.40.0
+## explicit; go 1.23.0
+golang.org/x/crypto/md4
+golang.org/x/crypto/pbkdf2
+# golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
+## explicit; go 1.23.0
+golang.org/x/exp/constraints
+golang.org/x/exp/slices
+# golang.org/x/net v0.42.0
+## explicit; go 1.23.0
+golang.org/x/net/http/httpguts
+golang.org/x/net/http2
+golang.org/x/net/http2/hpack
+golang.org/x/net/idna
+golang.org/x/net/internal/httpcommon
+golang.org/x/net/internal/timeseries
+golang.org/x/net/trace
+# golang.org/x/sync v0.16.0
+## explicit; go 1.23.0
+golang.org/x/sync/errgroup
+golang.org/x/sync/semaphore
+# golang.org/x/sys v0.34.0
+## explicit; go 1.23.0
+golang.org/x/sys/cpu
+golang.org/x/sys/unix
+golang.org/x/sys/windows
+golang.org/x/sys/windows/registry
+# golang.org/x/text v0.27.0
+## explicit; go 1.23.0
+golang.org/x/text/cases
+golang.org/x/text/encoding
+golang.org/x/text/encoding/internal
+golang.org/x/text/encoding/internal/identifier
+golang.org/x/text/encoding/unicode
+golang.org/x/text/internal
+golang.org/x/text/internal/language
+golang.org/x/text/internal/language/compact
+golang.org/x/text/internal/tag
+golang.org/x/text/internal/utf8internal
+golang.org/x/text/language
+golang.org/x/text/runes
+golang.org/x/text/secure/bidirule
+golang.org/x/text/secure/precis
+golang.org/x/text/transform
+golang.org/x/text/unicode/bidi
+golang.org/x/text/unicode/norm
+golang.org/x/text/width
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463
+## explicit; go 1.23.0
+google.golang.org/genproto/googleapis/rpc/status
+# google.golang.org/grpc v1.71.0
+## explicit; go 1.22.0
+google.golang.org/grpc
+google.golang.org/grpc/attributes
+google.golang.org/grpc/backoff
+google.golang.org/grpc/balancer
+google.golang.org/grpc/balancer/base
+google.golang.org/grpc/balancer/endpointsharding
+google.golang.org/grpc/balancer/grpclb/state
+google.golang.org/grpc/balancer/pickfirst
+google.golang.org/grpc/balancer/pickfirst/internal
+google.golang.org/grpc/balancer/pickfirst/pickfirstleaf
+google.golang.org/grpc/balancer/roundrobin
+google.golang.org/grpc/binarylog/grpc_binarylog_v1
+google.golang.org/grpc/channelz
+google.golang.org/grpc/codes
+google.golang.org/grpc/connectivity
+google.golang.org/grpc/credentials
+google.golang.org/grpc/credentials/insecure
+google.golang.org/grpc/encoding
+google.golang.org/grpc/encoding/proto
+google.golang.org/grpc/experimental/stats
+google.golang.org/grpc/grpclog
+google.golang.org/grpc/grpclog/internal
+google.golang.org/grpc/internal
+google.golang.org/grpc/internal/backoff
+google.golang.org/grpc/internal/balancer/gracefulswitch
+google.golang.org/grpc/internal/balancerload
+google.golang.org/grpc/internal/binarylog
+google.golang.org/grpc/internal/buffer
+google.golang.org/grpc/internal/channelz
+google.golang.org/grpc/internal/credentials
+google.golang.org/grpc/internal/envconfig
+google.golang.org/grpc/internal/grpclog
+google.golang.org/grpc/internal/grpcsync
+google.golang.org/grpc/internal/grpcutil
+google.golang.org/grpc/internal/idle
+google.golang.org/grpc/internal/metadata
+google.golang.org/grpc/internal/pretty
+google.golang.org/grpc/internal/proxyattributes
+google.golang.org/grpc/internal/resolver
+google.golang.org/grpc/internal/resolver/delegatingresolver
+google.golang.org/grpc/internal/resolver/dns
+google.golang.org/grpc/internal/resolver/dns/internal
+google.golang.org/grpc/internal/resolver/passthrough
+google.golang.org/grpc/internal/resolver/unix
+google.golang.org/grpc/internal/serviceconfig
+google.golang.org/grpc/internal/stats
+google.golang.org/grpc/internal/status
+google.golang.org/grpc/internal/syscall
+google.golang.org/grpc/internal/transport
+google.golang.org/grpc/internal/transport/networktype
+google.golang.org/grpc/keepalive
+google.golang.org/grpc/mem
+google.golang.org/grpc/metadata
+google.golang.org/grpc/peer
+google.golang.org/grpc/resolver
+google.golang.org/grpc/resolver/dns
+google.golang.org/grpc/serviceconfig
+google.golang.org/grpc/stats
+google.golang.org/grpc/status
+google.golang.org/grpc/tap
+# google.golang.org/protobuf v1.36.6
+## explicit; go 1.22
+google.golang.org/protobuf/encoding/protojson
+google.golang.org/protobuf/encoding/prototext
+google.golang.org/protobuf/encoding/protowire
+google.golang.org/protobuf/internal/descfmt
+google.golang.org/protobuf/internal/descopts
+google.golang.org/protobuf/internal/detrand
+google.golang.org/protobuf/internal/editiondefaults
+google.golang.org/protobuf/internal/encoding/defval
+google.golang.org/protobuf/internal/encoding/json
+google.golang.org/protobuf/internal/encoding/messageset
+google.golang.org/protobuf/internal/encoding/tag
+google.golang.org/protobuf/internal/encoding/text
+google.golang.org/protobuf/internal/errors
+google.golang.org/protobuf/internal/filedesc
+google.golang.org/protobuf/internal/filetype
+google.golang.org/protobuf/internal/flags
+google.golang.org/protobuf/internal/genid
+google.golang.org/protobuf/internal/impl
+google.golang.org/protobuf/internal/order
+google.golang.org/protobuf/internal/pragma
+google.golang.org/protobuf/internal/protolazy
+google.golang.org/protobuf/internal/set
+google.golang.org/protobuf/internal/strs
+google.golang.org/protobuf/internal/version
+google.golang.org/protobuf/proto
+google.golang.org/protobuf/protoadapt
+google.golang.org/protobuf/reflect/protoreflect
+google.golang.org/protobuf/reflect/protoregistry
+google.golang.org/protobuf/runtime/protoiface
+google.golang.org/protobuf/runtime/protoimpl
+google.golang.org/protobuf/types/descriptorpb
+google.golang.org/protobuf/types/known/anypb
+google.golang.org/protobuf/types/known/durationpb
+google.golang.org/protobuf/types/known/emptypb
+google.golang.org/protobuf/types/known/structpb
+google.golang.org/protobuf/types/known/timestamppb
+# gopkg.in/yaml.v3 v3.0.1
+## explicit
+gopkg.in/yaml.v3
+# howett.net/plist v1.0.1
+## explicit; go 1.12
+howett.net/plist
+# modernc.org/libc v1.66.3
+## explicit; go 1.23.0
+modernc.org/libc
+modernc.org/libc/errno
+modernc.org/libc/fcntl
+modernc.org/libc/fts
+modernc.org/libc/grp
+modernc.org/libc/honnef.co/go/netdb
+modernc.org/libc/langinfo
+modernc.org/libc/limits
+modernc.org/libc/netdb
+modernc.org/libc/netinet/in
+modernc.org/libc/poll
+modernc.org/libc/pthread
+modernc.org/libc/pwd
+modernc.org/libc/signal
+modernc.org/libc/stdio
+modernc.org/libc/stdlib
+modernc.org/libc/sys/socket
+modernc.org/libc/sys/stat
+modernc.org/libc/sys/types
+modernc.org/libc/termios
+modernc.org/libc/time
+modernc.org/libc/unistd
+modernc.org/libc/utime
+modernc.org/libc/uuid
+modernc.org/libc/uuid/uuid
+modernc.org/libc/wctype
+# modernc.org/mathutil v1.7.1
+## explicit; go 1.21
+modernc.org/mathutil
+# modernc.org/memory v1.11.0
+## explicit; go 1.23.0
+modernc.org/memory
+# modernc.org/sqlite v1.38.2
+## explicit; go 1.23.0
+modernc.org/sqlite
+modernc.org/sqlite/lib

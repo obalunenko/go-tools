@@ -1,0 +1,13 @@
+tbls
+tbls.exe
+tbls.yml
+dist/
+dbdoc/
+coverage.out
+*.sqlite3
+.envrc
+.go-version
+.tbls.yml
+*client_secrets.json*
+.DS_Store
+.idea
