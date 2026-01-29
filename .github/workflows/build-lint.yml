@@ -36,7 +36,7 @@ jobs:
           fetch-depth: 0
 
       - name: Lint
-        uses: jbergstroem/hadolint-gh-action@v1.13.0
+        uses: jbergstroem/hadolint-gh-action@v1.15.0
         with:
           dockerfile: ${{ matrix.dockerfile }}
           annotate: true
