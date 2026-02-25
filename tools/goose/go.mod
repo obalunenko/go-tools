@@ -5,7 +5,7 @@ go 1.25.5
 require github.com/pressly/goose/v3 v3.26.0
 
 require (
-	filippo.io/edwards25519 v1.1.0 // indirect
+	filippo.io/edwards25519 v1.1.1 // indirect
 	github.com/ClickHouse/ch-go v0.67.0 // indirect
 	github.com/ClickHouse/clickhouse-go/v2 v2.40.1 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
