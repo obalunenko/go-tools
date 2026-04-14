@@ -5,7 +5,6 @@ updates:
       - /tools/buf
       - /tools/envdoc
       - /tools/fiximports
-      - /tools/go-enum
       - /tools/gocov
       - /tools/gocov-html
       - /tools/goimports
