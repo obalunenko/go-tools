@@ -1,6 +1,6 @@
 module goose
 
-go 1.25.5
+go 1.26.2
 
 require github.com/pressly/goose/v3 v3.26.0
 

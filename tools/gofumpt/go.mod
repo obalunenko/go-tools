@@ -1,6 +1,6 @@
 module gofumpt
 
-go 1.25.5
+go 1.26.2
 
 require mvdan.cc/gofumpt v0.9.2
 
