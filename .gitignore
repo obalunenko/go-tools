@@ -22,3 +22,4 @@ coverage/
 tests-report.json
 tools_list.txt
 .vscode/
+.cashe/

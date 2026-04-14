@@ -52,6 +52,11 @@ check-tools:
 	./scripts/test/installed-tools.sh
 .PHONY: check-tools
 
+## List vendored tools with available updates.
+list-tool-updates:
+	./scripts/test/outdated-tools.sh
+.PHONY: list-tool-updates
+
 ## Issue new release.
 new-version: install-tools build check-releaser
 	./scripts/release/new-version.sh
@@ -81,4 +86,3 @@ update-readme-versions:
 .PHONY: update-readme-versions
 
 .DEFAULT_GOAL := help
-
