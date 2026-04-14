@@ -1,3 +1,236 @@
+## v3.127.0
+* Changed behaviour of `table.Client` and `query.Client` internal session pool. When `ydb.WithPreferredNodeID` is set and there is no idle session on preferred node, the pool closes most idle session to create a new one on the preferred node
+* Fixed a bug when sometimes in cases of context cancellation returner error was not `errors.Is(err, context.Canceled)`
+
+## v3.126.5
+* Invoke `OnWriterReceiveResult` trace callback when topic writer receives ack from server (enables client-side logging for sync write diagnostics)
+* Added `ydb.WithCommitTxContext(ctx)` to request commit along with query execution in database/sql transactions
+
+## v3.126.4
+* Fixed a bug where the `internal/value.Any()` method was prematurely converting `*decimalValue` to `decimal.Decimal`, preventing users from implementing custom scanners that need to work with the underlying YDB value type.
+
+## v3.126.3
+* Allowed `TxControl` in `database/sql` transaction execution when TxControl equals TxControl on BeginTx
+
+## v3.126.2
+* Added support for custom types derived from primitive types in `database/sql` driver
+
+## v3.126.1
+* Added check `CommitTx` flag in `query.TxControl` on `db.Query().{Exec,Query,QueryResultSet,QueryRow}` calls before execution
+
+## v3.126.0
+* Added `query.WithLazyTx(bool)` option for `query.Client.DoTx` calls to enable/disable lazy transactions per operation
+* Added `retry.WithLazyTx(bool)` option for `retry.DoTx` calls to enable/disable lazy transactions for database/sql
+
+## v3.125.4
+* Added support for `GlobalUniqueIndex` type in `table/options.IndexDescription`
+
+## v3.125.3
+* Added optimized helper methods for efficient `[]byte` → `string` conversions in `JSON` and `JSONDocument` types.
+
+## v3.125.2
+* Added public named errors `query.{ErrNoRows,ErrMoreThanOneRow,ErrMoreThanOneResultSet,ErrNoResultSets}` in the `query` package
+
+## v3.125.1
+* Renamed `ydb_go_sdk_ydb_table_pool_node_hint_miss` and `ydb_go_sdk_ydb_query_pool_node_hint_miss` metrics to 
+`ydb_go_sdk_ydb_table_pool_node_hint` and `ydb_go_sdk_ydb_query_pool_node_hint`. Added `hit` label for them to 
+distinguish between hits and misses
+* Bumped `golang.org/x/net` from 0.35.0 to 0.38.0
+
+## v3.125.0
+* Added `WithConcurrentResultSets` option for `db.Query().Query()`
+* Added `DefaultValue` field to `table/options.Column` struct
+
+## v3.124.1
+* Fixed bug with incorrect conversion of `time.Duration` to `Interval64`, which was previously using nanoseconds instead of microseconds
+
+## v3.124.0
+* Fixed UUID scanning with `database/sql` when using types implementing `sql.Scanner` interface (like `uuid.UUID`)
+
+## v3.123.1
+* Fixed `pool.getItem()` panics, if unable to give session for preferred node ID
+
+## v3.123.0
+* Moved `internal/decimal` package to `pkg/decimal` for public usage
+
+## v3.122.0
+* Added `trace.NodeHintInfo` field for OnPoolGet trace callback which stores info for node hint misses
+* Added `ydb_go_sdk_ydb_table_pool_node_hint_miss` and `ydb_go_sdk_ydb_query_pool_node_hint_miss` metrics for node hint misses
+
+## v3.121.1
+* Added support for `Timestamp64` type in `value.Any` converter
+* Masked the sensitive credential data in the connection string (DSN, data source name) from error messages for security reasons
+* Fixed issue with topic offsets update in transactions
+
+## v3.121.0
+* Changed internal pprof label to pyroscope supported format
+* Added `query.ImplicitTxControl()` transaction control (the same as `query.NoTx()` and `query.EmptyTxControl()`). See more about implicit transactions on [ydb.tech](https://ydb.tech/docs/en/concepts/transactions?version=v25.2#implicit)
+* Added `SnapshotReadWrite` isolation mode support to `database/sql` driver using `sql.TxOptions{Isolation: sql.LevelSnapshot, ReadOnly: false}`
+* Moved `internal/ratelimiter/options` to `ratelimiter/options` for public usage
+
+## v3.120.0
+* Added support of `SnapshotReadWrite` isolation mode into query and table clients
+
+## v3.119.0
+* Made error "Request exceeded a limit on the number of schema operations, try again later" retryable
+* Fixed deadlock in `Endpoint.String()` method
+* Added the `AvailabilityPeriod` to the Consumer type in topics
+
+## v3.118.3
+* Fixed `context` checking in `ydb.Open`
+
+## v3.118.2
+* Fixed checking GRPC transport error in `discovery`
+
+## v3.118.1
+* Fixed connection timeout issue in topics writer
+* Supported `sql.Null*` from `database/sql` as query params in `toValue` func
+
+## v3.118.0
+* Added support for nullable `Date32`, `Datetime64`, `Timestamp64`, and `Interval64` types in the `optional` parameter builder
+* Added method `query.WithIssuesHandler` to get query issues
+
+## v3.117.2
+* Added support for `Result.RowsAffected()` for YDB `database/sql` driver
+* Upgraded minimal version of Go to 1.23.9
+* Fixed race in `readerReconnector`
+
+## v3.117.1
+* Fixed scan a column of type `Decimal(precision,scale)` into a struct field of type `types.Decimal{}` using `ScanStruct()`
+* Fixed race in integration test `TestTopicWriterLogMessagesWithoutData`
+* Fixed traces handling in `topic.Reader`
+
+## v3.117.0
+* Fixed `conn/pool.Get()` behaviour for YDB databases with public IPs. Bug was introduced in v3.116.2
+* Added helper methods `log.WithFields` and `log.FieldsFromContext` for working with structured logging fields via context.
+  These methods allow adding custom fields to the context, which are later extracted by the logger.
+
+## v3.116.4
+* Fixed error handling in `internaltopicreader.addOnTransactionCompletedHandler`
+
+## v3.116.3
+* Default grpc message size adjusted to the server's defaults
+
+## v3.116.2
+* Fixed grpc connections leak on reused node IP
+
+## v3.116.1
+* Fixed an issue where `topic.UpdateOffsetsInTransaction` was executed on a node different from the one where the transaction was running, which could lead to the error "Database coordinators are unavailable"
+
+## v3.116.0
+* Added experimental support for query results in `Apache Arrow`
+* Fix flaky unit test TestUnboundedChanContextTimeout
+
+## v3.115.7
+* Added support for `PartitionBy` in `DescribeTable` results
+
+## v3.115.6
+* Fixed context cancellation issues in the `QueryService` stream results
+
+## v3.115.5
+* Fixed error logging in `topic.UpdateOffsetsInTransaction`
+
+## v3.115.4
+*  Supported reusing one IP address and host name after nodes restart
+
+## v3.115.3
+* Fixed error catching in `retry.DoTxWithResult`
+
+## v3.115.2
+* Fixed bug with wrong literal YQL representation for signed integer YDB types
+
+## v3.115.1
+* Added `ydb.Param.Range()` range iterator
+
+## v3.115.0
+* Added public package `pkg/xtest` with test helpers
+
+## v3.114.1
+* Fixed depth for `pkg/xerrors.WithStackTrace()` error
+
+## v3.114.0
+* Added public packages:
+  - `pkg/xerrors` - helpers for wrap errors with stacktrace and join errors
+  - `pkg/xslices` - helpers for work with slices
+  - `pkg/xstring` - helpers for work with strings
+* Added `table.Client.DescribeTable()` helper method
+* Added `table/types/IsNull()` and `table/types/Unwrap()` methods for work with optional values
+
+## v3.113.6
+* Removed experimental label from `retry.DoWithResult` and `retry.DoTxWithResult`
+
+## v3.113.5
+* Fixed incorrect string conversion of `Uint64Value` values greater than `int64` max value
+
+## v3.113.4
+* Added original error to `listValue` and `setValue` cast error
+
+## v3.113.3
+* Marked as non-retryable operation error `ABORTED` with internal issue `200509` ("Datashard program size limit exceeded")
+
+## v3.113.2
+* Fixed panic in `database/sql` traces
+
+## v3.113.1
+* Fixed several issues in `database/sql` error handling
+* Improved context management for query result streams.
+
+## v3.113.0
+* Added experimental `config.WithDisableOptimisticUnban` option to disable fast node unban after pessimization
+* Fixed respect start offset from `topicoptions.WithReaderGetPartitionStartOffset` for commit messages
+* Added `query.AllowImplicitSessions()` option for execute queries through `query.Client.{Exec,Query,QueryResultSet,QueryRow}` without explicit sessions
+
+## v3.112.0
+* Added support for the `json.Unmarshaler` interface in the `CastTo` function for use in scanners, such as the `ScanStruct` method
+* Fixed the support of server-side session balancing in `database/sql` driver
+* Added `ydb.WithDisableSessionBalancer()` driver option for disable server-side session balancing on table and query clients
+
+## v3.111.3
+* Fixed session closing in `ydb.WithExecuteDataQueryOverQueryClient(true)` scenario
+
+## v3.111.2
+* Changed discovery and dns resolving log level to DEBUG
+
+## v3.111.1
+* Replaced minimal requirements of `go` from `1.23` to `1.22`
+* Migrated `golangci-lint` to version `v2.1.6`
+
+## v3.111.0
+* Added `sugar.PrintErrorWithoutStack` helper for remove stack records from error string
+* Added `sugar.UnwrapError` helper for unwrap source error to root errors
+
+## v3.110.1
+* Added the ability to send BulkRequest exceeding the GrpcMaxMessageSize
+
+## v3.110.0
+* Added read partitions in parallel for topic listener.
+
+## v3.109.0
+* Added control plane fields for split-merge topics (Create,Alter,Describe)
+
+## v3.108.5
+* Fixed stop topic reader after TLI in transaction
+
+## v3.108.4
+* Removed `experimental` from coordination API
+* Added `WithReaderLogContext`, `WithWriterLogContext` options to topic reader/writer to supply log entries with user context fields
+
+## v3.108.3
+* Fixed handling of zero values for DyNumber
+* Fixed the decimal yql slice bounds out of range
+
+## v3.108.2
+* Bumped dependencies:
+  - `github.com/jonboulle/clockwork` from v0.3.0 to v0.5.0
+  - `google.golang.org/grpc` from v1.62.1 to v1.69.4
+  - `google.golang.org/protobuf` from v1.33.0 to v1.35.1
+  - `github.com/golang-jwt/jwt/v4` from v4.5.0 to v4.5.2 (see security alerts https://github.com/golang-jwt/jwt/security/advisories/GHSA-mh63-6h87-95cp and https://github.com/ydb-platform/ydb-go-sdk/security/dependabot/45)
+  - `golang.org/x/net` from v0.33.0 to v0.38.0 (see security alert https://github.com/ydb-platform/ydb-go-sdk/security/dependabot/59)
+  - `golang.org/x/crypto` from 0.31.0 to 0.36.0 (see security alerts https://github.com/ydb-platform/ydb-go-sdk/security/dependabot/56 and https://github.com/ydb-platform/ydb-go-sdk/security/dependabot/52)
+  - `golang.org/x/sync` from v0.10.0 to v0.12.0
+  - `golang.org/x/sys` from v0.28.0 to v0.31.0
+  - `golang.org/x/text` from v0.21.0 to v0.23.0
+
 ## v3.108.1
 * Supported `json.Marshaller` query parameter in `database/sql` driver
 
@@ -18,7 +251,7 @@
 * Removed delay before send commit in sync mode of a topic reader
 
 ## v3.105.2
-* Improved the `ydb.WithSessionPoolSessionUsageLimit` option for allow `time.Duration` as argument type for limit max session time to live since create time 
+* Improved the `ydb.WithSessionPoolSessionUsageLimit` option for allow `time.Duration` as argument type for limit max session time to live since create time
 
 ## v3.105.1
 * Changed the gRPC DNS balancer policy to `round_robin` for internal `discovery/ListEndpoints` call (reverted v3.90.2 changes)
@@ -41,7 +274,7 @@
 * Fixed bug with session query latency metric collector
 
 ## v3.104.3
-* Changed argument types in `table.Client.ReadRows` to public types for compatibility with mock-generation 
+* Changed argument types in `table.Client.ReadRows` to public types for compatibility with mock-generation
 
 ## v3.104.2
 * Added bindings options into `ydb.ParamsFromMap` for bind wide time types
@@ -60,10 +293,10 @@
 * Supported wide `Date32`, `Datetime64` and `Timestamp64` types
 
 ## v3.101.4
-* Switched internal type of result `ydb.Driver.Query()` from `*internal/query.Client` to `query.Client` interface 
+* Switched internal type of result `ydb.Driver.Query()` from `*internal/query.Client` to `query.Client` interface
 
 ## v3.101.3
-* Added `query.TransactionActor` type alias to `query.TxActor` for compatibility with `table.Client` API's 
+* Added `query.TransactionActor` type alias to `query.TxActor` for compatibility with `table.Client` API's
 * Removed comment `experimental` from `ydb.ParamsBuilder` and `ydb.ParamsFromMap`
 * Fixed panic on closing `internal/query/sessionCore.done` channel twice
 * Fixed hangup when try to send batch of messages with size more, then grpc limits from topic writer internals
@@ -101,7 +334,7 @@
 * Added virtualtimestamps field to cdc description
 
 ## v3.99.10
-* Returned legacy behaviour for interpret as `time.Time` YDB types `Date`, `Datetime` and `Timestamp` 
+* Returned legacy behaviour for interpret as `time.Time` YDB types `Date`, `Datetime` and `Timestamp`
 
 ## v3.99.9
 * Fixed broken compatibility `database/sql` driver which worked on query engine (usnig `ydb.WithQueryService(true)` connector option):
@@ -121,7 +354,7 @@
 
 ## v3.99.5
 * Fixed error `Empty query text` using prepared statements and `ydb.WithExecuteDataQueryOverQueryClient(true)` option
-* Prepared statements always send query text on Execute call from now (previous behaviour - send query ID)  
+* Prepared statements always send query text on Execute call from now (previous behaviour - send query ID)
 * Prevented create decoder instance until start read a message from topics
 
 ## v3.99.4
@@ -146,8 +379,8 @@
   - `github.com/golang-jwt/jwt/v4` from v4.4.1 to v4.5.0
 
 ## v3.99.0
-* Added `ydb.WithExecuteDataQueryOverQueryClient(bool)` option to execute data queries from table service 
-  client using query client API. Using this option you can execute queries from legacy table service client 
+* Added `ydb.WithExecuteDataQueryOverQueryClient(bool)` option to execute data queries from table service
+  client using query client API. Using this option you can execute queries from legacy table service client
   through `table.Session.Execute` using internal query client API without limitation of 1000 rows in response.
   Be careful: an OOM problem may happen because bigger result requires more memory
 
@@ -161,7 +394,7 @@
 * Fixed broken metric `ydb_go_sdk_ydb_database_sql_conns`
 
 ## v3.96.1
-* Fixed drop session from pool unnecessary in query service 
+* Fixed drop session from pool unnecessary in query service
 
 ## v3.96.0
 * Supported of list, set and struct for unmarshall using `sugar.Unmarshall...`
@@ -177,14 +410,14 @@
 * Fixed an error in logging session deletion events
 
 ## v3.95.3
-* Supported of `database/sql/driver.Valuer` interfaces for params which passed to query using sql driver 
+* Supported of `database/sql/driver.Valuer` interfaces for params which passed to query using sql driver
 * Exposed `credentials/credentials.OAuth2Config` OAuth2 config
 
 ## v3.95.2
 * Fixed panic on multiple closing driver
 
 ## v3.95.1
-* Added alias from `ydb.WithFakeTx(ydb.ScriptingQueryMode)` to `ydb.WithFakeTx(ydb.QueryExecuteQueryMode)` for compatibility with legacy code   
+* Added alias from `ydb.WithFakeTx(ydb.ScriptingQueryMode)` to `ydb.WithFakeTx(ydb.QueryExecuteQueryMode)` for compatibility with legacy code
 
 ## v3.95.0
 * Added implementation of `database/sql` driver over query service client
@@ -200,7 +433,7 @@
 
 ## v3.93.2
 * Removed experimental helper `ydb.MustParamsFromMap`
-* Changed result of experimental helper `ydb.ParamsFromMap` from tuple <`params.Parameters`, `error`> to `params.Parameters` only 
+* Changed result of experimental helper `ydb.ParamsFromMap` from tuple <`params.Parameters`, `error`> to `params.Parameters` only
 
 ## v3.93.1
 * Published `query.ExecuteOption` as alias to `internal/query/options.Execute`
@@ -228,7 +461,7 @@
 ## v3.92.1
 * Added `sugar.WithUserPassword(user,password)` option for `sugar.DSN()` helper
 * Added `sugar.WithSecure(bool)` option for `sugar.DSN()` helper
-* Small breaking change: `sugar.DSN` have only two required parameters (endpoint and database) from now on. 
+* Small breaking change: `sugar.DSN` have only two required parameters (endpoint and database) from now on.
   Third parameter `secure` must be passed as option `sugar.WithSecure(bool)`
 
 ## v3.92.0
@@ -243,14 +476,14 @@
 * Set the `pick_first` balancer for short-lived grpc connection inside ydb cluster discovery attempt
 
 ## v3.90.1
-* Small broken change: added method `ID()` into `spans.Span` interface (need to implement in adapter) 
+* Small broken change: added method `ID()` into `spans.Span` interface (need to implement in adapter)
 * Fixed traceparent header for tracing grpc requests
 
 ## v3.90.0
 * Fixed closing of child driver with shared balancer
 
 ## v3.89.6
-* Refactored `database/sql` driver internals for query-service client support in the future 
+* Refactored `database/sql` driver internals for query-service client support in the future
 
 ## v3.89.5
 * Fixed nil pointer dereference in metabalancer initialization

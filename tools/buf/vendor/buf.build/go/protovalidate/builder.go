@@ -15,6 +15,7 @@
 package protovalidate
 
 import (
+	"cmp"
 	"fmt"
 	"maps"
 	"slices"
@@ -32,8 +33,10 @@ import (
 
 //nolint:gochecknoglobals
 var (
-	celRuleDescriptor = (&validate.FieldRules{}).ProtoReflect().Descriptor().Fields().ByName("cel")
-	celRuleField      = fieldPathElement(celRuleDescriptor)
+	celExpressionDescriptor = (&validate.FieldRules{}).ProtoReflect().Descriptor().Fields().ByName("cel_expression")
+	celExpressionField      = fieldPathElement(celExpressionDescriptor)
+	celRuleDescriptor       = (&validate.FieldRules{}).ProtoReflect().Descriptor().Fields().ByName("cel")
+	celRuleField            = fieldPathElement(celRuleDescriptor)
 )
 
 // builder is a build-through cache of message evaluators keyed off the provided
@@ -149,7 +152,7 @@ func (bldr *builder) processMessageExpressions(
 	_ messageCache,
 ) {
 	exprs := expressions{
-		Rules: msgRules.GetCel(),
+		Rules: append(expressionsToRules(msgRules.GetCelExpression()), msgRules.GetCel()...),
 	}
 	compiledExprs, err := compile(
 		exprs,
@@ -162,9 +165,7 @@ func (bldr *builder) processMessageExpressions(
 		return
 	}
 
-	msgEval.Append(celPrograms{
-		programSet: compiledExprs,
-	})
+	msgEval.Append(celPrograms{programSet: compiledExprs})
 }
 
 func (bldr *builder) processMessageOneofRules(
@@ -323,31 +324,54 @@ func (bldr *builder) processFieldExpressions(
 	eval *value,
 	_ messageCache,
 ) error {
-	exprs := expressions{
-		Rules: fieldRules.GetCel(),
-	}
-
 	celTyp := pvcel.ProtoFieldToType(fieldDesc, false, eval.NestedRule != nil)
 	opts := append(
 		pvcel.RequiredEnvOptions(fieldDesc),
 		cel.Variable("this", celTyp),
 	)
-	compiledExpressions, err := compile(exprs, bldr.env, opts...)
+	compileWithPath := func(exprs expressions, fieldPathElement *validate.FieldPathElement, descriptor protoreflect.FieldDescriptor) (set programSet, err error) {
+		set, err = compile(exprs, bldr.env, opts...)
+		if err != nil {
+			return set, err
+		}
+		for i := range set.programs {
+			set.programs[i].Path = []*validate.FieldPathElement{
+				validate.FieldPathElement_builder{
+					FieldNumber: proto.Int32(fieldPathElement.GetFieldNumber()),
+					FieldType:   fieldPathElement.GetFieldType().Enum(),
+					FieldName:   proto.String(fieldPathElement.GetFieldName()),
+					Index:       proto.Uint64(uint64(i)), //nolint:gosec // indices are guaranteed to be non-negative
+				}.Build(),
+			}
+			set.programs[i].Descriptor = descriptor
+		}
+		return set, nil
+	}
+	compiledExpressions, err := compileWithPath(
+		expressions{
+			Rules: expressionsToRules(fieldRules.GetCelExpression()),
+		},
+		celExpressionField,
+		celExpressionDescriptor,
+	)
 	if err != nil {
 		return err
 	}
-	for i := range compiledExpressions {
-		compiledExpressions[i].Path = []*validate.FieldPathElement{
-			validate.FieldPathElement_builder{
-				FieldNumber: proto.Int32(celRuleField.GetFieldNumber()),
-				FieldType:   celRuleField.GetFieldType().Enum(),
-				FieldName:   proto.String(celRuleField.GetFieldName()),
-				Index:       proto.Uint64(uint64(i)), //nolint:gosec // indices are guaranteed to be non-negative
-			}.Build(),
-		}
-		compiledExpressions[i].Descriptor = celRuleDescriptor
+	celRuleCompiledExpressions, err := compileWithPath(
+		expressions{
+			Rules: fieldRules.GetCel(),
+		},
+		celRuleField,
+		celRuleDescriptor,
+	)
+	if err != nil {
+		return err
 	}
-	if len(compiledExpressions) > 0 {
+	// Merge the two program sets. If cel rules were compiled, use their env
+	// since it has all the types registered.
+	compiledExpressions.programs = append(compiledExpressions.programs, celRuleCompiledExpressions.programs...)
+	if len(compiledExpressions.programs) > 0 {
+		compiledExpressions.env = cmp.Or(compiledExpressions.env, celRuleCompiledExpressions.env, bldr.env)
 		eval.Rules = append(eval.Rules,
 			celPrograms{
 				base:       newBase(eval),
@@ -612,4 +636,15 @@ func isPartOfMessageOneof(msgRules *validate.MessageRules, field protoreflect.Fi
 	return slices.ContainsFunc(msgRules.GetOneof(), func(oneof *validate.MessageOneofRule) bool {
 		return slices.Contains(oneof.GetFields(), string(field.Name()))
 	})
+}
+
+func expressionsToRules(expressions []string) []*validate.Rule {
+	rules := make([]*validate.Rule, 0, len(expressions))
+	for _, expr := range expressions {
+		rules = append(rules, validate.Rule_builder{
+			Id:         proto.String(expr),
+			Expression: proto.String(expr),
+		}.Build())
+	}
+	return rules
 }

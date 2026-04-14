@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -403,7 +403,7 @@ func readBufYAMLFile(
 	case FileVersionV1Beta1, FileVersionV1:
 		var externalBufYAMLFile externalBufYAMLFileV1Beta1V1
 		if err := getUnmarshalStrict(allowJSON)(data, &externalBufYAMLFile); err != nil {
-			return nil, fmt.Errorf("invalid as version %v: %w", fileVersion, err)
+			return nil, err
 		}
 		if fileVersion == FileVersionV1 && len(externalBufYAMLFile.Build.Roots) > 0 {
 			return nil, fmt.Errorf("build.roots cannot be set on version %v: %v", fileVersion, externalBufYAMLFile.Build.Roots)
@@ -475,7 +475,7 @@ func readBufYAMLFile(
 	case FileVersionV2:
 		var externalBufYAMLFile externalBufYAMLFileV2
 		if err := getUnmarshalStrict(allowJSON)(data, &externalBufYAMLFile); err != nil {
-			return nil, fmt.Errorf("invalid as version %v: %w", fileVersion, err)
+			return nil, err
 		}
 		externalModules := externalBufYAMLFile.Modules
 		if len(externalModules) == 0 {
@@ -1288,9 +1288,9 @@ type externalBufYAMLFileV1Beta1V1 struct {
 	Version  string                                 `json:"version,omitempty" yaml:"version,omitempty"`
 	Name     string                                 `json:"name,omitempty" yaml:"name,omitempty"`
 	Deps     []string                               `json:"deps,omitempty" yaml:"deps,omitempty"`
-	Build    externalBufYAMLFileBuildV1Beta1V1      `json:"build,omitempty" yaml:"build,omitempty"`
-	Lint     externalBufYAMLFileLintV1Beta1V1       `json:"lint,omitempty" yaml:"lint,omitempty"`
-	Breaking externalBufYAMLFileBreakingV1Beta1V1V2 `json:"breaking,omitempty" yaml:"breaking,omitempty"`
+	Build    externalBufYAMLFileBuildV1Beta1V1      `json:"build" yaml:"build,omitempty"`
+	Lint     externalBufYAMLFileLintV1Beta1V1       `json:"lint" yaml:"lint,omitempty"`
+	Breaking externalBufYAMLFileBreakingV1Beta1V1V2 `json:"breaking" yaml:"breaking,omitempty"`
 }
 
 // externalBufYAMLFileV2 represents the v2 buf.yaml file.
@@ -1302,8 +1302,8 @@ type externalBufYAMLFileV2 struct {
 	Name     string                                 `json:"name,omitempty" yaml:"name,omitempty"`
 	Modules  []externalBufYAMLFileModuleV2          `json:"modules,omitempty" yaml:"modules,omitempty"`
 	Deps     []string                               `json:"deps,omitempty" yaml:"deps,omitempty"`
-	Lint     externalBufYAMLFileLintV2              `json:"lint,omitempty" yaml:"lint,omitempty"`
-	Breaking externalBufYAMLFileBreakingV1Beta1V1V2 `json:"breaking,omitempty" yaml:"breaking,omitempty"`
+	Lint     externalBufYAMLFileLintV2              `json:"lint" yaml:"lint,omitempty"`
+	Breaking externalBufYAMLFileBreakingV1Beta1V1V2 `json:"breaking" yaml:"breaking,omitempty"`
 	Plugins  []externalBufYAMLFilePluginV2          `json:"plugins,omitempty" yaml:"plugins,omitempty"`
 	Policies []externalBufYAMLFilePolicyV2          `json:"policies,omitempty" yaml:"policies,omitempty"`
 }
@@ -1314,8 +1314,8 @@ type externalBufYAMLFileModuleV2 struct {
 	Name     string                                 `json:"name,omitempty" yaml:"name,omitempty"`
 	Includes []string                               `json:"includes,omitempty" yaml:"includes,omitempty"`
 	Excludes []string                               `json:"excludes,omitempty" yaml:"excludes,omitempty"`
-	Lint     externalBufYAMLFileLintV2              `json:"lint,omitempty" yaml:"lint,omitempty"`
-	Breaking externalBufYAMLFileBreakingV1Beta1V1V2 `json:"breaking,omitempty" yaml:"breaking,omitempty"`
+	Lint     externalBufYAMLFileLintV2              `json:"lint" yaml:"lint,omitempty"`
+	Breaking externalBufYAMLFileBreakingV1Beta1V1V2 `json:"breaking" yaml:"breaking,omitempty"`
 }
 
 // externalBufYAMLFileBuildV1Beta1V1 represents build configuration within a v1 or

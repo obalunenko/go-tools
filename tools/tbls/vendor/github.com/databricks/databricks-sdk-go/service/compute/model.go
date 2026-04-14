@@ -143,7 +143,7 @@ type AwsAttributes struct {
 	// availability zone must be in the same region as the Databricks
 	// deployment. For example, "us-west-2a" is not a valid zone id if the
 	// Databricks deployment resides in the "us-east-1" region. This is an
-	// optional field at cluster creation, and if not specified, a default zone
+	// optional field at cluster creation, and if not specified, the zone "auto"
 	// will be used. If the zone specified is "auto", will try to place cluster
 	// in a zone with high availability, and will retry placement in a different
 	// AZ if there is not enough capacity.
@@ -464,6 +464,8 @@ type ClusterAttributes struct {
 	// belongs. The pool cluster uses the instance pool with id
 	// (instance_pool_id) if the driver pool is not assigned.
 	DriverInstancePoolId string `json:"driver_instance_pool_id,omitempty"`
+	// Flexible node type configuration for the driver node.
+	DriverNodeTypeFlexibility *NodeTypeFlexibility `json:"driver_node_type_flexibility,omitempty"`
 	// The node type of the Spark driver. Note that this field is optional; if
 	// unset, the driver node type will be set as the same value as
 	// `node_type_id` defined above.
@@ -475,8 +477,7 @@ type ClusterAttributes struct {
 	DriverNodeTypeId string `json:"driver_node_type_id,omitempty"`
 	// Autoscaling Local Storage: when enabled, this cluster will dynamically
 	// acquire additional disk space when its Spark workers are running low on
-	// disk space. This feature requires specific AWS permissions to function
-	// correctly - refer to the User Guide for more details.
+	// disk space.
 	EnableElasticDisk bool `json:"enable_elastic_disk,omitempty"`
 	// Whether to enable LUKS on cluster VMs' local disks
 	EnableLocalDiskEncryption bool `json:"enable_local_disk_encryption,omitempty"`
@@ -556,6 +557,8 @@ type ClusterAttributes struct {
 	// this field `use_ml_runtime`, and whether `node_type_id` is gpu node or
 	// not.
 	UseMlRuntime bool `json:"use_ml_runtime,omitempty"`
+	// Flexible node type configuration for worker nodes.
+	WorkerNodeTypeFlexibility *NodeTypeFlexibility `json:"worker_node_type_flexibility,omitempty"`
 
 	WorkloadType *WorkloadType `json:"workload_type,omitempty"`
 
@@ -675,6 +678,8 @@ type ClusterDetails struct {
 	// belongs. The pool cluster uses the instance pool with id
 	// (instance_pool_id) if the driver pool is not assigned.
 	DriverInstancePoolId string `json:"driver_instance_pool_id,omitempty"`
+	// Flexible node type configuration for the driver node.
+	DriverNodeTypeFlexibility *NodeTypeFlexibility `json:"driver_node_type_flexibility,omitempty"`
 	// The node type of the Spark driver. Note that this field is optional; if
 	// unset, the driver node type will be set as the same value as
 	// `node_type_id` defined above.
@@ -686,8 +691,7 @@ type ClusterDetails struct {
 	DriverNodeTypeId string `json:"driver_node_type_id,omitempty"`
 	// Autoscaling Local Storage: when enabled, this cluster will dynamically
 	// acquire additional disk space when its Spark workers are running low on
-	// disk space. This feature requires specific AWS permissions to function
-	// correctly - refer to the User Guide for more details.
+	// disk space.
 	EnableElasticDisk bool `json:"enable_elastic_disk,omitempty"`
 	// Whether to enable LUKS on cluster VMs' local disks
 	EnableLocalDiskEncryption bool `json:"enable_local_disk_encryption,omitempty"`
@@ -810,6 +814,8 @@ type ClusterDetails struct {
 	// this field `use_ml_runtime`, and whether `node_type_id` is gpu node or
 	// not.
 	UseMlRuntime bool `json:"use_ml_runtime,omitempty"`
+	// Flexible node type configuration for worker nodes.
+	WorkerNodeTypeFlexibility *NodeTypeFlexibility `json:"worker_node_type_flexibility,omitempty"`
 
 	WorkloadType *WorkloadType `json:"workload_type,omitempty"`
 
@@ -1280,6 +1286,8 @@ type ClusterSpec struct {
 	// belongs. The pool cluster uses the instance pool with id
 	// (instance_pool_id) if the driver pool is not assigned.
 	DriverInstancePoolId string `json:"driver_instance_pool_id,omitempty"`
+	// Flexible node type configuration for the driver node.
+	DriverNodeTypeFlexibility *NodeTypeFlexibility `json:"driver_node_type_flexibility,omitempty"`
 	// The node type of the Spark driver. Note that this field is optional; if
 	// unset, the driver node type will be set as the same value as
 	// `node_type_id` defined above.
@@ -1291,8 +1299,7 @@ type ClusterSpec struct {
 	DriverNodeTypeId string `json:"driver_node_type_id,omitempty"`
 	// Autoscaling Local Storage: when enabled, this cluster will dynamically
 	// acquire additional disk space when its Spark workers are running low on
-	// disk space. This feature requires specific AWS permissions to function
-	// correctly - refer to the User Guide for more details.
+	// disk space.
 	EnableElasticDisk bool `json:"enable_elastic_disk,omitempty"`
 	// Whether to enable LUKS on cluster VMs' local disks
 	EnableLocalDiskEncryption bool `json:"enable_local_disk_encryption,omitempty"`
@@ -1383,6 +1390,8 @@ type ClusterSpec struct {
 	// this field `use_ml_runtime`, and whether `node_type_id` is gpu node or
 	// not.
 	UseMlRuntime bool `json:"use_ml_runtime,omitempty"`
+	// Flexible node type configuration for worker nodes.
+	WorkerNodeTypeFlexibility *NodeTypeFlexibility `json:"worker_node_type_flexibility,omitempty"`
 
 	WorkloadType *WorkloadType `json:"workload_type,omitempty"`
 
@@ -1614,6 +1623,8 @@ type CreateCluster struct {
 	// belongs. The pool cluster uses the instance pool with id
 	// (instance_pool_id) if the driver pool is not assigned.
 	DriverInstancePoolId string `json:"driver_instance_pool_id,omitempty"`
+	// Flexible node type configuration for the driver node.
+	DriverNodeTypeFlexibility *NodeTypeFlexibility `json:"driver_node_type_flexibility,omitempty"`
 	// The node type of the Spark driver. Note that this field is optional; if
 	// unset, the driver node type will be set as the same value as
 	// `node_type_id` defined above.
@@ -1625,8 +1636,7 @@ type CreateCluster struct {
 	DriverNodeTypeId string `json:"driver_node_type_id,omitempty"`
 	// Autoscaling Local Storage: when enabled, this cluster will dynamically
 	// acquire additional disk space when its Spark workers are running low on
-	// disk space. This feature requires specific AWS permissions to function
-	// correctly - refer to the User Guide for more details.
+	// disk space.
 	EnableElasticDisk bool `json:"enable_elastic_disk,omitempty"`
 	// Whether to enable LUKS on cluster VMs' local disks
 	EnableLocalDiskEncryption bool `json:"enable_local_disk_encryption,omitempty"`
@@ -1717,6 +1727,8 @@ type CreateCluster struct {
 	// this field `use_ml_runtime`, and whether `node_type_id` is gpu node or
 	// not.
 	UseMlRuntime bool `json:"use_ml_runtime,omitempty"`
+	// Flexible node type configuration for worker nodes.
+	WorkerNodeTypeFlexibility *NodeTypeFlexibility `json:"worker_node_type_flexibility,omitempty"`
 
 	WorkloadType *WorkloadType `json:"workload_type,omitempty"`
 
@@ -1804,6 +1816,8 @@ type CreateInstancePool struct {
 	MaxCapacity int `json:"max_capacity,omitempty"`
 	// Minimum number of idle instances to keep in the instance pool
 	MinIdleInstances int `json:"min_idle_instances,omitempty"`
+	// Flexible node type configuration for the pool.
+	NodeTypeFlexibility *NodeTypeFlexibility `json:"node_type_flexibility,omitempty"`
 	// This field encodes, through a single value, the resources available to
 	// each of the Spark nodes in this cluster. For example, the Spark nodes can
 	// be provisioned and optimized for memory or compute intensive workloads. A
@@ -2417,6 +2431,8 @@ type EditCluster struct {
 	// belongs. The pool cluster uses the instance pool with id
 	// (instance_pool_id) if the driver pool is not assigned.
 	DriverInstancePoolId string `json:"driver_instance_pool_id,omitempty"`
+	// Flexible node type configuration for the driver node.
+	DriverNodeTypeFlexibility *NodeTypeFlexibility `json:"driver_node_type_flexibility,omitempty"`
 	// The node type of the Spark driver. Note that this field is optional; if
 	// unset, the driver node type will be set as the same value as
 	// `node_type_id` defined above.
@@ -2428,8 +2444,7 @@ type EditCluster struct {
 	DriverNodeTypeId string `json:"driver_node_type_id,omitempty"`
 	// Autoscaling Local Storage: when enabled, this cluster will dynamically
 	// acquire additional disk space when its Spark workers are running low on
-	// disk space. This feature requires specific AWS permissions to function
-	// correctly - refer to the User Guide for more details.
+	// disk space.
 	EnableElasticDisk bool `json:"enable_elastic_disk,omitempty"`
 	// Whether to enable LUKS on cluster VMs' local disks
 	EnableLocalDiskEncryption bool `json:"enable_local_disk_encryption,omitempty"`
@@ -2520,6 +2535,8 @@ type EditCluster struct {
 	// this field `use_ml_runtime`, and whether `node_type_id` is gpu node or
 	// not.
 	UseMlRuntime bool `json:"use_ml_runtime,omitempty"`
+	// Flexible node type configuration for worker nodes.
+	WorkerNodeTypeFlexibility *NodeTypeFlexibility `json:"worker_node_type_flexibility,omitempty"`
 
 	WorkloadType *WorkloadType `json:"workload_type,omitempty"`
 
@@ -2671,9 +2688,18 @@ func (s EnforceClusterComplianceResponse) MarshalJSON() ([]byte, error) {
 
 // The environment entity used to preserve serverless environment side panel,
 // jobs' environment for non-notebook task, and DLT's environment for classic
-// and serverless pipelines. In this minimal environment spec, only pip
+// and serverless pipelines. In this minimal environment spec, only pip and java
 // dependencies are supported.
 type Environment struct {
+	// The `base_environment` key refers to an `env.yaml` file that specifies an
+	// environment version and a collection of dependencies required for the
+	// environment setup. This `env.yaml` file may itself include a
+	// `base_environment` reference pointing to another `env_1.yaml` file.
+	// However, when used as a base environment, `env_1.yaml` (or further nested
+	// references) will not be processed or included in the final environment,
+	// meaning that the resolution of `base_environment` references is not
+	// recursive.
+	BaseEnvironment string `json:"base_environment,omitempty"`
 	// Use `environment_version` instead.
 	Client string `json:"client,omitempty"`
 	// List of pip dependencies, as supported by the version of pip in this
@@ -2683,9 +2709,10 @@ type Environment struct {
 	// local project path (such as WSFS or UC Volumes in Databricks), or a VCS
 	// project URL.
 	Dependencies []string `json:"dependencies,omitempty"`
-	// Required. Environment version used by the environment. Each version comes
-	// with a specific Python version and a set of Python packages. The version
-	// is a string, consisting of an integer.
+	// Either `environment_version` or `base_environment` needs to be provided.
+	// Environment version used by the environment. Each version comes with a
+	// specific Python version and a set of Python packages. The version is a
+	// string, consisting of an integer.
 	EnvironmentVersion string `json:"environment_version,omitempty"`
 	// List of java dependencies. Each dependency is a string representing a
 	// java library path. For example: `/Volumes/path/to/test.jar`.
@@ -2770,6 +2797,10 @@ const EventDetailsCauseAutorecovery EventDetailsCause = `AUTORECOVERY`
 
 const EventDetailsCauseAutoscale EventDetailsCause = `AUTOSCALE`
 
+const EventDetailsCauseAutoscaleV2 EventDetailsCause = `AUTOSCALE_V2`
+
+const EventDetailsCauseDbrAutoscale EventDetailsCause = `DBR_AUTOSCALE`
+
 const EventDetailsCauseReplaceBadNodes EventDetailsCause = `REPLACE_BAD_NODES`
 
 const EventDetailsCauseUserRequest EventDetailsCause = `USER_REQUEST`
@@ -2782,11 +2813,11 @@ func (f *EventDetailsCause) String() string {
 // Set raw string value and validate it against allowed values
 func (f *EventDetailsCause) Set(v string) error {
 	switch v {
-	case `AUTORECOVERY`, `AUTOSCALE`, `REPLACE_BAD_NODES`, `USER_REQUEST`:
+	case `AUTORECOVERY`, `AUTOSCALE`, `AUTOSCALE_V2`, `DBR_AUTOSCALE`, `REPLACE_BAD_NODES`, `USER_REQUEST`:
 		*f = EventDetailsCause(v)
 		return nil
 	default:
-		return fmt.Errorf(`value "%s" is not one of "AUTORECOVERY", "AUTOSCALE", "REPLACE_BAD_NODES", "USER_REQUEST"`, v)
+		return fmt.Errorf(`value "%s" is not one of "AUTORECOVERY", "AUTOSCALE", "AUTOSCALE_V2", "DBR_AUTOSCALE", "REPLACE_BAD_NODES", "USER_REQUEST"`, v)
 	}
 }
 
@@ -2797,6 +2828,8 @@ func (f *EventDetailsCause) Values() []EventDetailsCause {
 	return []EventDetailsCause{
 		EventDetailsCauseAutorecovery,
 		EventDetailsCauseAutoscale,
+		EventDetailsCauseAutoscaleV2,
+		EventDetailsCauseDbrAutoscale,
 		EventDetailsCauseReplaceBadNodes,
 		EventDetailsCauseUserRequest,
 	}
@@ -2824,6 +2857,10 @@ const EventTypeClusterMigrated EventType = `CLUSTER_MIGRATED`
 const EventTypeCreating EventType = `CREATING`
 
 const EventTypeDbfsDown EventType = `DBFS_DOWN`
+
+const EventTypeDecommissionEnded EventType = `DECOMMISSION_ENDED`
+
+const EventTypeDecommissionStarted EventType = `DECOMMISSION_STARTED`
 
 const EventTypeDidNotExpandDisk EventType = `DID_NOT_EXPAND_DISK`
 
@@ -2865,6 +2902,8 @@ const EventTypeStarting EventType = `STARTING`
 
 const EventTypeTerminating EventType = `TERMINATING`
 
+const EventTypeUcVolumeMisconfigured EventType = `UC_VOLUME_MISCONFIGURED`
+
 const EventTypeUnpinned EventType = `UNPINNED`
 
 const EventTypeUpsizeCompleted EventType = `UPSIZE_COMPLETED`
@@ -2877,11 +2916,11 @@ func (f *EventType) String() string {
 // Set raw string value and validate it against allowed values
 func (f *EventType) Set(v string) error {
 	switch v {
-	case `ADD_NODES_FAILED`, `AUTOMATIC_CLUSTER_UPDATE`, `AUTOSCALING_BACKOFF`, `AUTOSCALING_FAILED`, `AUTOSCALING_STATS_REPORT`, `CLUSTER_MIGRATED`, `CREATING`, `DBFS_DOWN`, `DID_NOT_EXPAND_DISK`, `DRIVER_HEALTHY`, `DRIVER_NOT_RESPONDING`, `DRIVER_UNAVAILABLE`, `EDITED`, `EXPANDED_DISK`, `FAILED_TO_EXPAND_DISK`, `INIT_SCRIPTS_FINISHED`, `INIT_SCRIPTS_STARTED`, `METASTORE_DOWN`, `NODES_LOST`, `NODE_BLACKLISTED`, `NODE_EXCLUDED_DECOMMISSIONED`, `PINNED`, `RESIZING`, `RESTARTING`, `RUNNING`, `SPARK_EXCEPTION`, `STARTING`, `TERMINATING`, `UNPINNED`, `UPSIZE_COMPLETED`:
+	case `ADD_NODES_FAILED`, `AUTOMATIC_CLUSTER_UPDATE`, `AUTOSCALING_BACKOFF`, `AUTOSCALING_FAILED`, `AUTOSCALING_STATS_REPORT`, `CLUSTER_MIGRATED`, `CREATING`, `DBFS_DOWN`, `DECOMMISSION_ENDED`, `DECOMMISSION_STARTED`, `DID_NOT_EXPAND_DISK`, `DRIVER_HEALTHY`, `DRIVER_NOT_RESPONDING`, `DRIVER_UNAVAILABLE`, `EDITED`, `EXPANDED_DISK`, `FAILED_TO_EXPAND_DISK`, `INIT_SCRIPTS_FINISHED`, `INIT_SCRIPTS_STARTED`, `METASTORE_DOWN`, `NODES_LOST`, `NODE_BLACKLISTED`, `NODE_EXCLUDED_DECOMMISSIONED`, `PINNED`, `RESIZING`, `RESTARTING`, `RUNNING`, `SPARK_EXCEPTION`, `STARTING`, `TERMINATING`, `UC_VOLUME_MISCONFIGURED`, `UNPINNED`, `UPSIZE_COMPLETED`:
 		*f = EventType(v)
 		return nil
 	default:
-		return fmt.Errorf(`value "%s" is not one of "ADD_NODES_FAILED", "AUTOMATIC_CLUSTER_UPDATE", "AUTOSCALING_BACKOFF", "AUTOSCALING_FAILED", "AUTOSCALING_STATS_REPORT", "CLUSTER_MIGRATED", "CREATING", "DBFS_DOWN", "DID_NOT_EXPAND_DISK", "DRIVER_HEALTHY", "DRIVER_NOT_RESPONDING", "DRIVER_UNAVAILABLE", "EDITED", "EXPANDED_DISK", "FAILED_TO_EXPAND_DISK", "INIT_SCRIPTS_FINISHED", "INIT_SCRIPTS_STARTED", "METASTORE_DOWN", "NODES_LOST", "NODE_BLACKLISTED", "NODE_EXCLUDED_DECOMMISSIONED", "PINNED", "RESIZING", "RESTARTING", "RUNNING", "SPARK_EXCEPTION", "STARTING", "TERMINATING", "UNPINNED", "UPSIZE_COMPLETED"`, v)
+		return fmt.Errorf(`value "%s" is not one of "ADD_NODES_FAILED", "AUTOMATIC_CLUSTER_UPDATE", "AUTOSCALING_BACKOFF", "AUTOSCALING_FAILED", "AUTOSCALING_STATS_REPORT", "CLUSTER_MIGRATED", "CREATING", "DBFS_DOWN", "DECOMMISSION_ENDED", "DECOMMISSION_STARTED", "DID_NOT_EXPAND_DISK", "DRIVER_HEALTHY", "DRIVER_NOT_RESPONDING", "DRIVER_UNAVAILABLE", "EDITED", "EXPANDED_DISK", "FAILED_TO_EXPAND_DISK", "INIT_SCRIPTS_FINISHED", "INIT_SCRIPTS_STARTED", "METASTORE_DOWN", "NODES_LOST", "NODE_BLACKLISTED", "NODE_EXCLUDED_DECOMMISSIONED", "PINNED", "RESIZING", "RESTARTING", "RUNNING", "SPARK_EXCEPTION", "STARTING", "TERMINATING", "UC_VOLUME_MISCONFIGURED", "UNPINNED", "UPSIZE_COMPLETED"`, v)
 	}
 }
 
@@ -2898,6 +2937,8 @@ func (f *EventType) Values() []EventType {
 		EventTypeClusterMigrated,
 		EventTypeCreating,
 		EventTypeDbfsDown,
+		EventTypeDecommissionEnded,
+		EventTypeDecommissionStarted,
 		EventTypeDidNotExpandDisk,
 		EventTypeDriverHealthy,
 		EventTypeDriverNotResponding,
@@ -2918,6 +2959,7 @@ func (f *EventType) Values() []EventType {
 		EventTypeSparkException,
 		EventTypeStarting,
 		EventTypeTerminating,
+		EventTypeUcVolumeMisconfigured,
 		EventTypeUnpinned,
 		EventTypeUpsizeCompleted,
 	}
@@ -3275,6 +3317,8 @@ type GetInstancePool struct {
 	MaxCapacity int `json:"max_capacity,omitempty"`
 	// Minimum number of idle instances to keep in the instance pool
 	MinIdleInstances int `json:"min_idle_instances,omitempty"`
+	// Flexible node type configuration for the pool.
+	NodeTypeFlexibility *NodeTypeFlexibility `json:"node_type_flexibility,omitempty"`
 	// This field encodes, through a single value, the resources available to
 	// each of the Spark nodes in this cluster. For example, the Spark nodes can
 	// be provisioned and optimized for memory or compute intensive workloads. A
@@ -3486,6 +3530,47 @@ func (s GlobalInitScriptUpdateRequest) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
+// HardwareAcceleratorType: The type of hardware accelerator to use for compute
+// workloads. NOTE: This enum is referenced and is intended to be used by other
+// Databricks services that need to specify hardware accelerator requirements
+// for AI compute workloads.
+type HardwareAcceleratorType string
+
+const HardwareAcceleratorTypeGpu1xA10 HardwareAcceleratorType = `GPU_1xA10`
+
+const HardwareAcceleratorTypeGpu8xH100 HardwareAcceleratorType = `GPU_8xH100`
+
+// String representation for [fmt.Print]
+func (f *HardwareAcceleratorType) String() string {
+	return string(*f)
+}
+
+// Set raw string value and validate it against allowed values
+func (f *HardwareAcceleratorType) Set(v string) error {
+	switch v {
+	case `GPU_1xA10`, `GPU_8xH100`:
+		*f = HardwareAcceleratorType(v)
+		return nil
+	default:
+		return fmt.Errorf(`value "%s" is not one of "GPU_1xA10", "GPU_8xH100"`, v)
+	}
+}
+
+// Values returns all possible values for HardwareAcceleratorType.
+//
+// There is no guarantee on the order of the values in the slice.
+func (f *HardwareAcceleratorType) Values() []HardwareAcceleratorType {
+	return []HardwareAcceleratorType{
+		HardwareAcceleratorTypeGpu1xA10,
+		HardwareAcceleratorTypeGpu8xH100,
+	}
+}
+
+// Type always returns HardwareAcceleratorType to satisfy [pflag.Value] interface
+func (f *HardwareAcceleratorType) Type() string {
+	return "HardwareAcceleratorType"
+}
+
 type InitScriptEventDetails struct {
 	// The cluster scoped init scripts associated with this cluster event.
 	Cluster []InitScriptInfoAndExecutionDetails `json:"cluster,omitempty"`
@@ -3618,6 +3703,9 @@ type InitScriptInfoAndExecutionDetails struct {
 	S3 *S3StorageInfo `json:"s3,omitempty"`
 	// The current status of the script
 	Status InitScriptExecutionDetailsInitScriptExecutionStatus `json:"status,omitempty"`
+	// The stderr output from the init script execution. Only populated when
+	// init scripts debug is enabled and script execution fails.
+	Stderr string `json:"stderr,omitempty"`
 	// destination needs to be provided. e.g. `{ \"volumes\" : { \"destination\"
 	// : \"/Volumes/my-init.sh\" } }`
 	Volumes *VolumesStorageInfo `json:"volumes,omitempty"`
@@ -3742,6 +3830,8 @@ type InstancePoolAndStats struct {
 	MaxCapacity int `json:"max_capacity,omitempty"`
 	// Minimum number of idle instances to keep in the instance pool
 	MinIdleInstances int `json:"min_idle_instances,omitempty"`
+	// Flexible node type configuration for the pool.
+	NodeTypeFlexibility *NodeTypeFlexibility `json:"node_type_flexibility,omitempty"`
 	// This field encodes, through a single value, the resources available to
 	// each of the Spark nodes in this cluster. For example, the Spark nodes can
 	// be provisioned and optimized for memory or compute intensive workloads. A
@@ -3784,6 +3874,17 @@ func (s InstancePoolAndStats) MarshalJSON() ([]byte, error) {
 type InstancePoolAwsAttributes struct {
 	// Availability type used for the spot nodes.
 	Availability InstancePoolAwsAttributesAvailability `json:"availability,omitempty"`
+	// All AWS instances belonging to the instance pool will have this instance
+	// profile. If omitted, instances will initially be launched with the
+	// workspace's default instance profile. If defined, clusters that use the
+	// pool will inherit the instance profile, and must not specify their own
+	// instance profile on cluster creation or update. If the pool does not
+	// specify an instance profile, clusters using the pool may specify any
+	// instance profile. The instance profile must have previously been added to
+	// the Databricks environment by an account administrator.
+	//
+	// This feature may only be available to certain customer plans.
+	InstanceProfileArn string `json:"instance_profile_arn,omitempty"`
 	// Calculates the bid price for AWS spot instances, as a percentage of the
 	// corresponding instance type's on-demand price. For example, if this field
 	// is set to 50, and the cluster needs a new `r3.xlarge` spot instance, then
@@ -4894,6 +4995,14 @@ func (s NodeType) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
+// Configuration for flexible node types, allowing fallback to alternate node
+// types during cluster launch and upscale.
+type NodeTypeFlexibility struct {
+	// A list of node type IDs to use as fallbacks when the primary node type is
+	// unavailable.
+	AlternateNodeTypeIds []string `json:"alternate_node_type_ids,omitempty"`
+}
+
 // Error message of a failed pending instances
 type PendingInstanceError struct {
 	InstanceId string `json:"instance_id,omitempty"`
@@ -5518,6 +5627,10 @@ const TerminationReasonCodeCommunicationLost TerminationReasonCode = `COMMUNICAT
 
 const TerminationReasonCodeContainerLaunchFailure TerminationReasonCode = `CONTAINER_LAUNCH_FAILURE`
 
+const TerminationReasonCodeControlPlaneConnectionFailure TerminationReasonCode = `CONTROL_PLANE_CONNECTION_FAILURE`
+
+const TerminationReasonCodeControlPlaneConnectionFailureDueToMisconfig TerminationReasonCode = `CONTROL_PLANE_CONNECTION_FAILURE_DUE_TO_MISCONFIG`
+
 const TerminationReasonCodeControlPlaneRequestFailure TerminationReasonCode = `CONTROL_PLANE_REQUEST_FAILURE`
 
 const TerminationReasonCodeControlPlaneRequestFailureDueToMisconfig TerminationReasonCode = `CONTROL_PLANE_REQUEST_FAILURE_DUE_TO_MISCONFIG`
@@ -5527,6 +5640,8 @@ const TerminationReasonCodeDatabaseConnectionFailure TerminationReasonCode = `DA
 const TerminationReasonCodeDataAccessConfigChanged TerminationReasonCode = `DATA_ACCESS_CONFIG_CHANGED`
 
 const TerminationReasonCodeDbfsComponentUnhealthy TerminationReasonCode = `DBFS_COMPONENT_UNHEALTHY`
+
+const TerminationReasonCodeDbrImageResolutionFailure TerminationReasonCode = `DBR_IMAGE_RESOLUTION_FAILURE`
 
 const TerminationReasonCodeDisasterRecoveryReplication TerminationReasonCode = `DISASTER_RECOVERY_REPLICATION`
 
@@ -5539,8 +5654,6 @@ const TerminationReasonCodeDockerImagePullFailure TerminationReasonCode = `DOCKE
 const TerminationReasonCodeDockerImageTooLargeForInstanceException TerminationReasonCode = `DOCKER_IMAGE_TOO_LARGE_FOR_INSTANCE_EXCEPTION`
 
 const TerminationReasonCodeDockerInvalidOsException TerminationReasonCode = `DOCKER_INVALID_OS_EXCEPTION`
-
-const TerminationReasonCodeDriverDnsResolutionFailure TerminationReasonCode = `DRIVER_DNS_RESOLUTION_FAILURE`
 
 const TerminationReasonCodeDriverEviction TerminationReasonCode = `DRIVER_EVICTION`
 
@@ -5606,6 +5719,8 @@ const TerminationReasonCodeGkeBasedClusterTermination TerminationReasonCode = `G
 
 const TerminationReasonCodeGlobalInitScriptFailure TerminationReasonCode = `GLOBAL_INIT_SCRIPT_FAILURE`
 
+const TerminationReasonCodeHivemetastoreConnectivityFailure TerminationReasonCode = `HIVEMETASTORE_CONNECTIVITY_FAILURE`
+
 const TerminationReasonCodeHiveMetastoreProvisioningFailure TerminationReasonCode = `HIVE_METASTORE_PROVISIONING_FAILURE`
 
 const TerminationReasonCodeImagePullPermissionDenied TerminationReasonCode = `IMAGE_PULL_PERMISSION_DENIED`
@@ -5658,29 +5773,39 @@ const TerminationReasonCodeMaintenanceMode TerminationReasonCode = `MAINTENANCE_
 
 const TerminationReasonCodeMetastoreComponentUnhealthy TerminationReasonCode = `METASTORE_COMPONENT_UNHEALTHY`
 
+const TerminationReasonCodeMtlsPortConnectivityFailure TerminationReasonCode = `MTLS_PORT_CONNECTIVITY_FAILURE`
+
 const TerminationReasonCodeNephosResourceManagement TerminationReasonCode = `NEPHOS_RESOURCE_MANAGEMENT`
 
 const TerminationReasonCodeNetvisorSetupTimeout TerminationReasonCode = `NETVISOR_SETUP_TIMEOUT`
 
 const TerminationReasonCodeNetworkCheckControlPlaneFailure TerminationReasonCode = `NETWORK_CHECK_CONTROL_PLANE_FAILURE`
 
+const TerminationReasonCodeNetworkCheckControlPlaneFailureDueToMisconfig TerminationReasonCode = `NETWORK_CHECK_CONTROL_PLANE_FAILURE_DUE_TO_MISCONFIG`
+
 const TerminationReasonCodeNetworkCheckDnsServerFailure TerminationReasonCode = `NETWORK_CHECK_DNS_SERVER_FAILURE`
+
+const TerminationReasonCodeNetworkCheckDnsServerFailureDueToMisconfig TerminationReasonCode = `NETWORK_CHECK_DNS_SERVER_FAILURE_DUE_TO_MISCONFIG`
 
 const TerminationReasonCodeNetworkCheckMetadataEndpointFailure TerminationReasonCode = `NETWORK_CHECK_METADATA_ENDPOINT_FAILURE`
 
+const TerminationReasonCodeNetworkCheckMetadataEndpointFailureDueToMisconfig TerminationReasonCode = `NETWORK_CHECK_METADATA_ENDPOINT_FAILURE_DUE_TO_MISCONFIG`
+
 const TerminationReasonCodeNetworkCheckMultipleComponentsFailure TerminationReasonCode = `NETWORK_CHECK_MULTIPLE_COMPONENTS_FAILURE`
+
+const TerminationReasonCodeNetworkCheckMultipleComponentsFailureDueToMisconfig TerminationReasonCode = `NETWORK_CHECK_MULTIPLE_COMPONENTS_FAILURE_DUE_TO_MISCONFIG`
 
 const TerminationReasonCodeNetworkCheckNicFailure TerminationReasonCode = `NETWORK_CHECK_NIC_FAILURE`
 
+const TerminationReasonCodeNetworkCheckNicFailureDueToMisconfig TerminationReasonCode = `NETWORK_CHECK_NIC_FAILURE_DUE_TO_MISCONFIG`
+
 const TerminationReasonCodeNetworkCheckStorageFailure TerminationReasonCode = `NETWORK_CHECK_STORAGE_FAILURE`
+
+const TerminationReasonCodeNetworkCheckStorageFailureDueToMisconfig TerminationReasonCode = `NETWORK_CHECK_STORAGE_FAILURE_DUE_TO_MISCONFIG`
 
 const TerminationReasonCodeNetworkConfigurationFailure TerminationReasonCode = `NETWORK_CONFIGURATION_FAILURE`
 
 const TerminationReasonCodeNfsMountFailure TerminationReasonCode = `NFS_MOUNT_FAILURE`
-
-const TerminationReasonCodeNoActivatedK8s TerminationReasonCode = `NO_ACTIVATED_K8S`
-
-const TerminationReasonCodeNoActivatedK8sTestingTag TerminationReasonCode = `NO_ACTIVATED_K8S_TESTING_TAG`
 
 const TerminationReasonCodeNoMatchedK8s TerminationReasonCode = `NO_MATCHED_K8S`
 
@@ -5694,6 +5819,8 @@ const TerminationReasonCodePodAssignmentFailure TerminationReasonCode = `POD_ASS
 
 const TerminationReasonCodePodSchedulingFailure TerminationReasonCode = `POD_SCHEDULING_FAILURE`
 
+const TerminationReasonCodeRateLimited TerminationReasonCode = `RATE_LIMITED`
+
 const TerminationReasonCodeRequestRejected TerminationReasonCode = `REQUEST_REJECTED`
 
 const TerminationReasonCodeRequestThrottled TerminationReasonCode = `REQUEST_THROTTLED`
@@ -5705,8 +5832,6 @@ const TerminationReasonCodeSecretCreationFailure TerminationReasonCode = `SECRET
 const TerminationReasonCodeSecretPermissionDenied TerminationReasonCode = `SECRET_PERMISSION_DENIED`
 
 const TerminationReasonCodeSecretResolutionError TerminationReasonCode = `SECRET_RESOLUTION_ERROR`
-
-const TerminationReasonCodeSecurityAgentsFailedInitialVerification TerminationReasonCode = `SECURITY_AGENTS_FAILED_INITIAL_VERIFICATION`
 
 const TerminationReasonCodeSecurityDaemonRegistrationException TerminationReasonCode = `SECURITY_DAEMON_REGISTRATION_EXCEPTION`
 
@@ -5780,11 +5905,11 @@ func (f *TerminationReasonCode) String() string {
 // Set raw string value and validate it against allowed values
 func (f *TerminationReasonCode) Set(v string) error {
 	switch v {
-	case `ABUSE_DETECTED`, `ACCESS_TOKEN_FAILURE`, `ALLOCATION_TIMEOUT`, `ALLOCATION_TIMEOUT_NODE_DAEMON_NOT_READY`, `ALLOCATION_TIMEOUT_NO_HEALTHY_AND_WARMED_UP_CLUSTERS`, `ALLOCATION_TIMEOUT_NO_HEALTHY_CLUSTERS`, `ALLOCATION_TIMEOUT_NO_MATCHED_CLUSTERS`, `ALLOCATION_TIMEOUT_NO_READY_CLUSTERS`, `ALLOCATION_TIMEOUT_NO_UNALLOCATED_CLUSTERS`, `ALLOCATION_TIMEOUT_NO_WARMED_UP_CLUSTERS`, `ATTACH_PROJECT_FAILURE`, `AWS_AUTHORIZATION_FAILURE`, `AWS_INACCESSIBLE_KMS_KEY_FAILURE`, `AWS_INSTANCE_PROFILE_UPDATE_FAILURE`, `AWS_INSUFFICIENT_FREE_ADDRESSES_IN_SUBNET_FAILURE`, `AWS_INSUFFICIENT_INSTANCE_CAPACITY_FAILURE`, `AWS_INVALID_KEY_PAIR`, `AWS_INVALID_KMS_KEY_STATE`, `AWS_MAX_SPOT_INSTANCE_COUNT_EXCEEDED_FAILURE`, `AWS_REQUEST_LIMIT_EXCEEDED`, `AWS_RESOURCE_QUOTA_EXCEEDED`, `AWS_UNSUPPORTED_FAILURE`, `AZURE_BYOK_KEY_PERMISSION_FAILURE`, `AZURE_EPHEMERAL_DISK_FAILURE`, `AZURE_INVALID_DEPLOYMENT_TEMPLATE`, `AZURE_OPERATION_NOT_ALLOWED_EXCEPTION`, `AZURE_PACKED_DEPLOYMENT_PARTIAL_FAILURE`, `AZURE_QUOTA_EXCEEDED_EXCEPTION`, `AZURE_RESOURCE_MANAGER_THROTTLING`, `AZURE_RESOURCE_PROVIDER_THROTTLING`, `AZURE_UNEXPECTED_DEPLOYMENT_TEMPLATE_FAILURE`, `AZURE_VM_EXTENSION_FAILURE`, `AZURE_VNET_CONFIGURATION_FAILURE`, `BOOTSTRAP_TIMEOUT`, `BOOTSTRAP_TIMEOUT_CLOUD_PROVIDER_EXCEPTION`, `BOOTSTRAP_TIMEOUT_DUE_TO_MISCONFIG`, `BUDGET_POLICY_LIMIT_ENFORCEMENT_ACTIVATED`, `BUDGET_POLICY_RESOLUTION_FAILURE`, `CLOUD_ACCOUNT_POD_QUOTA_EXCEEDED`, `CLOUD_ACCOUNT_SETUP_FAILURE`, `CLOUD_OPERATION_CANCELLED`, `CLOUD_PROVIDER_DISK_SETUP_FAILURE`, `CLOUD_PROVIDER_INSTANCE_NOT_LAUNCHED`, `CLOUD_PROVIDER_LAUNCH_FAILURE`, `CLOUD_PROVIDER_LAUNCH_FAILURE_DUE_TO_MISCONFIG`, `CLOUD_PROVIDER_RESOURCE_STOCKOUT`, `CLOUD_PROVIDER_RESOURCE_STOCKOUT_DUE_TO_MISCONFIG`, `CLOUD_PROVIDER_SHUTDOWN`, `CLUSTER_OPERATION_THROTTLED`, `CLUSTER_OPERATION_TIMEOUT`, `COMMUNICATION_LOST`, `CONTAINER_LAUNCH_FAILURE`, `CONTROL_PLANE_REQUEST_FAILURE`, `CONTROL_PLANE_REQUEST_FAILURE_DUE_TO_MISCONFIG`, `DATABASE_CONNECTION_FAILURE`, `DATA_ACCESS_CONFIG_CHANGED`, `DBFS_COMPONENT_UNHEALTHY`, `DISASTER_RECOVERY_REPLICATION`, `DNS_RESOLUTION_ERROR`, `DOCKER_CONTAINER_CREATION_EXCEPTION`, `DOCKER_IMAGE_PULL_FAILURE`, `DOCKER_IMAGE_TOO_LARGE_FOR_INSTANCE_EXCEPTION`, `DOCKER_INVALID_OS_EXCEPTION`, `DRIVER_DNS_RESOLUTION_FAILURE`, `DRIVER_EVICTION`, `DRIVER_LAUNCH_TIMEOUT`, `DRIVER_NODE_UNREACHABLE`, `DRIVER_OUT_OF_DISK`, `DRIVER_OUT_OF_MEMORY`, `DRIVER_POD_CREATION_FAILURE`, `DRIVER_UNEXPECTED_FAILURE`, `DRIVER_UNHEALTHY`, `DRIVER_UNREACHABLE`, `DRIVER_UNRESPONSIVE`, `DYNAMIC_SPARK_CONF_SIZE_EXCEEDED`, `EOS_SPARK_IMAGE`, `EXECUTION_COMPONENT_UNHEALTHY`, `EXECUTOR_POD_UNSCHEDULED`, `GCP_API_RATE_QUOTA_EXCEEDED`, `GCP_DENIED_BY_ORG_POLICY`, `GCP_FORBIDDEN`, `GCP_IAM_TIMEOUT`, `GCP_INACCESSIBLE_KMS_KEY_FAILURE`, `GCP_INSUFFICIENT_CAPACITY`, `GCP_IP_SPACE_EXHAUSTED`, `GCP_KMS_KEY_PERMISSION_DENIED`, `GCP_NOT_FOUND`, `GCP_QUOTA_EXCEEDED`, `GCP_RESOURCE_QUOTA_EXCEEDED`, `GCP_SERVICE_ACCOUNT_ACCESS_DENIED`, `GCP_SERVICE_ACCOUNT_DELETED`, `GCP_SERVICE_ACCOUNT_NOT_FOUND`, `GCP_SUBNET_NOT_READY`, `GCP_TRUSTED_IMAGE_PROJECTS_VIOLATED`, `GKE_BASED_CLUSTER_TERMINATION`, `GLOBAL_INIT_SCRIPT_FAILURE`, `HIVE_METASTORE_PROVISIONING_FAILURE`, `IMAGE_PULL_PERMISSION_DENIED`, `INACTIVITY`, `INIT_CONTAINER_NOT_FINISHED`, `INIT_SCRIPT_FAILURE`, `INSTANCE_POOL_CLUSTER_FAILURE`, `INSTANCE_POOL_MAX_CAPACITY_REACHED`, `INSTANCE_POOL_NOT_FOUND`, `INSTANCE_UNREACHABLE`, `INSTANCE_UNREACHABLE_DUE_TO_MISCONFIG`, `INTERNAL_CAPACITY_FAILURE`, `INTERNAL_ERROR`, `INVALID_ARGUMENT`, `INVALID_AWS_PARAMETER`, `INVALID_INSTANCE_PLACEMENT_PROTOCOL`, `INVALID_SPARK_IMAGE`, `INVALID_WORKER_IMAGE_FAILURE`, `IN_PENALTY_BOX`, `IP_EXHAUSTION_FAILURE`, `JOB_FINISHED`, `K8S_ACTIVE_POD_QUOTA_EXCEEDED`, `K8S_AUTOSCALING_FAILURE`, `K8S_DBR_CLUSTER_LAUNCH_TIMEOUT`, `LAZY_ALLOCATION_TIMEOUT`, `MAINTENANCE_MODE`, `METASTORE_COMPONENT_UNHEALTHY`, `NEPHOS_RESOURCE_MANAGEMENT`, `NETVISOR_SETUP_TIMEOUT`, `NETWORK_CHECK_CONTROL_PLANE_FAILURE`, `NETWORK_CHECK_DNS_SERVER_FAILURE`, `NETWORK_CHECK_METADATA_ENDPOINT_FAILURE`, `NETWORK_CHECK_MULTIPLE_COMPONENTS_FAILURE`, `NETWORK_CHECK_NIC_FAILURE`, `NETWORK_CHECK_STORAGE_FAILURE`, `NETWORK_CONFIGURATION_FAILURE`, `NFS_MOUNT_FAILURE`, `NO_ACTIVATED_K8S`, `NO_ACTIVATED_K8S_TESTING_TAG`, `NO_MATCHED_K8S`, `NO_MATCHED_K8S_TESTING_TAG`, `NPIP_TUNNEL_SETUP_FAILURE`, `NPIP_TUNNEL_TOKEN_FAILURE`, `POD_ASSIGNMENT_FAILURE`, `POD_SCHEDULING_FAILURE`, `REQUEST_REJECTED`, `REQUEST_THROTTLED`, `RESOURCE_USAGE_BLOCKED`, `SECRET_CREATION_FAILURE`, `SECRET_PERMISSION_DENIED`, `SECRET_RESOLUTION_ERROR`, `SECURITY_AGENTS_FAILED_INITIAL_VERIFICATION`, `SECURITY_DAEMON_REGISTRATION_EXCEPTION`, `SELF_BOOTSTRAP_FAILURE`, `SERVERLESS_LONG_RUNNING_TERMINATED`, `SKIPPED_SLOW_NODES`, `SLOW_IMAGE_DOWNLOAD`, `SPARK_ERROR`, `SPARK_IMAGE_DOWNLOAD_FAILURE`, `SPARK_IMAGE_DOWNLOAD_THROTTLED`, `SPARK_IMAGE_NOT_FOUND`, `SPARK_STARTUP_FAILURE`, `SPOT_INSTANCE_TERMINATION`, `SSH_BOOTSTRAP_FAILURE`, `STORAGE_DOWNLOAD_FAILURE`, `STORAGE_DOWNLOAD_FAILURE_DUE_TO_MISCONFIG`, `STORAGE_DOWNLOAD_FAILURE_SLOW`, `STORAGE_DOWNLOAD_FAILURE_THROTTLED`, `STS_CLIENT_SETUP_FAILURE`, `SUBNET_EXHAUSTED_FAILURE`, `TEMPORARILY_UNAVAILABLE`, `TRIAL_EXPIRED`, `UNEXPECTED_LAUNCH_FAILURE`, `UNEXPECTED_POD_RECREATION`, `UNKNOWN`, `UNSUPPORTED_INSTANCE_TYPE`, `UPDATE_INSTANCE_PROFILE_FAILURE`, `USAGE_POLICY_ENTITLEMENT_DENIED`, `USER_INITIATED_VM_TERMINATION`, `USER_REQUEST`, `WORKER_SETUP_FAILURE`, `WORKSPACE_CANCELLED_ERROR`, `WORKSPACE_CONFIGURATION_ERROR`, `WORKSPACE_UPDATE`:
+	case `ABUSE_DETECTED`, `ACCESS_TOKEN_FAILURE`, `ALLOCATION_TIMEOUT`, `ALLOCATION_TIMEOUT_NODE_DAEMON_NOT_READY`, `ALLOCATION_TIMEOUT_NO_HEALTHY_AND_WARMED_UP_CLUSTERS`, `ALLOCATION_TIMEOUT_NO_HEALTHY_CLUSTERS`, `ALLOCATION_TIMEOUT_NO_MATCHED_CLUSTERS`, `ALLOCATION_TIMEOUT_NO_READY_CLUSTERS`, `ALLOCATION_TIMEOUT_NO_UNALLOCATED_CLUSTERS`, `ALLOCATION_TIMEOUT_NO_WARMED_UP_CLUSTERS`, `ATTACH_PROJECT_FAILURE`, `AWS_AUTHORIZATION_FAILURE`, `AWS_INACCESSIBLE_KMS_KEY_FAILURE`, `AWS_INSTANCE_PROFILE_UPDATE_FAILURE`, `AWS_INSUFFICIENT_FREE_ADDRESSES_IN_SUBNET_FAILURE`, `AWS_INSUFFICIENT_INSTANCE_CAPACITY_FAILURE`, `AWS_INVALID_KEY_PAIR`, `AWS_INVALID_KMS_KEY_STATE`, `AWS_MAX_SPOT_INSTANCE_COUNT_EXCEEDED_FAILURE`, `AWS_REQUEST_LIMIT_EXCEEDED`, `AWS_RESOURCE_QUOTA_EXCEEDED`, `AWS_UNSUPPORTED_FAILURE`, `AZURE_BYOK_KEY_PERMISSION_FAILURE`, `AZURE_EPHEMERAL_DISK_FAILURE`, `AZURE_INVALID_DEPLOYMENT_TEMPLATE`, `AZURE_OPERATION_NOT_ALLOWED_EXCEPTION`, `AZURE_PACKED_DEPLOYMENT_PARTIAL_FAILURE`, `AZURE_QUOTA_EXCEEDED_EXCEPTION`, `AZURE_RESOURCE_MANAGER_THROTTLING`, `AZURE_RESOURCE_PROVIDER_THROTTLING`, `AZURE_UNEXPECTED_DEPLOYMENT_TEMPLATE_FAILURE`, `AZURE_VM_EXTENSION_FAILURE`, `AZURE_VNET_CONFIGURATION_FAILURE`, `BOOTSTRAP_TIMEOUT`, `BOOTSTRAP_TIMEOUT_CLOUD_PROVIDER_EXCEPTION`, `BOOTSTRAP_TIMEOUT_DUE_TO_MISCONFIG`, `BUDGET_POLICY_LIMIT_ENFORCEMENT_ACTIVATED`, `BUDGET_POLICY_RESOLUTION_FAILURE`, `CLOUD_ACCOUNT_POD_QUOTA_EXCEEDED`, `CLOUD_ACCOUNT_SETUP_FAILURE`, `CLOUD_OPERATION_CANCELLED`, `CLOUD_PROVIDER_DISK_SETUP_FAILURE`, `CLOUD_PROVIDER_INSTANCE_NOT_LAUNCHED`, `CLOUD_PROVIDER_LAUNCH_FAILURE`, `CLOUD_PROVIDER_LAUNCH_FAILURE_DUE_TO_MISCONFIG`, `CLOUD_PROVIDER_RESOURCE_STOCKOUT`, `CLOUD_PROVIDER_RESOURCE_STOCKOUT_DUE_TO_MISCONFIG`, `CLOUD_PROVIDER_SHUTDOWN`, `CLUSTER_OPERATION_THROTTLED`, `CLUSTER_OPERATION_TIMEOUT`, `COMMUNICATION_LOST`, `CONTAINER_LAUNCH_FAILURE`, `CONTROL_PLANE_CONNECTION_FAILURE`, `CONTROL_PLANE_CONNECTION_FAILURE_DUE_TO_MISCONFIG`, `CONTROL_PLANE_REQUEST_FAILURE`, `CONTROL_PLANE_REQUEST_FAILURE_DUE_TO_MISCONFIG`, `DATABASE_CONNECTION_FAILURE`, `DATA_ACCESS_CONFIG_CHANGED`, `DBFS_COMPONENT_UNHEALTHY`, `DBR_IMAGE_RESOLUTION_FAILURE`, `DISASTER_RECOVERY_REPLICATION`, `DNS_RESOLUTION_ERROR`, `DOCKER_CONTAINER_CREATION_EXCEPTION`, `DOCKER_IMAGE_PULL_FAILURE`, `DOCKER_IMAGE_TOO_LARGE_FOR_INSTANCE_EXCEPTION`, `DOCKER_INVALID_OS_EXCEPTION`, `DRIVER_EVICTION`, `DRIVER_LAUNCH_TIMEOUT`, `DRIVER_NODE_UNREACHABLE`, `DRIVER_OUT_OF_DISK`, `DRIVER_OUT_OF_MEMORY`, `DRIVER_POD_CREATION_FAILURE`, `DRIVER_UNEXPECTED_FAILURE`, `DRIVER_UNHEALTHY`, `DRIVER_UNREACHABLE`, `DRIVER_UNRESPONSIVE`, `DYNAMIC_SPARK_CONF_SIZE_EXCEEDED`, `EOS_SPARK_IMAGE`, `EXECUTION_COMPONENT_UNHEALTHY`, `EXECUTOR_POD_UNSCHEDULED`, `GCP_API_RATE_QUOTA_EXCEEDED`, `GCP_DENIED_BY_ORG_POLICY`, `GCP_FORBIDDEN`, `GCP_IAM_TIMEOUT`, `GCP_INACCESSIBLE_KMS_KEY_FAILURE`, `GCP_INSUFFICIENT_CAPACITY`, `GCP_IP_SPACE_EXHAUSTED`, `GCP_KMS_KEY_PERMISSION_DENIED`, `GCP_NOT_FOUND`, `GCP_QUOTA_EXCEEDED`, `GCP_RESOURCE_QUOTA_EXCEEDED`, `GCP_SERVICE_ACCOUNT_ACCESS_DENIED`, `GCP_SERVICE_ACCOUNT_DELETED`, `GCP_SERVICE_ACCOUNT_NOT_FOUND`, `GCP_SUBNET_NOT_READY`, `GCP_TRUSTED_IMAGE_PROJECTS_VIOLATED`, `GKE_BASED_CLUSTER_TERMINATION`, `GLOBAL_INIT_SCRIPT_FAILURE`, `HIVEMETASTORE_CONNECTIVITY_FAILURE`, `HIVE_METASTORE_PROVISIONING_FAILURE`, `IMAGE_PULL_PERMISSION_DENIED`, `INACTIVITY`, `INIT_CONTAINER_NOT_FINISHED`, `INIT_SCRIPT_FAILURE`, `INSTANCE_POOL_CLUSTER_FAILURE`, `INSTANCE_POOL_MAX_CAPACITY_REACHED`, `INSTANCE_POOL_NOT_FOUND`, `INSTANCE_UNREACHABLE`, `INSTANCE_UNREACHABLE_DUE_TO_MISCONFIG`, `INTERNAL_CAPACITY_FAILURE`, `INTERNAL_ERROR`, `INVALID_ARGUMENT`, `INVALID_AWS_PARAMETER`, `INVALID_INSTANCE_PLACEMENT_PROTOCOL`, `INVALID_SPARK_IMAGE`, `INVALID_WORKER_IMAGE_FAILURE`, `IN_PENALTY_BOX`, `IP_EXHAUSTION_FAILURE`, `JOB_FINISHED`, `K8S_ACTIVE_POD_QUOTA_EXCEEDED`, `K8S_AUTOSCALING_FAILURE`, `K8S_DBR_CLUSTER_LAUNCH_TIMEOUT`, `LAZY_ALLOCATION_TIMEOUT`, `MAINTENANCE_MODE`, `METASTORE_COMPONENT_UNHEALTHY`, `MTLS_PORT_CONNECTIVITY_FAILURE`, `NEPHOS_RESOURCE_MANAGEMENT`, `NETVISOR_SETUP_TIMEOUT`, `NETWORK_CHECK_CONTROL_PLANE_FAILURE`, `NETWORK_CHECK_CONTROL_PLANE_FAILURE_DUE_TO_MISCONFIG`, `NETWORK_CHECK_DNS_SERVER_FAILURE`, `NETWORK_CHECK_DNS_SERVER_FAILURE_DUE_TO_MISCONFIG`, `NETWORK_CHECK_METADATA_ENDPOINT_FAILURE`, `NETWORK_CHECK_METADATA_ENDPOINT_FAILURE_DUE_TO_MISCONFIG`, `NETWORK_CHECK_MULTIPLE_COMPONENTS_FAILURE`, `NETWORK_CHECK_MULTIPLE_COMPONENTS_FAILURE_DUE_TO_MISCONFIG`, `NETWORK_CHECK_NIC_FAILURE`, `NETWORK_CHECK_NIC_FAILURE_DUE_TO_MISCONFIG`, `NETWORK_CHECK_STORAGE_FAILURE`, `NETWORK_CHECK_STORAGE_FAILURE_DUE_TO_MISCONFIG`, `NETWORK_CONFIGURATION_FAILURE`, `NFS_MOUNT_FAILURE`, `NO_MATCHED_K8S`, `NO_MATCHED_K8S_TESTING_TAG`, `NPIP_TUNNEL_SETUP_FAILURE`, `NPIP_TUNNEL_TOKEN_FAILURE`, `POD_ASSIGNMENT_FAILURE`, `POD_SCHEDULING_FAILURE`, `RATE_LIMITED`, `REQUEST_REJECTED`, `REQUEST_THROTTLED`, `RESOURCE_USAGE_BLOCKED`, `SECRET_CREATION_FAILURE`, `SECRET_PERMISSION_DENIED`, `SECRET_RESOLUTION_ERROR`, `SECURITY_DAEMON_REGISTRATION_EXCEPTION`, `SELF_BOOTSTRAP_FAILURE`, `SERVERLESS_LONG_RUNNING_TERMINATED`, `SKIPPED_SLOW_NODES`, `SLOW_IMAGE_DOWNLOAD`, `SPARK_ERROR`, `SPARK_IMAGE_DOWNLOAD_FAILURE`, `SPARK_IMAGE_DOWNLOAD_THROTTLED`, `SPARK_IMAGE_NOT_FOUND`, `SPARK_STARTUP_FAILURE`, `SPOT_INSTANCE_TERMINATION`, `SSH_BOOTSTRAP_FAILURE`, `STORAGE_DOWNLOAD_FAILURE`, `STORAGE_DOWNLOAD_FAILURE_DUE_TO_MISCONFIG`, `STORAGE_DOWNLOAD_FAILURE_SLOW`, `STORAGE_DOWNLOAD_FAILURE_THROTTLED`, `STS_CLIENT_SETUP_FAILURE`, `SUBNET_EXHAUSTED_FAILURE`, `TEMPORARILY_UNAVAILABLE`, `TRIAL_EXPIRED`, `UNEXPECTED_LAUNCH_FAILURE`, `UNEXPECTED_POD_RECREATION`, `UNKNOWN`, `UNSUPPORTED_INSTANCE_TYPE`, `UPDATE_INSTANCE_PROFILE_FAILURE`, `USAGE_POLICY_ENTITLEMENT_DENIED`, `USER_INITIATED_VM_TERMINATION`, `USER_REQUEST`, `WORKER_SETUP_FAILURE`, `WORKSPACE_CANCELLED_ERROR`, `WORKSPACE_CONFIGURATION_ERROR`, `WORKSPACE_UPDATE`:
 		*f = TerminationReasonCode(v)
 		return nil
 	default:
-		return fmt.Errorf(`value "%s" is not one of "ABUSE_DETECTED", "ACCESS_TOKEN_FAILURE", "ALLOCATION_TIMEOUT", "ALLOCATION_TIMEOUT_NODE_DAEMON_NOT_READY", "ALLOCATION_TIMEOUT_NO_HEALTHY_AND_WARMED_UP_CLUSTERS", "ALLOCATION_TIMEOUT_NO_HEALTHY_CLUSTERS", "ALLOCATION_TIMEOUT_NO_MATCHED_CLUSTERS", "ALLOCATION_TIMEOUT_NO_READY_CLUSTERS", "ALLOCATION_TIMEOUT_NO_UNALLOCATED_CLUSTERS", "ALLOCATION_TIMEOUT_NO_WARMED_UP_CLUSTERS", "ATTACH_PROJECT_FAILURE", "AWS_AUTHORIZATION_FAILURE", "AWS_INACCESSIBLE_KMS_KEY_FAILURE", "AWS_INSTANCE_PROFILE_UPDATE_FAILURE", "AWS_INSUFFICIENT_FREE_ADDRESSES_IN_SUBNET_FAILURE", "AWS_INSUFFICIENT_INSTANCE_CAPACITY_FAILURE", "AWS_INVALID_KEY_PAIR", "AWS_INVALID_KMS_KEY_STATE", "AWS_MAX_SPOT_INSTANCE_COUNT_EXCEEDED_FAILURE", "AWS_REQUEST_LIMIT_EXCEEDED", "AWS_RESOURCE_QUOTA_EXCEEDED", "AWS_UNSUPPORTED_FAILURE", "AZURE_BYOK_KEY_PERMISSION_FAILURE", "AZURE_EPHEMERAL_DISK_FAILURE", "AZURE_INVALID_DEPLOYMENT_TEMPLATE", "AZURE_OPERATION_NOT_ALLOWED_EXCEPTION", "AZURE_PACKED_DEPLOYMENT_PARTIAL_FAILURE", "AZURE_QUOTA_EXCEEDED_EXCEPTION", "AZURE_RESOURCE_MANAGER_THROTTLING", "AZURE_RESOURCE_PROVIDER_THROTTLING", "AZURE_UNEXPECTED_DEPLOYMENT_TEMPLATE_FAILURE", "AZURE_VM_EXTENSION_FAILURE", "AZURE_VNET_CONFIGURATION_FAILURE", "BOOTSTRAP_TIMEOUT", "BOOTSTRAP_TIMEOUT_CLOUD_PROVIDER_EXCEPTION", "BOOTSTRAP_TIMEOUT_DUE_TO_MISCONFIG", "BUDGET_POLICY_LIMIT_ENFORCEMENT_ACTIVATED", "BUDGET_POLICY_RESOLUTION_FAILURE", "CLOUD_ACCOUNT_POD_QUOTA_EXCEEDED", "CLOUD_ACCOUNT_SETUP_FAILURE", "CLOUD_OPERATION_CANCELLED", "CLOUD_PROVIDER_DISK_SETUP_FAILURE", "CLOUD_PROVIDER_INSTANCE_NOT_LAUNCHED", "CLOUD_PROVIDER_LAUNCH_FAILURE", "CLOUD_PROVIDER_LAUNCH_FAILURE_DUE_TO_MISCONFIG", "CLOUD_PROVIDER_RESOURCE_STOCKOUT", "CLOUD_PROVIDER_RESOURCE_STOCKOUT_DUE_TO_MISCONFIG", "CLOUD_PROVIDER_SHUTDOWN", "CLUSTER_OPERATION_THROTTLED", "CLUSTER_OPERATION_TIMEOUT", "COMMUNICATION_LOST", "CONTAINER_LAUNCH_FAILURE", "CONTROL_PLANE_REQUEST_FAILURE", "CONTROL_PLANE_REQUEST_FAILURE_DUE_TO_MISCONFIG", "DATABASE_CONNECTION_FAILURE", "DATA_ACCESS_CONFIG_CHANGED", "DBFS_COMPONENT_UNHEALTHY", "DISASTER_RECOVERY_REPLICATION", "DNS_RESOLUTION_ERROR", "DOCKER_CONTAINER_CREATION_EXCEPTION", "DOCKER_IMAGE_PULL_FAILURE", "DOCKER_IMAGE_TOO_LARGE_FOR_INSTANCE_EXCEPTION", "DOCKER_INVALID_OS_EXCEPTION", "DRIVER_DNS_RESOLUTION_FAILURE", "DRIVER_EVICTION", "DRIVER_LAUNCH_TIMEOUT", "DRIVER_NODE_UNREACHABLE", "DRIVER_OUT_OF_DISK", "DRIVER_OUT_OF_MEMORY", "DRIVER_POD_CREATION_FAILURE", "DRIVER_UNEXPECTED_FAILURE", "DRIVER_UNHEALTHY", "DRIVER_UNREACHABLE", "DRIVER_UNRESPONSIVE", "DYNAMIC_SPARK_CONF_SIZE_EXCEEDED", "EOS_SPARK_IMAGE", "EXECUTION_COMPONENT_UNHEALTHY", "EXECUTOR_POD_UNSCHEDULED", "GCP_API_RATE_QUOTA_EXCEEDED", "GCP_DENIED_BY_ORG_POLICY", "GCP_FORBIDDEN", "GCP_IAM_TIMEOUT", "GCP_INACCESSIBLE_KMS_KEY_FAILURE", "GCP_INSUFFICIENT_CAPACITY", "GCP_IP_SPACE_EXHAUSTED", "GCP_KMS_KEY_PERMISSION_DENIED", "GCP_NOT_FOUND", "GCP_QUOTA_EXCEEDED", "GCP_RESOURCE_QUOTA_EXCEEDED", "GCP_SERVICE_ACCOUNT_ACCESS_DENIED", "GCP_SERVICE_ACCOUNT_DELETED", "GCP_SERVICE_ACCOUNT_NOT_FOUND", "GCP_SUBNET_NOT_READY", "GCP_TRUSTED_IMAGE_PROJECTS_VIOLATED", "GKE_BASED_CLUSTER_TERMINATION", "GLOBAL_INIT_SCRIPT_FAILURE", "HIVE_METASTORE_PROVISIONING_FAILURE", "IMAGE_PULL_PERMISSION_DENIED", "INACTIVITY", "INIT_CONTAINER_NOT_FINISHED", "INIT_SCRIPT_FAILURE", "INSTANCE_POOL_CLUSTER_FAILURE", "INSTANCE_POOL_MAX_CAPACITY_REACHED", "INSTANCE_POOL_NOT_FOUND", "INSTANCE_UNREACHABLE", "INSTANCE_UNREACHABLE_DUE_TO_MISCONFIG", "INTERNAL_CAPACITY_FAILURE", "INTERNAL_ERROR", "INVALID_ARGUMENT", "INVALID_AWS_PARAMETER", "INVALID_INSTANCE_PLACEMENT_PROTOCOL", "INVALID_SPARK_IMAGE", "INVALID_WORKER_IMAGE_FAILURE", "IN_PENALTY_BOX", "IP_EXHAUSTION_FAILURE", "JOB_FINISHED", "K8S_ACTIVE_POD_QUOTA_EXCEEDED", "K8S_AUTOSCALING_FAILURE", "K8S_DBR_CLUSTER_LAUNCH_TIMEOUT", "LAZY_ALLOCATION_TIMEOUT", "MAINTENANCE_MODE", "METASTORE_COMPONENT_UNHEALTHY", "NEPHOS_RESOURCE_MANAGEMENT", "NETVISOR_SETUP_TIMEOUT", "NETWORK_CHECK_CONTROL_PLANE_FAILURE", "NETWORK_CHECK_DNS_SERVER_FAILURE", "NETWORK_CHECK_METADATA_ENDPOINT_FAILURE", "NETWORK_CHECK_MULTIPLE_COMPONENTS_FAILURE", "NETWORK_CHECK_NIC_FAILURE", "NETWORK_CHECK_STORAGE_FAILURE", "NETWORK_CONFIGURATION_FAILURE", "NFS_MOUNT_FAILURE", "NO_ACTIVATED_K8S", "NO_ACTIVATED_K8S_TESTING_TAG", "NO_MATCHED_K8S", "NO_MATCHED_K8S_TESTING_TAG", "NPIP_TUNNEL_SETUP_FAILURE", "NPIP_TUNNEL_TOKEN_FAILURE", "POD_ASSIGNMENT_FAILURE", "POD_SCHEDULING_FAILURE", "REQUEST_REJECTED", "REQUEST_THROTTLED", "RESOURCE_USAGE_BLOCKED", "SECRET_CREATION_FAILURE", "SECRET_PERMISSION_DENIED", "SECRET_RESOLUTION_ERROR", "SECURITY_AGENTS_FAILED_INITIAL_VERIFICATION", "SECURITY_DAEMON_REGISTRATION_EXCEPTION", "SELF_BOOTSTRAP_FAILURE", "SERVERLESS_LONG_RUNNING_TERMINATED", "SKIPPED_SLOW_NODES", "SLOW_IMAGE_DOWNLOAD", "SPARK_ERROR", "SPARK_IMAGE_DOWNLOAD_FAILURE", "SPARK_IMAGE_DOWNLOAD_THROTTLED", "SPARK_IMAGE_NOT_FOUND", "SPARK_STARTUP_FAILURE", "SPOT_INSTANCE_TERMINATION", "SSH_BOOTSTRAP_FAILURE", "STORAGE_DOWNLOAD_FAILURE", "STORAGE_DOWNLOAD_FAILURE_DUE_TO_MISCONFIG", "STORAGE_DOWNLOAD_FAILURE_SLOW", "STORAGE_DOWNLOAD_FAILURE_THROTTLED", "STS_CLIENT_SETUP_FAILURE", "SUBNET_EXHAUSTED_FAILURE", "TEMPORARILY_UNAVAILABLE", "TRIAL_EXPIRED", "UNEXPECTED_LAUNCH_FAILURE", "UNEXPECTED_POD_RECREATION", "UNKNOWN", "UNSUPPORTED_INSTANCE_TYPE", "UPDATE_INSTANCE_PROFILE_FAILURE", "USAGE_POLICY_ENTITLEMENT_DENIED", "USER_INITIATED_VM_TERMINATION", "USER_REQUEST", "WORKER_SETUP_FAILURE", "WORKSPACE_CANCELLED_ERROR", "WORKSPACE_CONFIGURATION_ERROR", "WORKSPACE_UPDATE"`, v)
+		return fmt.Errorf(`value "%s" is not one of "ABUSE_DETECTED", "ACCESS_TOKEN_FAILURE", "ALLOCATION_TIMEOUT", "ALLOCATION_TIMEOUT_NODE_DAEMON_NOT_READY", "ALLOCATION_TIMEOUT_NO_HEALTHY_AND_WARMED_UP_CLUSTERS", "ALLOCATION_TIMEOUT_NO_HEALTHY_CLUSTERS", "ALLOCATION_TIMEOUT_NO_MATCHED_CLUSTERS", "ALLOCATION_TIMEOUT_NO_READY_CLUSTERS", "ALLOCATION_TIMEOUT_NO_UNALLOCATED_CLUSTERS", "ALLOCATION_TIMEOUT_NO_WARMED_UP_CLUSTERS", "ATTACH_PROJECT_FAILURE", "AWS_AUTHORIZATION_FAILURE", "AWS_INACCESSIBLE_KMS_KEY_FAILURE", "AWS_INSTANCE_PROFILE_UPDATE_FAILURE", "AWS_INSUFFICIENT_FREE_ADDRESSES_IN_SUBNET_FAILURE", "AWS_INSUFFICIENT_INSTANCE_CAPACITY_FAILURE", "AWS_INVALID_KEY_PAIR", "AWS_INVALID_KMS_KEY_STATE", "AWS_MAX_SPOT_INSTANCE_COUNT_EXCEEDED_FAILURE", "AWS_REQUEST_LIMIT_EXCEEDED", "AWS_RESOURCE_QUOTA_EXCEEDED", "AWS_UNSUPPORTED_FAILURE", "AZURE_BYOK_KEY_PERMISSION_FAILURE", "AZURE_EPHEMERAL_DISK_FAILURE", "AZURE_INVALID_DEPLOYMENT_TEMPLATE", "AZURE_OPERATION_NOT_ALLOWED_EXCEPTION", "AZURE_PACKED_DEPLOYMENT_PARTIAL_FAILURE", "AZURE_QUOTA_EXCEEDED_EXCEPTION", "AZURE_RESOURCE_MANAGER_THROTTLING", "AZURE_RESOURCE_PROVIDER_THROTTLING", "AZURE_UNEXPECTED_DEPLOYMENT_TEMPLATE_FAILURE", "AZURE_VM_EXTENSION_FAILURE", "AZURE_VNET_CONFIGURATION_FAILURE", "BOOTSTRAP_TIMEOUT", "BOOTSTRAP_TIMEOUT_CLOUD_PROVIDER_EXCEPTION", "BOOTSTRAP_TIMEOUT_DUE_TO_MISCONFIG", "BUDGET_POLICY_LIMIT_ENFORCEMENT_ACTIVATED", "BUDGET_POLICY_RESOLUTION_FAILURE", "CLOUD_ACCOUNT_POD_QUOTA_EXCEEDED", "CLOUD_ACCOUNT_SETUP_FAILURE", "CLOUD_OPERATION_CANCELLED", "CLOUD_PROVIDER_DISK_SETUP_FAILURE", "CLOUD_PROVIDER_INSTANCE_NOT_LAUNCHED", "CLOUD_PROVIDER_LAUNCH_FAILURE", "CLOUD_PROVIDER_LAUNCH_FAILURE_DUE_TO_MISCONFIG", "CLOUD_PROVIDER_RESOURCE_STOCKOUT", "CLOUD_PROVIDER_RESOURCE_STOCKOUT_DUE_TO_MISCONFIG", "CLOUD_PROVIDER_SHUTDOWN", "CLUSTER_OPERATION_THROTTLED", "CLUSTER_OPERATION_TIMEOUT", "COMMUNICATION_LOST", "CONTAINER_LAUNCH_FAILURE", "CONTROL_PLANE_CONNECTION_FAILURE", "CONTROL_PLANE_CONNECTION_FAILURE_DUE_TO_MISCONFIG", "CONTROL_PLANE_REQUEST_FAILURE", "CONTROL_PLANE_REQUEST_FAILURE_DUE_TO_MISCONFIG", "DATABASE_CONNECTION_FAILURE", "DATA_ACCESS_CONFIG_CHANGED", "DBFS_COMPONENT_UNHEALTHY", "DBR_IMAGE_RESOLUTION_FAILURE", "DISASTER_RECOVERY_REPLICATION", "DNS_RESOLUTION_ERROR", "DOCKER_CONTAINER_CREATION_EXCEPTION", "DOCKER_IMAGE_PULL_FAILURE", "DOCKER_IMAGE_TOO_LARGE_FOR_INSTANCE_EXCEPTION", "DOCKER_INVALID_OS_EXCEPTION", "DRIVER_EVICTION", "DRIVER_LAUNCH_TIMEOUT", "DRIVER_NODE_UNREACHABLE", "DRIVER_OUT_OF_DISK", "DRIVER_OUT_OF_MEMORY", "DRIVER_POD_CREATION_FAILURE", "DRIVER_UNEXPECTED_FAILURE", "DRIVER_UNHEALTHY", "DRIVER_UNREACHABLE", "DRIVER_UNRESPONSIVE", "DYNAMIC_SPARK_CONF_SIZE_EXCEEDED", "EOS_SPARK_IMAGE", "EXECUTION_COMPONENT_UNHEALTHY", "EXECUTOR_POD_UNSCHEDULED", "GCP_API_RATE_QUOTA_EXCEEDED", "GCP_DENIED_BY_ORG_POLICY", "GCP_FORBIDDEN", "GCP_IAM_TIMEOUT", "GCP_INACCESSIBLE_KMS_KEY_FAILURE", "GCP_INSUFFICIENT_CAPACITY", "GCP_IP_SPACE_EXHAUSTED", "GCP_KMS_KEY_PERMISSION_DENIED", "GCP_NOT_FOUND", "GCP_QUOTA_EXCEEDED", "GCP_RESOURCE_QUOTA_EXCEEDED", "GCP_SERVICE_ACCOUNT_ACCESS_DENIED", "GCP_SERVICE_ACCOUNT_DELETED", "GCP_SERVICE_ACCOUNT_NOT_FOUND", "GCP_SUBNET_NOT_READY", "GCP_TRUSTED_IMAGE_PROJECTS_VIOLATED", "GKE_BASED_CLUSTER_TERMINATION", "GLOBAL_INIT_SCRIPT_FAILURE", "HIVEMETASTORE_CONNECTIVITY_FAILURE", "HIVE_METASTORE_PROVISIONING_FAILURE", "IMAGE_PULL_PERMISSION_DENIED", "INACTIVITY", "INIT_CONTAINER_NOT_FINISHED", "INIT_SCRIPT_FAILURE", "INSTANCE_POOL_CLUSTER_FAILURE", "INSTANCE_POOL_MAX_CAPACITY_REACHED", "INSTANCE_POOL_NOT_FOUND", "INSTANCE_UNREACHABLE", "INSTANCE_UNREACHABLE_DUE_TO_MISCONFIG", "INTERNAL_CAPACITY_FAILURE", "INTERNAL_ERROR", "INVALID_ARGUMENT", "INVALID_AWS_PARAMETER", "INVALID_INSTANCE_PLACEMENT_PROTOCOL", "INVALID_SPARK_IMAGE", "INVALID_WORKER_IMAGE_FAILURE", "IN_PENALTY_BOX", "IP_EXHAUSTION_FAILURE", "JOB_FINISHED", "K8S_ACTIVE_POD_QUOTA_EXCEEDED", "K8S_AUTOSCALING_FAILURE", "K8S_DBR_CLUSTER_LAUNCH_TIMEOUT", "LAZY_ALLOCATION_TIMEOUT", "MAINTENANCE_MODE", "METASTORE_COMPONENT_UNHEALTHY", "MTLS_PORT_CONNECTIVITY_FAILURE", "NEPHOS_RESOURCE_MANAGEMENT", "NETVISOR_SETUP_TIMEOUT", "NETWORK_CHECK_CONTROL_PLANE_FAILURE", "NETWORK_CHECK_CONTROL_PLANE_FAILURE_DUE_TO_MISCONFIG", "NETWORK_CHECK_DNS_SERVER_FAILURE", "NETWORK_CHECK_DNS_SERVER_FAILURE_DUE_TO_MISCONFIG", "NETWORK_CHECK_METADATA_ENDPOINT_FAILURE", "NETWORK_CHECK_METADATA_ENDPOINT_FAILURE_DUE_TO_MISCONFIG", "NETWORK_CHECK_MULTIPLE_COMPONENTS_FAILURE", "NETWORK_CHECK_MULTIPLE_COMPONENTS_FAILURE_DUE_TO_MISCONFIG", "NETWORK_CHECK_NIC_FAILURE", "NETWORK_CHECK_NIC_FAILURE_DUE_TO_MISCONFIG", "NETWORK_CHECK_STORAGE_FAILURE", "NETWORK_CHECK_STORAGE_FAILURE_DUE_TO_MISCONFIG", "NETWORK_CONFIGURATION_FAILURE", "NFS_MOUNT_FAILURE", "NO_MATCHED_K8S", "NO_MATCHED_K8S_TESTING_TAG", "NPIP_TUNNEL_SETUP_FAILURE", "NPIP_TUNNEL_TOKEN_FAILURE", "POD_ASSIGNMENT_FAILURE", "POD_SCHEDULING_FAILURE", "RATE_LIMITED", "REQUEST_REJECTED", "REQUEST_THROTTLED", "RESOURCE_USAGE_BLOCKED", "SECRET_CREATION_FAILURE", "SECRET_PERMISSION_DENIED", "SECRET_RESOLUTION_ERROR", "SECURITY_DAEMON_REGISTRATION_EXCEPTION", "SELF_BOOTSTRAP_FAILURE", "SERVERLESS_LONG_RUNNING_TERMINATED", "SKIPPED_SLOW_NODES", "SLOW_IMAGE_DOWNLOAD", "SPARK_ERROR", "SPARK_IMAGE_DOWNLOAD_FAILURE", "SPARK_IMAGE_DOWNLOAD_THROTTLED", "SPARK_IMAGE_NOT_FOUND", "SPARK_STARTUP_FAILURE", "SPOT_INSTANCE_TERMINATION", "SSH_BOOTSTRAP_FAILURE", "STORAGE_DOWNLOAD_FAILURE", "STORAGE_DOWNLOAD_FAILURE_DUE_TO_MISCONFIG", "STORAGE_DOWNLOAD_FAILURE_SLOW", "STORAGE_DOWNLOAD_FAILURE_THROTTLED", "STS_CLIENT_SETUP_FAILURE", "SUBNET_EXHAUSTED_FAILURE", "TEMPORARILY_UNAVAILABLE", "TRIAL_EXPIRED", "UNEXPECTED_LAUNCH_FAILURE", "UNEXPECTED_POD_RECREATION", "UNKNOWN", "UNSUPPORTED_INSTANCE_TYPE", "UPDATE_INSTANCE_PROFILE_FAILURE", "USAGE_POLICY_ENTITLEMENT_DENIED", "USER_INITIATED_VM_TERMINATION", "USER_REQUEST", "WORKER_SETUP_FAILURE", "WORKSPACE_CANCELLED_ERROR", "WORKSPACE_CONFIGURATION_ERROR", "WORKSPACE_UPDATE"`, v)
 	}
 }
 
@@ -5845,18 +5970,20 @@ func (f *TerminationReasonCode) Values() []TerminationReasonCode {
 		TerminationReasonCodeClusterOperationTimeout,
 		TerminationReasonCodeCommunicationLost,
 		TerminationReasonCodeContainerLaunchFailure,
+		TerminationReasonCodeControlPlaneConnectionFailure,
+		TerminationReasonCodeControlPlaneConnectionFailureDueToMisconfig,
 		TerminationReasonCodeControlPlaneRequestFailure,
 		TerminationReasonCodeControlPlaneRequestFailureDueToMisconfig,
 		TerminationReasonCodeDatabaseConnectionFailure,
 		TerminationReasonCodeDataAccessConfigChanged,
 		TerminationReasonCodeDbfsComponentUnhealthy,
+		TerminationReasonCodeDbrImageResolutionFailure,
 		TerminationReasonCodeDisasterRecoveryReplication,
 		TerminationReasonCodeDnsResolutionError,
 		TerminationReasonCodeDockerContainerCreationException,
 		TerminationReasonCodeDockerImagePullFailure,
 		TerminationReasonCodeDockerImageTooLargeForInstanceException,
 		TerminationReasonCodeDockerInvalidOsException,
-		TerminationReasonCodeDriverDnsResolutionFailure,
 		TerminationReasonCodeDriverEviction,
 		TerminationReasonCodeDriverLaunchTimeout,
 		TerminationReasonCodeDriverNodeUnreachable,
@@ -5889,6 +6016,7 @@ func (f *TerminationReasonCode) Values() []TerminationReasonCode {
 		TerminationReasonCodeGcpTrustedImageProjectsViolated,
 		TerminationReasonCodeGkeBasedClusterTermination,
 		TerminationReasonCodeGlobalInitScriptFailure,
+		TerminationReasonCodeHivemetastoreConnectivityFailure,
 		TerminationReasonCodeHiveMetastoreProvisioningFailure,
 		TerminationReasonCodeImagePullPermissionDenied,
 		TerminationReasonCodeInactivity,
@@ -5915,31 +6043,36 @@ func (f *TerminationReasonCode) Values() []TerminationReasonCode {
 		TerminationReasonCodeLazyAllocationTimeout,
 		TerminationReasonCodeMaintenanceMode,
 		TerminationReasonCodeMetastoreComponentUnhealthy,
+		TerminationReasonCodeMtlsPortConnectivityFailure,
 		TerminationReasonCodeNephosResourceManagement,
 		TerminationReasonCodeNetvisorSetupTimeout,
 		TerminationReasonCodeNetworkCheckControlPlaneFailure,
+		TerminationReasonCodeNetworkCheckControlPlaneFailureDueToMisconfig,
 		TerminationReasonCodeNetworkCheckDnsServerFailure,
+		TerminationReasonCodeNetworkCheckDnsServerFailureDueToMisconfig,
 		TerminationReasonCodeNetworkCheckMetadataEndpointFailure,
+		TerminationReasonCodeNetworkCheckMetadataEndpointFailureDueToMisconfig,
 		TerminationReasonCodeNetworkCheckMultipleComponentsFailure,
+		TerminationReasonCodeNetworkCheckMultipleComponentsFailureDueToMisconfig,
 		TerminationReasonCodeNetworkCheckNicFailure,
+		TerminationReasonCodeNetworkCheckNicFailureDueToMisconfig,
 		TerminationReasonCodeNetworkCheckStorageFailure,
+		TerminationReasonCodeNetworkCheckStorageFailureDueToMisconfig,
 		TerminationReasonCodeNetworkConfigurationFailure,
 		TerminationReasonCodeNfsMountFailure,
-		TerminationReasonCodeNoActivatedK8s,
-		TerminationReasonCodeNoActivatedK8sTestingTag,
 		TerminationReasonCodeNoMatchedK8s,
 		TerminationReasonCodeNoMatchedK8sTestingTag,
 		TerminationReasonCodeNpipTunnelSetupFailure,
 		TerminationReasonCodeNpipTunnelTokenFailure,
 		TerminationReasonCodePodAssignmentFailure,
 		TerminationReasonCodePodSchedulingFailure,
+		TerminationReasonCodeRateLimited,
 		TerminationReasonCodeRequestRejected,
 		TerminationReasonCodeRequestThrottled,
 		TerminationReasonCodeResourceUsageBlocked,
 		TerminationReasonCodeSecretCreationFailure,
 		TerminationReasonCodeSecretPermissionDenied,
 		TerminationReasonCodeSecretResolutionError,
-		TerminationReasonCodeSecurityAgentsFailedInitialVerification,
 		TerminationReasonCodeSecurityDaemonRegistrationException,
 		TerminationReasonCodeSelfBootstrapFailure,
 		TerminationReasonCodeServerlessLongRunningTerminated,
@@ -6104,6 +6237,8 @@ type UpdateClusterResource struct {
 	// belongs. The pool cluster uses the instance pool with id
 	// (instance_pool_id) if the driver pool is not assigned.
 	DriverInstancePoolId string `json:"driver_instance_pool_id,omitempty"`
+	// Flexible node type configuration for the driver node.
+	DriverNodeTypeFlexibility *NodeTypeFlexibility `json:"driver_node_type_flexibility,omitempty"`
 	// The node type of the Spark driver. Note that this field is optional; if
 	// unset, the driver node type will be set as the same value as
 	// `node_type_id` defined above.
@@ -6115,8 +6250,7 @@ type UpdateClusterResource struct {
 	DriverNodeTypeId string `json:"driver_node_type_id,omitempty"`
 	// Autoscaling Local Storage: when enabled, this cluster will dynamically
 	// acquire additional disk space when its Spark workers are running low on
-	// disk space. This feature requires specific AWS permissions to function
-	// correctly - refer to the User Guide for more details.
+	// disk space.
 	EnableElasticDisk bool `json:"enable_elastic_disk,omitempty"`
 	// Whether to enable LUKS on cluster VMs' local disks
 	EnableLocalDiskEncryption bool `json:"enable_local_disk_encryption,omitempty"`
@@ -6207,6 +6341,8 @@ type UpdateClusterResource struct {
 	// this field `use_ml_runtime`, and whether `node_type_id` is gpu node or
 	// not.
 	UseMlRuntime bool `json:"use_ml_runtime,omitempty"`
+	// Flexible node type configuration for worker nodes.
+	WorkerNodeTypeFlexibility *NodeTypeFlexibility `json:"worker_node_type_flexibility,omitempty"`
 
 	WorkloadType *WorkloadType `json:"workload_type,omitempty"`
 

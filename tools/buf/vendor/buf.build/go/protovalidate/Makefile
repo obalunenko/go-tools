@@ -14,11 +14,11 @@ LICENSE_IGNORE := -e internal/testdata/
 # Set to use a different compiler. For example, `GO=go1.18rc1 make test`.
 GO ?= go
 ARGS ?= --strict_message --strict_error
-GOLANGCI_LINT_VERSION ?= v2.4.0
+GOLANGCI_LINT_VERSION ?= v2.9.0
 # Set to use a different version of protovalidate-conformance.
 # Should be kept in sync with the version referenced in buf.yaml and
 # 'buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go' in go.mod.
-CONFORMANCE_VERSION ?= v1.0.0
+CONFORMANCE_VERSION ?= v1.1.0
 
 .PHONY: help
 help: ## Describe useful make targets
@@ -102,7 +102,7 @@ BENCH_COUNT ?= 10
 BENCH_NAME ?= $(shell date +%F:%T)
 .PHONY: bench
 bench: $(BENCH_TMP)
-	go test -bench="$(BENCH)" -benchmem \
+	go test -run ^$$ -bench="$(BENCH)" -benchmem \
 		-memprofile "$(BENCH_TMP)/$(BENCH_NAME).mem.profile" \
 		-cpuprofile "$(BENCH_TMP)/$(BENCH_NAME).cpu.profile" \
 		-count $(BENCH_COUNT) \

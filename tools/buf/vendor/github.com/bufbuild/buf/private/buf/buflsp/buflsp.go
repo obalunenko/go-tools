@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,9 +27,12 @@ import (
 	"buf.build/go/app/appext"
 	"buf.build/go/standard/xlog/xslog"
 	"github.com/bufbuild/buf/private/buf/bufctl"
+	"github.com/bufbuild/buf/private/bufpkg/bufmodule"
 	"github.com/bufbuild/buf/private/pkg/storage"
 	"github.com/bufbuild/buf/private/pkg/wasm"
 	"github.com/bufbuild/protocompile/experimental/incremental"
+	"github.com/bufbuild/protocompile/experimental/ir"
+	"github.com/bufbuild/protocompile/experimental/source"
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
@@ -40,33 +43,66 @@ import (
 // Returns a context for managing the server.
 func Serve(
 	ctx context.Context,
+	bufVersion string,
 	wktBucket storage.ReadBucket,
 	container appext.Container,
 	controller bufctl.Controller,
 	wasmRuntime wasm.Runtime,
 	stream jsonrpc2.Stream,
 	queryExecutor *incremental.Executor,
+	moduleKeyProvider bufmodule.ModuleKeyProvider,
+	graphProvider bufmodule.GraphProvider,
 ) (jsonrpc2.Conn, error) {
+	logger := container.Logger()
+	logger = logger.With(slog.String("buf_version", bufVersion))
+	logger.Info("starting LSP server")
+
 	conn := jsonrpc2.NewConn(stream)
+	// connCtx is a context scoped to the connection's lifetime. It is cancelled
+	// when the connection is done (or when ctx is cancelled), so that background
+	// goroutines (e.g. RunChecks) do not outlive the connection.
+	connCtx, connCancel := context.WithCancel(context.Background())
+	go func() {
+		select {
+		case <-ctx.Done():
+		case <-conn.Done():
+		}
+		connCancel()
+	}()
 	lsp := &lsp{
 		conn: conn,
 		client: protocol.ClientDispatcher(
-			&connWrapper{Conn: conn, logger: container.Logger()},
+			&connWrapper{Conn: conn, logger: logger},
 			zap.NewNop(), // The logging from protocol itself isn't very good, we've replaced it with connAdapter here.
 		),
-		container:     container,
-		logger:        container.Logger(),
-		controller:    controller,
-		wasmRuntime:   wasmRuntime,
-		wktBucket:     wktBucket,
-		queryExecutor: queryExecutor,
+		container:         container,
+		logger:            logger,
+		bufVersion:        bufVersion,
+		controller:        controller,
+		wasmRuntime:       wasmRuntime,
+		wktBucket:         wktBucket,
+		queryExecutor:     queryExecutor,
+		opener:            source.NewMap(nil),
+		irSession:         new(ir.Session),
+		connCtx:           connCtx,
+		connCancel:        connCancel,
+		moduleKeyProvider: moduleKeyProvider,
+		graphProvider:     graphProvider,
 	}
 	lsp.fileManager = newFileManager(lsp)
 	lsp.workspaceManager = newWorkspaceManager(lsp)
+	lsp.bufYAMLManager = newBufYAMLManager(lsp)
+	lsp.bufGenYAMLManager = newBufGenYAMLManager()
+	lsp.bufPolicyYAMLManager = newBufPolicyYAMLManager()
+	lsp.bufLockManager = newBufLockManager()
 	off := protocol.TraceOff
 	lsp.traceValue.Store(&off)
 
-	conn.Go(ctx, lsp.newHandler())
+	handler, err := lsp.newHandler()
+	if err != nil {
+		return nil, err
+	}
+	conn.Go(ctx, handler)
 	return conn, nil
 }
 
@@ -80,18 +116,32 @@ func Serve(
 // Its handler methods are not defined in buflsp.go; they are defined in other files, grouped
 // according to the groupings in
 type lsp struct {
-	conn      jsonrpc2.Conn
-	client    protocol.Client
-	container appext.Container
+	conn       jsonrpc2.Conn
+	client     protocol.Client
+	container  appext.Container
+	connCtx    context.Context    // cancelled when the connection is done
+	connCancel context.CancelFunc // cancels connCtx
 
-	logger           *slog.Logger
-	controller       bufctl.Controller
-	wasmRuntime      wasm.Runtime
-	fileManager      *fileManager
-	workspaceManager *workspaceManager
-	queryExecutor    *incremental.Executor
-	wktBucket        storage.ReadBucket
-	shutdown         bool
+	logger               *slog.Logger
+	bufVersion           string // buf version, set at server creation
+	controller           bufctl.Controller
+	wasmRuntime          wasm.Runtime
+	fileManager          *fileManager
+	workspaceManager     *workspaceManager
+	bufYAMLManager       *bufYAMLManager
+	bufGenYAMLManager    *bufGenYAMLManager
+	bufPolicyYAMLManager *bufPolicyYAMLManager
+	bufLockManager       *bufLockManager
+	queryExecutor        *incremental.Executor
+	opener               source.Map
+	irSession            *ir.Session
+	wktBucket            storage.ReadBucket
+	shutdown             bool
+
+	// moduleKeyProvider resolves module refs to their latest commits (BSR). Set via WithModuleKeyProvider.
+	moduleKeyProvider bufmodule.ModuleKeyProvider
+	// graphProvider resolves transitive dependencies for a set of module keys. Set via WithGraphProvider.
+	graphProvider bufmodule.GraphProvider
 
 	lock sync.Mutex
 
@@ -121,9 +171,16 @@ func (l *lsp) init(_ context.Context, params *protocol.InitializeParams) error {
 
 // newHandler constructs an RPC handler that wraps the default one from jsonrpc2. This allows us
 // to inject debug logging, tracing, and timeouts to requests.
-func (l *lsp) newHandler() jsonrpc2.Handler {
-	actual := protocol.ServerHandler(newServer(l), nil)
-	return jsonrpc2.AsyncHandler(func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
+func (l *lsp) newHandler() (jsonrpc2.Handler, error) {
+	server, err := newServer(l)
+	if err != nil {
+		return nil, err
+	}
+	actual := protocol.ServerHandler(server, nil)
+	// [protocol.CancelHandler] intercepts $/cancelRequest notifications from the client and
+	// cancels the context of the matching in-flight request. It must wrap AsyncHandler so
+	// that the cancellable context is the one running inside each spawned goroutine.
+	return protocol.CancelHandler(jsonrpc2.AsyncHandler(func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
 		l.logger.Debug(
 			"handling request",
 			slog.String("method", req.Method()),
@@ -154,5 +211,5 @@ func (l *lsp) newHandler() jsonrpc2.Handler {
 			)
 		}
 		return nil
-	})
+	})), nil
 }

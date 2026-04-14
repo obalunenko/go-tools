@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,11 +32,14 @@ type Stats struct {
 	Types                 int `json:"types" yaml:"types"`
 	Packages              int `json:"packages" yaml:"packages"`
 	Messages              int `json:"messages" yaml:"messages"`
+	DeprecatedMessages    int `json:"deprecated_messages" yaml:"deprecated_messages"`
 	Fields                int `json:"fields" yaml:"fields"`
 	Enums                 int `json:"enums" yaml:"enums"`
+	DeprecatedEnums       int `json:"deprecated_enums" yaml:"deprecated_enums"`
 	EnumValues            int `json:"evalues" yaml:"evalues"`
 	Services              int `json:"services" yaml:"services"`
 	RPCs                  int `json:"rpcs" yaml:"rpcs"`
+	DeprecatedRPCs        int `json:"deprecated_rpcs" yaml:"deprecated_rpcs"`
 	Extensions            int `json:"extensions" yaml:"extensions"`
 	FilesWithSyntaxErrors int `json:"-" yaml:"-"`
 }
@@ -99,11 +102,14 @@ func MergeStats(statsSlice ...*Stats) *Stats {
 		resultStats.Packages += stats.Packages
 		resultStats.Types += stats.Types
 		resultStats.Messages += stats.Messages
+		resultStats.DeprecatedMessages += stats.DeprecatedMessages
 		resultStats.Fields += stats.Fields
 		resultStats.Enums += stats.Enums
+		resultStats.DeprecatedEnums += stats.DeprecatedEnums
 		resultStats.EnumValues += stats.EnumValues
 		resultStats.Services += stats.Services
 		resultStats.RPCs += stats.RPCs
+		resultStats.DeprecatedRPCs += stats.DeprecatedRPCs
 		resultStats.Extensions += stats.Extensions
 	}
 	return resultStats
@@ -129,7 +135,7 @@ func examineFile(statsBuilder *statsBuilder, fileNode *ast.FileNode) {
 		case *ast.PackageNode:
 			statsBuilder.packages[decl.Name.AsIdentifier()] = struct{}{}
 		case *ast.MessageNode:
-			examineMessage(statsBuilder, &decl.MessageBody)
+			examineMessage(statsBuilder, &decl.MessageBody, decl)
 		case *ast.EnumNode:
 			examineEnum(statsBuilder, decl)
 		case *ast.ExtendNode:
@@ -137,26 +143,34 @@ func examineFile(statsBuilder *statsBuilder, fileNode *ast.FileNode) {
 		case *ast.ServiceNode:
 			statsBuilder.Services++
 			for _, decl := range decl.Decls {
-				_, ok := decl.(*ast.RPCNode)
+				rpcNode, ok := decl.(*ast.RPCNode)
 				if ok {
 					statsBuilder.RPCs++
 					statsBuilder.Types++
+					if isDeprecated(rpcNode) {
+						statsBuilder.DeprecatedRPCs++
+					}
 				}
 			}
 		}
 	}
 }
 
-func examineMessage(statsBuilder *statsBuilder, messageBody *ast.MessageBody) {
+// examineMessage examines a message body and updates stats.
+// The node parameter is used to check for deprecated options, and can be a MessageNode or GroupNode.
+func examineMessage(statsBuilder *statsBuilder, messageBody *ast.MessageBody, node ast.NodeWithOptions) {
 	statsBuilder.Messages++
 	statsBuilder.Types++
+	if node != nil && isDeprecated(node) {
+		statsBuilder.DeprecatedMessages++
+	}
 	for _, decl := range messageBody.Decls {
 		switch decl := decl.(type) {
 		case *ast.FieldNode, *ast.MapFieldNode:
 			statsBuilder.Fields++
 		case *ast.GroupNode:
 			statsBuilder.Fields++
-			examineMessage(statsBuilder, &decl.MessageBody)
+			examineMessage(statsBuilder, &decl.MessageBody, decl)
 		case *ast.OneofNode:
 			for _, ooDecl := range decl.Decls {
 				switch ooDecl := ooDecl.(type) {
@@ -164,11 +178,11 @@ func examineMessage(statsBuilder *statsBuilder, messageBody *ast.MessageBody) {
 					statsBuilder.Fields++
 				case *ast.GroupNode:
 					statsBuilder.Fields++
-					examineMessage(statsBuilder, &ooDecl.MessageBody)
+					examineMessage(statsBuilder, &ooDecl.MessageBody, ooDecl)
 				}
 			}
 		case *ast.MessageNode:
-			examineMessage(statsBuilder, &decl.MessageBody)
+			examineMessage(statsBuilder, &decl.MessageBody, decl)
 		case *ast.EnumNode:
 			examineEnum(statsBuilder, decl)
 		case *ast.ExtendNode:
@@ -180,6 +194,9 @@ func examineMessage(statsBuilder *statsBuilder, messageBody *ast.MessageBody) {
 func examineEnum(statsBuilder *statsBuilder, enumNode *ast.EnumNode) {
 	statsBuilder.Enums++
 	statsBuilder.Types++
+	if isDeprecated(enumNode) {
+		statsBuilder.DeprecatedEnums++
+	}
 	for _, decl := range enumNode.Decls {
 		_, ok := decl.(*ast.EnumValueNode)
 		if ok {
@@ -195,7 +212,38 @@ func examineExtend(statsBuilder *statsBuilder, extendNode *ast.ExtendNode) {
 			statsBuilder.Extensions++
 		case *ast.GroupNode:
 			statsBuilder.Extensions++
-			examineMessage(statsBuilder, &decl.MessageBody)
+			examineMessage(statsBuilder, &decl.MessageBody, decl)
 		}
 	}
+}
+
+func isDeprecated(node ast.NodeWithOptions) bool {
+	// GroupNode's Options can be nil.
+	if groupNode, ok := node.(*ast.GroupNode); ok && groupNode.Options == nil {
+		return false
+	}
+	deprecated := false
+	node.RangeOptions(func(opt *ast.OptionNode) bool {
+		// Check if this is the "deprecated" option (simple name, not extension)
+		if opt.Name == nil || len(opt.Name.Parts) != 1 {
+			return true // continue
+		}
+		part := opt.Name.Parts[0]
+		if part.IsExtension() {
+			return true // continue
+		}
+		if part.Value() != "deprecated" {
+			return true // continue
+		}
+		// Check if the value is true
+		val := opt.Val.Value()
+		switch v := val.(type) {
+		case bool:
+			deprecated = v
+		case ast.Identifier:
+			deprecated = string(v) == "true"
+		}
+		return false // stop iterating once we find deprecated option
+	})
+	return deprecated
 }

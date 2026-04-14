@@ -3,7 +3,6 @@ updates:
   - package-ecosystem: "gomod"
     directories:
       - /tools/buf
-      - /tools/envdoc
       - /tools/fiximports
       - /tools/gocov
       - /tools/gocov-html
@@ -17,6 +16,7 @@ updates:
       - /tools/govulncheck
       - /tools/gowrap
       - /tools/mockery
+      - /tools/mockgen
       - /tools/oapi-codegen
       - /tools/panicparse
       - /tools/sqlc

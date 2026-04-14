@@ -21,6 +21,7 @@ func (a *accountIamV2Impl) GetWorkspaceAccessDetail(ctx context.Context, request
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &workspaceAccessDetail)
 	return &workspaceAccessDetail, err
 }
@@ -32,6 +33,7 @@ func (a *accountIamV2Impl) ResolveGroup(ctx context.Context, request ResolveGrou
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &resolveGroupResponse)
 	return &resolveGroupResponse, err
 }
@@ -43,6 +45,7 @@ func (a *accountIamV2Impl) ResolveServicePrincipal(ctx context.Context, request 
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &resolveServicePrincipalResponse)
 	return &resolveServicePrincipalResponse, err
 }
@@ -54,6 +57,7 @@ func (a *accountIamV2Impl) ResolveUser(ctx context.Context, request ResolveUserR
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &resolveUserResponse)
 	return &resolveUserResponse, err
 }
@@ -69,6 +73,10 @@ func (a *workspaceIamV2Impl) GetWorkspaceAccessDetailLocal(ctx context.Context, 
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &workspaceAccessDetail)
 	return &workspaceAccessDetail, err
 }
@@ -80,6 +88,10 @@ func (a *workspaceIamV2Impl) ResolveGroupProxy(ctx context.Context, request Reso
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &resolveGroupResponse)
 	return &resolveGroupResponse, err
 }
@@ -91,6 +103,10 @@ func (a *workspaceIamV2Impl) ResolveServicePrincipalProxy(ctx context.Context, r
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &resolveServicePrincipalResponse)
 	return &resolveServicePrincipalResponse, err
 }
@@ -102,6 +118,10 @@ func (a *workspaceIamV2Impl) ResolveUserProxy(ctx context.Context, request Resol
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &resolveUserResponse)
 	return &resolveUserResponse, err
 }

@@ -16,7 +16,7 @@ import (
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/secret"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/stack"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xstring"
+	"github.com/ydb-platform/ydb-go-sdk/v3/pkg/xstring"
 )
 
 const TokenRefreshDivisor = 10
@@ -75,7 +75,6 @@ type Static struct {
 	sourceInfo string
 }
 
-//nolint:funlen
 func (c *Static) Token(ctx context.Context) (token string, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

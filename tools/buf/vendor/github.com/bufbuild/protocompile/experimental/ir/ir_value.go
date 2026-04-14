@@ -103,6 +103,12 @@ type rawValue struct {
 
 	// The message which contains this value.
 	container id.ID[MessageValue]
+
+	// Indicates whether this value corresponds with a top-level option declaration in source.
+	//
+	// This is not set for options on synthetic types, e.g. the map_entry option on map
+	// entry types.
+	isTopLevel bool
 }
 
 // rawValueBits is used to represent the actual value for all types, according to
@@ -143,13 +149,13 @@ func (v Value) OptionSpans() seq.Indexer[source.Spanner] {
 		slice = v.Raw().exprs
 	}
 
-	return seq.NewFixedSlice(slice, func(_ int, p id.Dyn[ast.ExprAny, ast.ExprKind]) source.Spanner {
+	return seq.NewFixedSlice(slice, func(i int, p id.Dyn[ast.ExprAny, ast.ExprKind]) source.Spanner {
 		c := v.Context().AST()
 		expr := id.WrapDyn(c, p)
 		if field := expr.AsField(); !field.IsZero() {
 			return field
 		}
-		return source.Join(ast.ExprPath{Path: v.Raw().optionPaths[0].In(c)}, expr)
+		return source.Join(ast.ExprPath{Path: v.Raw().optionPaths[i].In(c)}, expr)
 	})
 }
 
@@ -282,14 +288,29 @@ func (v Value) Container() MessageValue {
 // The indexer will be nonempty except for the zero Value. That is to say, unset
 // fields of [MessageValue]s are not represented as a distinct "empty" Value.
 func (v Value) Elements() seq.Indexer[Element] {
-	return seq.NewFixedSlice(v.getElements(), func(n int, bits rawValueBits) Element {
-		return Element{
-			withContext: id.WrapContext(v.Context()),
-			index:       n,
-			value:       v,
-			bits:        bits,
-		}
-	})
+	return seq.Slice[Element, rawValueBits]{
+		Slice: v.getElements(),
+		Wrap: func(n int, bits rawValueBits) Element {
+			return Element{
+				withContext: id.WrapContext(v.Context()),
+				index:       n,
+				value:       v,
+				bits:        bits,
+			}
+		},
+	}
+}
+
+// IsTopLevel returns whether this value corresponds with a top-level option declaration
+// in source.
+//
+// This will return false on options for synthetic types, e.g. the map_entry option on
+// map entry types, because this is not set for synthetic types.
+func (v Value) IsTopLevel() bool {
+	if v.IsZero() {
+		return false
+	}
+	return v.Raw().isTopLevel
 }
 
 // Outlined to promote inlining of Elements().
@@ -494,8 +515,7 @@ func (v Value) marshal(buf []byte, r *report.Report, ranges *[][2]int) ([]byte, 
 			m := v.AsMessage()
 
 			var k int
-			var group bool // TODO: v.Field().IsGroup()
-			if group {
+			if v.Field().IsGroup() {
 				buf = protowire.AppendTag(buf, protowire.Number(v.Field().Number()), protowire.StartGroupType)
 				buf, k = m.marshal(buf, r, ranges)
 				buf = protowire.AppendTag(buf, protowire.Number(v.Field().Number()), protowire.EndGroupType)
@@ -571,7 +591,13 @@ func (e Element) AST() ast.ExprAny {
 // this element, e.g.
 //
 //	key := e.Value().MessageKeys().At(e.ValueNodeIndex())
+//
+// If the element is empty, this returns -1.
 func (e Element) ValueNodeIndex() int {
+	if e.IsZero() {
+		return -1
+	}
+
 	// We do O(log n) work here, because this function doesn't get called except
 	// for diagnostics.
 
@@ -777,6 +803,11 @@ func (v MessageValue) Concrete() MessageValue {
 	}
 
 	return id.Wrap(v.Context(), v.Raw().concrete)
+}
+
+// IsEmpty returns whether any fields are set on this value.
+func (v MessageValue) IsEmpty() bool {
+	return v.IsZero() || len(v.Raw().entries) == 0
 }
 
 // Field returns the field corresponding with the given member, if it is set.

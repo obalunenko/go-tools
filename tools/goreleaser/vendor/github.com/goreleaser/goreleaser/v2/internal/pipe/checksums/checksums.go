@@ -74,11 +74,11 @@ func splitChecksum(ctx *context.Context) error {
 			}).
 			Apply(ctx.Config.Checksum.NameTemplate)
 		if err != nil {
-			return fmt.Errorf("checksum: name template: %w", err)
+			return fmt.Errorf("name template: %w", err)
 		}
 		filepath := filepath.Join(ctx.Config.Dist, filename)
 		if err := refreshOne(ctx, *art, filepath); err != nil {
-			return fmt.Errorf("checksum: %s: %w", art.Path, err)
+			return fmt.Errorf("%s: %w", art.Path, err)
 		}
 		ctx.Artifacts.Add(&artifact.Artifact{
 			Type: artifact.Checksum,
@@ -178,16 +178,8 @@ func refreshAll(ctx *context.Context, filepath string) error {
 
 func buildArtifactList(ctx *context.Context) ([]*artifact.Artifact, error) {
 	filter := artifact.And(
-		artifact.ByTypes(
-			artifact.UploadableArchive,
-			artifact.UploadableBinary,
-			artifact.UploadableSourceArchive,
-			artifact.Makeself,
-			artifact.LinuxPackage,
-			artifact.SBOM,
-			artifact.PyWheel,
-			artifact.PySdist,
-		),
+		artifact.ByTypes(artifact.ReleaseUploadableTypes()...),
+		artifact.Not(artifact.ByTypes(artifact.Checksum, artifact.Signature, artifact.Certificate)),
 		artifact.ByIDs(ctx.Config.Checksum.IDs...),
 	)
 	artifactList := ctx.Artifacts.Filter(filter).List()

@@ -96,6 +96,18 @@ func (f *File) Imports() iter.Seq[DeclImport] {
 	})
 }
 
+// Options returns an iterator over this file's option definitions.
+func (f *File) Options() iter.Seq[DefOption] {
+	return iterx.FilterMap(seq.Values(f.Decls()), func(d DeclAny) (DefOption, bool) {
+		if def := d.AsDef(); !def.IsZero() {
+			if def.Classify() == DefKindOption {
+				return def.AsOption(), true
+			}
+		}
+		return DefOption{}, false
+	})
+}
+
 // Path returns the semantic import path of this file.
 func (f *File) Path() string {
 	if f == nil {
@@ -123,7 +135,7 @@ func (f *File) Nodes() *Nodes {
 	return (*Nodes)(f)
 }
 
-// Stream returns the underlying token stream.
+// Span returns the span for this file.
 func (f *File) Span() source.Span {
 	return id.Wrap(f, id.ID[DeclBody](1)).Span()
 }

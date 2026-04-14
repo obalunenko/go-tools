@@ -125,8 +125,17 @@ func (w *SingleStreamWriter) start() {
 }
 
 func (w *SingleStreamWriter) initStream() (err error) {
-	traceOnDone := trace.TopicOnWriterInitStream(w.cfg.Tracer, w.cfg.reconnectorInstanceID, w.cfg.topic, w.cfg.producerID)
-	defer func() { traceOnDone(w.SessionID, err) }()
+	defer func() {
+		logCtx := w.cfg.LogContext
+		traceOnDone := trace.TopicOnWriterInitStream(
+			w.cfg.Tracer,
+			&logCtx,
+			w.cfg.reconnectorInstanceID,
+			w.cfg.topic,
+			w.cfg.producerID,
+		)
+		traceOnDone(w.SessionID, err)
+	}()
 
 	req := w.createInitRequest()
 	if err = w.cfg.stream.Send(&req); err != nil {
@@ -149,6 +158,7 @@ func (w *SingleStreamWriter) initStream() (err error) {
 	}
 
 	w.Encoder = NewEncoderSelector(
+		w.cfg.LogContext,
 		w.cfg.encodersMap,
 		w.allowedCodecs,
 		w.cfg.compressorCount,
@@ -192,6 +202,15 @@ func (w *SingleStreamWriter) receiveMessagesLoop(ctx context.Context) {
 
 		switch m := mess.(type) {
 		case *rawtopicwriter.WriteResult:
+			logCtx := w.cfg.LogContext
+			trace.TopicOnWriterReceiveResult(
+				w.cfg.Tracer,
+				&logCtx,
+				w.cfg.reconnectorInstanceID,
+				w.SessionID,
+				m.PartitionID,
+				m,
+			)
 			if err = w.cfg.queue.AcksReceived(m.Acks); err != nil && !errors.Is(err, errCloseClosedMessageQueue) {
 				reason := xerrors.WithStackTrace(err)
 				closeCtx, closeCtxCancel := xcontext.WithCancel(ctx)
@@ -203,15 +222,19 @@ func (w *SingleStreamWriter) receiveMessagesLoop(ctx context.Context) {
 		case *rawtopicwriter.UpdateTokenResponse:
 			// pass
 		default:
-			trace.TopicOnWriterReadUnknownGrpcMessage(
-				w.cfg.Tracer,
-				w.cfg.reconnectorInstanceID,
-				w.SessionID,
-				xerrors.WithStackTrace(xerrors.Wrap(fmt.Errorf(
-					"ydb: unexpected message type in stream reader: %v",
-					reflect.TypeOf(m),
-				))),
-			)
+			{
+				logCtx := w.cfg.LogContext
+				trace.TopicOnWriterReadUnknownGrpcMessage(
+					w.cfg.Tracer,
+					&logCtx,
+					w.cfg.reconnectorInstanceID,
+					w.SessionID,
+					xerrors.WithStackTrace(xerrors.Wrap(fmt.Errorf(
+						"ydb: unexpected message type in stream reader: %v",
+						reflect.TypeOf(m),
+					))),
+				)
+			}
 		}
 	}
 }
@@ -232,16 +255,20 @@ func (w *SingleStreamWriter) sendMessagesFromQueueToStreamLoop(ctx context.Conte
 			return
 		}
 
+		err = sendMessagesToStream(w.cfg.stream, w.cfg.maxBytesPerMessage, targetCodec, messages)
+
+		logCtx := w.cfg.LogContext
 		onSentComplete := trace.TopicOnWriterSendMessages(
 			w.cfg.Tracer,
+			&logCtx,
 			w.cfg.reconnectorInstanceID,
 			w.SessionID,
 			targetCodec.ToInt32(),
 			messages[0].SeqNo,
 			len(messages),
 		)
-		err = sendMessagesToStream(w.cfg.stream, w.cfg.maxBytesPerMessage, targetCodec, messages)
 		onSentComplete(err)
+
 		if err != nil {
 			err = xerrors.WithStackTrace(fmt.Errorf("ydb: error send message to topic stream: %w", err))
 			_ = w.close(ctx, err)

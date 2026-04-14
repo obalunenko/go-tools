@@ -2,7 +2,11 @@ package docker
 
 import (
 	"fmt"
+	"os/exec"
 	"regexp"
+	"slices"
+	"strings"
+	"sync"
 
 	"github.com/goreleaser/goreleaser/v2/pkg/context"
 )
@@ -78,6 +82,30 @@ func (i dockerImager) buildCommand(images, flags []string) []string {
 	for _, image := range images {
 		base = append(base, "-t", image)
 	}
-	base = append(base, flags...)
+	base = append(base, ensureProvenanceAndSBOM(flags)...)
 	return base
+}
+
+var dockerSupportsProvenanceFlags = sync.OnceValue(func() bool {
+	out, _ := exec.Command("docker", "build", "--help").CombinedOutput() //nolint:gosec
+	return strings.Contains(string(out), "--provenance") && strings.Contains(string(out), "--sbom")
+})
+
+func ensureProvenanceAndSBOM(flags []string) []string {
+	if !dockerSupportsProvenanceFlags() {
+		return flags
+	}
+	if !containsFlag(flags, "--provenance") {
+		flags = append(flags, "--provenance=false")
+	}
+	if !containsFlag(flags, "--sbom") {
+		flags = append(flags, "--sbom=false")
+	}
+	return flags
+}
+
+func containsFlag(flags []string, flag string) bool {
+	return slices.ContainsFunc(flags, func(s string) bool {
+		return strings.Contains(s, flag)
+	})
 }

@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -186,7 +186,7 @@ func readBufWorkYAMLFile(
 	}
 	var externalBufWorkYAMLFile externalBufWorkYAMLFileV1
 	if err := getUnmarshalStrict(allowJSON)(data, &externalBufWorkYAMLFile); err != nil {
-		return nil, fmt.Errorf("invalid as version %v: %w", fileVersion, err)
+		return nil, err
 	}
 	return newBufWorkYAMLFile(fileVersion, objectData, externalBufWorkYAMLFile.Directories)
 }

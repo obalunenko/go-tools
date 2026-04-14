@@ -154,14 +154,21 @@ if err = rows.Err(); err != nil { // always check final rows err
 ### Queries on transaction object <a name="queries-tx"></a>
 
 `database/sql` driver over `ydb-go-sdk/v3` supports next isolation leveles:
-- read-write (mapped to `SerializableReadWrite` transaction control)
+- read-write with serializable isolation (mapped to `SerializableReadWrite` transaction control)
   ```go
   rw := sql.TxOption{
     ReadOnly: false,
     Isolation: sql.LevelDefault,
   }
   ```
-- read-only (mapped to `OnlineReadOnly` transaction settings on each request, will be mapped to true `SnapshotReadOnly` soon)
+- read-write with snapshot isolation (mapped to `SnapshotReadWrite` transaction control)
+  ```go
+  rw := sql.TxOption{
+    ReadOnly: false,
+    Isolation: sql.LevelSnapshot,
+  }
+  ```
+- read-only with snapshot isolation (mapped to `SnapshotReadOnly` transaction settings)
   ```go
   ro := sql.TxOption{
     ReadOnly: true,
@@ -314,9 +321,9 @@ err := retry.DoTx(context.TODO(), db, func(ctx context.Context, tx *sql.Tx) erro
         DECLARE $ts AS Datetime;
         SELECT season_id FROM seasons WHERE title LIKE $title AND views > $views AND first_aired > $ts;
       `,
-      sql.Named("$title", "%Season 1%"), // argument name with prefix `$` 
+      sql.Named("title", "%Season 1%"), // argument name with without prefix `$` 
       sql.Named("views", uint64(1000)),  // argument name without prefix `$` (driver will prepend `$` if necessary)
-      sql.Named("$ts", types.DatetimeValueFromTime( // native ydb type
+      sql.Named("ts", types.DatetimeValueFromTime( // native ydb type
         time.Now().Add(-time.Hour*24*365), 
       )),
    )
@@ -401,7 +408,7 @@ func main() {
     DECLARE $p0 AS Int32;
     DECLARE $p1 AS Utf8;
     SELECT $p0, $p1`, 
-    sql.Named("$p0", 42), 
+    sql.Named("p0", 42), 
     table.ValueParam("$p1", types.TextValue("my string")),
   )
   // process row ...
@@ -651,4 +658,4 @@ db := sql.OpenDB(connector)
 
 ## Example of usage <a name="example"></a>
 
-[Basic example](https://github.com/ydb-platform/ydb-go-sdk/tree/master/examples/basic/native/query) about series written with `database/sql` driver for `YDB` placed in [examples repository](https://github.com/ydb-platform/ydb-go-sdk/tree/master/examples/database/sql)  
+[Basic example](https://github.com/ydb-platform/ydb-go-sdk/tree/master/examples/basic/native/query) about series written with `database/sql` driver for `YDB` placed in [examples repository](https://github.com/ydb-platform/ydb-go-sdk/tree/master/examples/basic/database/sql)  

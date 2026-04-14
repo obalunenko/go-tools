@@ -18,29 +18,108 @@ package gitlab
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 	"time"
 )
 
 type (
 	JobsServiceInterface interface {
+		// ListProjectJobs gets a list of jobs in a project.
+		//
+		// The scope of jobs to show, one or array of: created, pending, running,
+		// failed, success, canceled, skipped; showing all jobs if none provided
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/jobs/#list-project-jobs
 		ListProjectJobs(pid any, opts *ListJobsOptions, options ...RequestOptionFunc) ([]*Job, *Response, error)
+		// ListPipelineJobs gets a list of jobs for specific pipeline in a
+		// project. If the pipeline ID is not found, it will respond with 404.
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/jobs/#list-pipeline-jobs
 		ListPipelineJobs(pid any, pipelineID int64, opts *ListJobsOptions, options ...RequestOptionFunc) ([]*Job, *Response, error)
+		// ListPipelineBridges gets a list of bridges for specific pipeline in a
+		// project.
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/jobs/#list-pipeline-trigger-jobs
 		ListPipelineBridges(pid any, pipelineID int64, opts *ListJobsOptions, options ...RequestOptionFunc) ([]*Bridge, *Response, error)
+		// GetJobTokensJob retrieves the job that generated a job token.
+		//
+		// GitLab API docs: https://docs.gitlab.com/api/jobs/#get-job-tokens-job
 		GetJobTokensJob(opts *GetJobTokensJobOptions, options ...RequestOptionFunc) (*Job, *Response, error)
+		// GetJob gets a single job of a project.
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/jobs/#get-a-single-job
 		GetJob(pid any, jobID int64, options ...RequestOptionFunc) (*Job, *Response, error)
+		// GetJobArtifacts gets jobs artifacts of a project
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/job_artifacts/#get-job-artifacts
 		GetJobArtifacts(pid any, jobID int64, options ...RequestOptionFunc) (*bytes.Reader, *Response, error)
+		// DownloadArtifactsFile downloads the artifacts file from the given
+		// reference name and job provided the job finished successfully.
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/job_artifacts/#download-the-artifacts-archive
 		DownloadArtifactsFile(pid any, refName string, opt *DownloadArtifactsFileOptions, options ...RequestOptionFunc) (*bytes.Reader, *Response, error)
+		// DownloadSingleArtifactsFile downloads a file from the artifacts from the
+		// given reference name and job provided the job finished successfully.
+		// Only a single file is going to be extracted from the archive and streamed
+		// to a client.
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/job_artifacts/#download-a-single-artifact-file-by-job-id
 		DownloadSingleArtifactsFile(pid any, jobID int64, artifactPath string, options ...RequestOptionFunc) (*bytes.Reader, *Response, error)
+		// DownloadSingleArtifactsFileByTagOrBranch downloads a single file from
+		// a job's artifacts in the latest successful pipeline using the reference name.
+		// The file is extracted from the archive and streamed to the client.
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/job_artifacts/#download-a-single-artifact-file-from-specific-tag-or-branch
 		DownloadSingleArtifactsFileByTagOrBranch(pid any, refName string, artifactPath string, opt *DownloadArtifactsFileOptions, options ...RequestOptionFunc) (*bytes.Reader, *Response, error)
+		// GetTraceFile gets a trace of a specific job of a project
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/jobs/#get-a-log-file
 		GetTraceFile(pid any, jobID int64, options ...RequestOptionFunc) (*bytes.Reader, *Response, error)
+		// CancelJob cancels a single job of a project.
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/jobs/#cancel-a-job
 		CancelJob(pid any, jobID int64, options ...RequestOptionFunc) (*Job, *Response, error)
+		// RetryJob retries a single job of a project
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/jobs/#retry-a-job
 		RetryJob(pid any, jobID int64, options ...RequestOptionFunc) (*Job, *Response, error)
+		// EraseJob erases a single job of a project, removes a job
+		// artifacts and a job trace.
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/jobs/#erase-a-job
 		EraseJob(pid any, jobID int64, options ...RequestOptionFunc) (*Job, *Response, error)
+		// KeepArtifacts prevents artifacts from being deleted when
+		// expiration is set.
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/job_artifacts/#keep-artifacts
 		KeepArtifacts(pid any, jobID int64, options ...RequestOptionFunc) (*Job, *Response, error)
+		// PlayJob triggers a manual action to start a job.
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/jobs/#run-a-job
 		PlayJob(pid any, jobID int64, opt *PlayJobOptions, options ...RequestOptionFunc) (*Job, *Response, error)
+		// DeleteArtifacts deletes artifacts of a job
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/job_artifacts/#delete-job-artifacts
 		DeleteArtifacts(pid any, jobID int64, options ...RequestOptionFunc) (*Response, error)
+		// DeleteProjectArtifacts deletes artifacts eligible for deletion in a project
+		//
+		// GitLab API docs:
+		// https://docs.gitlab.com/api/job_artifacts/#delete-job-artifacts
 		DeleteProjectArtifacts(pid any, options ...RequestOptionFunc) (*Response, error)
 	}
 
@@ -162,13 +241,6 @@ type ListJobsOptions struct {
 	IncludeRetried *bool              `url:"include_retried,omitempty" json:"include_retried,omitempty"`
 }
 
-// ListProjectJobs gets a list of jobs in a project.
-//
-// The scope of jobs to show, one or array of: created, pending, running,
-// failed, success, canceled, skipped; showing all jobs if none provided
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/jobs/#list-project-jobs
 func (s *JobsService) ListProjectJobs(pid any, opts *ListJobsOptions, options ...RequestOptionFunc) ([]*Job, *Response, error) {
 	return do[[]*Job](s.client,
 		withMethod(http.MethodGet),
@@ -178,11 +250,6 @@ func (s *JobsService) ListProjectJobs(pid any, opts *ListJobsOptions, options ..
 	)
 }
 
-// ListPipelineJobs gets a list of jobs for specific pipeline in a
-// project. If the pipeline ID is not found, it will respond with 404.
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/jobs/#list-pipeline-jobs
 func (s *JobsService) ListPipelineJobs(pid any, pipelineID int64, opts *ListJobsOptions, options ...RequestOptionFunc) ([]*Job, *Response, error) {
 	return do[[]*Job](s.client,
 		withMethod(http.MethodGet),
@@ -192,11 +259,6 @@ func (s *JobsService) ListPipelineJobs(pid any, pipelineID int64, opts *ListJobs
 	)
 }
 
-// ListPipelineBridges gets a list of bridges for specific pipeline in a
-// project.
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/jobs/#list-pipeline-trigger-jobs
 func (s *JobsService) ListPipelineBridges(pid any, pipelineID int64, opts *ListJobsOptions, options ...RequestOptionFunc) ([]*Bridge, *Response, error) {
 	return do[[]*Bridge](s.client,
 		withMethod(http.MethodGet),
@@ -213,9 +275,6 @@ type GetJobTokensJobOptions struct {
 	JobToken *string `url:"job_token,omitempty" json:"job_token,omitempty"`
 }
 
-// GetJobTokensJob retrieves the job that generated a job token.
-//
-// GitLab API docs: https://docs.gitlab.com/api/jobs/#get-job-tokens-job
 func (s *JobsService) GetJobTokensJob(opts *GetJobTokensJobOptions, options ...RequestOptionFunc) (*Job, *Response, error) {
 	return do[*Job](s.client,
 		withMethod(http.MethodGet),
@@ -225,10 +284,6 @@ func (s *JobsService) GetJobTokensJob(opts *GetJobTokensJobOptions, options ...R
 	)
 }
 
-// GetJob gets a single job of a project.
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/jobs/#get-a-single-job
 func (s *JobsService) GetJob(pid any, jobID int64, options ...RequestOptionFunc) (*Job, *Response, error) {
 	return do[*Job](s.client,
 		withMethod(http.MethodGet),
@@ -238,27 +293,13 @@ func (s *JobsService) GetJob(pid any, jobID int64, options ...RequestOptionFunc)
 	)
 }
 
-// GetJobArtifacts get jobs artifacts of a project
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/job_artifacts/#get-job-artifacts
 func (s *JobsService) GetJobArtifacts(pid any, jobID int64, options ...RequestOptionFunc) (*bytes.Reader, *Response, error) {
-	project, err := parseID(pid)
-	if err != nil {
-		return nil, nil, err
-	}
-	req, err := s.client.NewRequest(http.MethodGet, fmt.Sprintf("projects/%s/jobs/%d/artifacts", PathEscape(project), jobID), nil, options)
-	if err != nil {
-		return nil, nil, err
-	}
+	b, resp, err := do[bytes.Buffer](s.client,
+		withPath("projects/%s/jobs/%d/artifacts", ProjectID{pid}, jobID),
+		withRequestOpts(options...),
+	)
 
-	artifactsBuf := new(bytes.Buffer)
-	resp, err := s.client.Do(req, artifactsBuf)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return bytes.NewReader(artifactsBuf.Bytes()), resp, err
+	return bytes.NewReader(b.Bytes()), resp, err
 }
 
 // DownloadArtifactsFileOptions represents the available DownloadArtifactsFile()
@@ -270,126 +311,44 @@ type DownloadArtifactsFileOptions struct {
 	Job *string `url:"job" json:"job"`
 }
 
-// DownloadArtifactsFile download the artifacts file from the given
-// reference name and job provided the job finished successfully.
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/job_artifacts/#download-the-artifacts-archive
 func (s *JobsService) DownloadArtifactsFile(pid any, refName string, opt *DownloadArtifactsFileOptions, options ...RequestOptionFunc) (*bytes.Reader, *Response, error) {
-	project, err := parseID(pid)
-	if err != nil {
-		return nil, nil, err
-	}
-	req, err := s.client.NewRequest(http.MethodGet, fmt.Sprintf("projects/%s/jobs/artifacts/%s/download", PathEscape(project), refName), opt, options)
-	if err != nil {
-		return nil, nil, err
-	}
+	b, resp, err := do[bytes.Buffer](s.client,
+		withPath("projects/%s/jobs/artifacts/%s/download", ProjectID{pid}, NoEscape{refName}),
+		withAPIOpts(opt),
+		withRequestOpts(options...),
+	)
 
-	artifactsBuf := new(bytes.Buffer)
-	resp, err := s.client.Do(req, artifactsBuf)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return bytes.NewReader(artifactsBuf.Bytes()), resp, err
+	return bytes.NewReader(b.Bytes()), resp, err
 }
 
-// DownloadSingleArtifactsFile download a file from the artifacts from the
-// given reference name and job provided the job finished successfully.
-// Only a single file is going to be extracted from the archive and streamed
-// to a client.
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/job_artifacts/#download-a-single-artifact-file-by-job-id
 func (s *JobsService) DownloadSingleArtifactsFile(pid any, jobID int64, artifactPath string, options ...RequestOptionFunc) (*bytes.Reader, *Response, error) {
-	project, err := parseID(pid)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	u := fmt.Sprintf(
-		"projects/%s/jobs/%d/artifacts/%s",
-		PathEscape(project),
-		jobID,
-		artifactPath,
+	b, resp, err := do[bytes.Buffer](s.client,
+		withPath("projects/%s/jobs/%d/artifacts/%s", ProjectID{pid}, jobID, NoEscape{artifactPath}),
+		withRequestOpts(options...),
 	)
 
-	req, err := s.client.NewRequest(http.MethodGet, u, nil, options)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	artifactBuf := new(bytes.Buffer)
-	resp, err := s.client.Do(req, artifactBuf)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return bytes.NewReader(artifactBuf.Bytes()), resp, err
+	return bytes.NewReader(b.Bytes()), resp, err
 }
 
-// DownloadSingleArtifactsFileByTagOrBranch downloads a single file from
-// a job’s artifacts in the latest successful pipeline using the reference name.
-// The file is extracted from the archive and streamed to the client.
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/job_artifacts/#download-a-single-artifact-file-from-specific-tag-or-branch
 func (s *JobsService) DownloadSingleArtifactsFileByTagOrBranch(pid any, refName string, artifactPath string, opt *DownloadArtifactsFileOptions, options ...RequestOptionFunc) (*bytes.Reader, *Response, error) {
-	project, err := parseID(pid)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	u := fmt.Sprintf(
-		"projects/%s/jobs/artifacts/%s/raw/%s",
-		PathEscape(project),
-		PathEscape(refName),
-		artifactPath,
+	b, resp, err := do[bytes.Buffer](s.client,
+		withPath("projects/%s/jobs/artifacts/%s/raw/%s", ProjectID{pid}, refName, NoEscape{artifactPath}),
+		withAPIOpts(opt),
+		withRequestOpts(options...),
 	)
 
-	req, err := s.client.NewRequest(http.MethodGet, u, opt, options)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	artifactBuf := new(bytes.Buffer)
-	resp, err := s.client.Do(req, artifactBuf)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return bytes.NewReader(artifactBuf.Bytes()), resp, err
+	return bytes.NewReader(b.Bytes()), resp, err
 }
 
-// GetTraceFile gets a trace of a specific job of a project
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/jobs/#get-a-log-file
 func (s *JobsService) GetTraceFile(pid any, jobID int64, options ...RequestOptionFunc) (*bytes.Reader, *Response, error) {
-	project, err := parseID(pid)
-	if err != nil {
-		return nil, nil, err
-	}
-	u := fmt.Sprintf("projects/%s/jobs/%d/trace", PathEscape(project), jobID)
+	b, resp, err := do[bytes.Buffer](s.client,
+		withPath("projects/%s/jobs/%d/trace", ProjectID{pid}, jobID),
+		withRequestOpts(options...),
+	)
 
-	req, err := s.client.NewRequest(http.MethodGet, u, nil, options)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	traceBuf := new(bytes.Buffer)
-	resp, err := s.client.Do(req, traceBuf)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return bytes.NewReader(traceBuf.Bytes()), resp, err
+	return bytes.NewReader(b.Bytes()), resp, err
 }
 
-// CancelJob cancels a single job of a project.
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/jobs/#cancel-a-job
 func (s *JobsService) CancelJob(pid any, jobID int64, options ...RequestOptionFunc) (*Job, *Response, error) {
 	return do[*Job](s.client,
 		withMethod(http.MethodPost),
@@ -399,10 +358,6 @@ func (s *JobsService) CancelJob(pid any, jobID int64, options ...RequestOptionFu
 	)
 }
 
-// RetryJob retries a single job of a project
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/jobs/#retry-a-job
 func (s *JobsService) RetryJob(pid any, jobID int64, options ...RequestOptionFunc) (*Job, *Response, error) {
 	return do[*Job](s.client,
 		withMethod(http.MethodPost),
@@ -412,11 +367,6 @@ func (s *JobsService) RetryJob(pid any, jobID int64, options ...RequestOptionFun
 	)
 }
 
-// EraseJob erases a single job of a project, removes a job
-// artifacts and a job trace.
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/jobs/#erase-a-job
 func (s *JobsService) EraseJob(pid any, jobID int64, options ...RequestOptionFunc) (*Job, *Response, error) {
 	return do[*Job](s.client,
 		withMethod(http.MethodPost),
@@ -426,11 +376,6 @@ func (s *JobsService) EraseJob(pid any, jobID int64, options ...RequestOptionFun
 	)
 }
 
-// KeepArtifacts prevents artifacts from being deleted when
-// expiration is set.
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/job_artifacts/#keep-artifacts
 func (s *JobsService) KeepArtifacts(pid any, jobID int64, options ...RequestOptionFunc) (*Job, *Response, error) {
 	return do[*Job](s.client,
 		withMethod(http.MethodPost),
@@ -458,10 +403,6 @@ type JobVariableOptions struct {
 	VariableType *VariableTypeValue `url:"variable_type,omitempty" json:"variable_type,omitempty"`
 }
 
-// PlayJob triggers a manual action to start a job.
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/jobs/#run-a-job
 func (s *JobsService) PlayJob(pid any, jobID int64, opt *PlayJobOptions, options ...RequestOptionFunc) (*Job, *Response, error) {
 	return do[*Job](s.client,
 		withMethod(http.MethodPost),
@@ -471,10 +412,6 @@ func (s *JobsService) PlayJob(pid any, jobID int64, opt *PlayJobOptions, options
 	)
 }
 
-// DeleteArtifacts delete artifacts of a job
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/job_artifacts/#delete-job-artifacts
 func (s *JobsService) DeleteArtifacts(pid any, jobID int64, options ...RequestOptionFunc) (*Response, error) {
 	_, resp, err := do[none](s.client,
 		withMethod(http.MethodDelete),
@@ -485,10 +422,6 @@ func (s *JobsService) DeleteArtifacts(pid any, jobID int64, options ...RequestOp
 	return resp, err
 }
 
-// DeleteProjectArtifacts delete artifacts eligible for deletion in a project
-//
-// GitLab API docs:
-// https://docs.gitlab.com/api/job_artifacts/#delete-job-artifacts
 func (s *JobsService) DeleteProjectArtifacts(pid any, options ...RequestOptionFunc) (*Response, error) {
 	_, resp, err := do[none](s.client,
 		withMethod(http.MethodDelete),

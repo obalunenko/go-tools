@@ -24,7 +24,7 @@ import (
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xcontext"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xresolver"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xslices"
+	"github.com/ydb-platform/ydb-go-sdk/v3/pkg/xslices"
 	"github.com/ydb-platform/ydb-go-sdk/v3/retry"
 	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
 )
@@ -188,7 +188,16 @@ func (b *Balancer) applyDiscoveredEndpoints(ctx context.Context, newest []endpoi
 	)
 	defer func() {
 		_, added, dropped := xslices.Diff(previous, newest, func(lhs, rhs endpoint.Endpoint) int {
-			return strings.Compare(lhs.Address(), rhs.Address())
+			cmp := strings.Compare(lhs.Address(), rhs.Address())
+			if cmp != 0 {
+				return cmp
+			}
+			cmp = int(lhs.NodeID()) - int(rhs.NodeID())
+			if cmp != 0 {
+				return cmp
+			}
+
+			return strings.Compare(lhs.OverrideHost(), rhs.OverrideHost())
 		})
 		onDone(
 			xslices.Transform(newest, func(t endpoint.Endpoint) trace.EndpointInfo { return t }),
@@ -198,7 +207,7 @@ func (b *Balancer) applyDiscoveredEndpoints(ctx context.Context, newest []endpoi
 		)
 	}()
 
-	connections := endpointsToConnections(b.pool, newest)
+	connections := conn.EndpointsToConnections(b.pool, newest)
 	for _, c := range connections {
 		b.pool.Allow(ctx, c)
 		c.Endpoint().Touch()
@@ -273,6 +282,10 @@ func makeDiscoveryFunc(
 func New(ctx context.Context, driverConfig *config.Config, pool *conn.Pool, opts ...discoveryConfig.Option) (
 	b *Balancer, finalErr error,
 ) {
+	if ctx.Err() != nil {
+		return nil, xerrors.WithStackTrace(ctx.Err())
+	}
+
 	onDone := trace.DriverOnBalancerInit(driverConfig.Trace(), &ctx,
 		stack.FunctionID("github.com/ydb-platform/ydb-go-sdk/v3/internal/balancer.New"),
 		driverConfig.Balancer().String(),
@@ -372,7 +385,7 @@ func (b *Balancer) wrapCall(ctx context.Context, f func(ctx context.Context, cc 
 
 	defer func() {
 		if err == nil {
-			if cc.GetState() == conn.Banned {
+			if !b.driverConfig.DisableOptimisticUnban() && cc.GetState() == conn.Banned {
 				b.pool.Allow(ctx, cc)
 			}
 		} else if conn.IsBadConn(err, b.driverConfig.ExcludeGRPCCodesForPessimization()...) {
@@ -443,13 +456,4 @@ func (b *Balancer) nextConn(ctx context.Context) (c conn.Conn, err error) {
 	}
 
 	return c, nil
-}
-
-func endpointsToConnections(p *conn.Pool, endpoints []endpoint.Endpoint) []conn.Conn {
-	conns := make([]conn.Conn, 0, len(endpoints))
-	for _, e := range endpoints {
-		conns = append(conns, p.Get(e))
-	}
-
-	return conns
 }

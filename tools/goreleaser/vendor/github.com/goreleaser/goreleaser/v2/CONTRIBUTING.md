@@ -10,7 +10,7 @@ By participating in this project, you agree to abide our
 Prerequisites:
 
 - [Task](https://taskfile.dev/installation)
-- [Go 1.25+](https://go.dev/doc/install)
+- [Go 1.26+](https://go.dev/doc/install)
 
 Other things you might need to run some of the tests (they should get
 automatically skipped if a needed tool isn't present):
@@ -77,6 +77,18 @@ task docker:setup
 ### A note about Windows
 
 Make sure to enable "Developer Mode" in Settings.
+
+## Writing pipes
+
+Pipes should follow these conventions for consistent error output:
+
+- **Do not prefix error messages with the pipe name.** Error wrapping with
+  the pipe name is done at the meta-pipe level (`publish`, `announce`,
+  `defaults`), so individual pipes should only describe the problem itself
+  (e.g., `"no archives found"` instead of `"archive: no archives found"`).
+- **Use the pipe's `String()` method for context.** Meta-pipes wrap errors
+  using `fmt.Errorf("%s: %w", pipe.String(), err)`, which provides
+  consistent, non-redundant context.
 
 ## Creating a commit
 

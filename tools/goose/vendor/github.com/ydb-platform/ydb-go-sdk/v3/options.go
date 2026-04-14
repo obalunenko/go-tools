@@ -21,6 +21,7 @@ import (
 	ratelimiterConfig "github.com/ydb-platform/ydb-go-sdk/v3/internal/ratelimiter/config"
 	schemeConfig "github.com/ydb-platform/ydb-go-sdk/v3/internal/scheme/config"
 	scriptingConfig "github.com/ydb-platform/ydb-go-sdk/v3/internal/scripting/config"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/secret"
 	tableConfig "github.com/ydb-platform/ydb-go-sdk/v3/internal/table/config"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql"
@@ -203,7 +204,7 @@ func WithConnectionString(connectionString string) Option {
 		info, err := dsn.Parse(connectionString)
 		if err != nil {
 			return xerrors.WithStackTrace(
-				fmt.Errorf("parse connection string '%s' failed: %w", connectionString, err),
+				fmt.Errorf("parse connection string '%s' failed: %w", secret.DSN(connectionString), err),
 			)
 		}
 		d.options = append(d.options, info.Options...)
@@ -247,6 +248,20 @@ func WithEndpoint(endpoint string) Option {
 func WithDatabase(database string) Option {
 	return func(ctx context.Context, d *Driver) error {
 		d.options = append(d.options, config.WithDatabase(database))
+
+		return nil
+	}
+}
+
+// WithDisableSessionBalancer returns an Option that disables session balancing.
+func WithDisableSessionBalancer() Option {
+	return func(ctx context.Context, d *Driver) error {
+		d.queryOptions = append(d.queryOptions, queryConfig.WithDisableSessionBalancer())
+		d.tableOptions = append(d.tableOptions, tableConfig.WithDisableSessionBalancer())
+
+		// implicit disable session balancer for SQL driver;
+		// rule of thumb: if user disables session balancer anywhere, we disable it everywhere
+		d.databaseSQLOptions = append(d.databaseSQLOptions, WithDisableServerBalancer())
 
 		return nil
 	}

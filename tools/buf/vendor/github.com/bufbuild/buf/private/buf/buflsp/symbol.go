@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/bufbuild/buf/private/bufpkg/bufconnect"
 	"github.com/bufbuild/buf/private/bufpkg/bufmodule"
 	"github.com/bufbuild/protocompile/experimental/ast"
 	"github.com/bufbuild/protocompile/experimental/ast/predeclared"
@@ -90,13 +91,19 @@ type builtin struct {
 
 type tag struct{}
 
-func (*referenceable) isSymbolKind() {}
-func (*reference) isSymbolKind()     {}
-func (*option) isSymbolKind()        {}
-func (*static) isSymbolKind()        {}
-func (*imported) isSymbolKind()      {}
-func (*builtin) isSymbolKind()       {}
-func (*tag) isSymbolKind()           {}
+type keywordBuiltin struct {
+	name   string
+	anchor string
+}
+
+func (*referenceable) isSymbolKind()  {}
+func (*reference) isSymbolKind()      {}
+func (*option) isSymbolKind()         {}
+func (*static) isSymbolKind()         {}
+func (*imported) isSymbolKind()       {}
+func (*builtin) isSymbolKind()        {}
+func (*tag) isSymbolKind()            {}
+func (*keywordBuiltin) isSymbolKind() {}
 
 // Range constructs an LSP protocol code range for this symbol.
 func (s *symbol) Range() protocol.Range {
@@ -189,6 +196,61 @@ func (s *symbol) References(includeDeclaration bool) []protocol.Location {
 	return references
 }
 
+// DocumentHighlights returns document highlights for the symbol within the current file.
+// This includes the definition (if in the same file) and all references in the same file.
+// All highlights use the [protocol.DocumentHighlightKindText] kind.
+func (s *symbol) DocumentHighlights() []protocol.DocumentHighlight {
+	// Don't highlight static symbols (services, methods, enum values)
+	if _, ok := s.kind.(*static); ok {
+		return nil
+	}
+
+	// Get the referenceable kind to find all references
+	referenceableKind, ok := s.kind.(*referenceable)
+	if !ok && s.def != nil {
+		// If the symbol isn't referenceable itself, but has a referenceable definition, use the
+		// definition for the references.
+		referenceableKind, ok = s.def.kind.(*referenceable)
+	}
+	if !ok {
+		return nil
+	}
+
+	// Don't highlight field names. Field names have referenceable kind directly on the symbol,
+	// whereas field type references have reference kind and reference a referenceable definition.
+	// Both have ir.SymbolKindField, so we distinguish by checking if s.kind is referenceable.
+	if _, isRefKind := s.kind.(*referenceable); isRefKind && s.ir.Kind() == ir.SymbolKindField {
+		return nil
+	}
+
+	var highlights []protocol.DocumentHighlight
+	// Add all references in the same file
+	for _, reference := range referenceableKind.references {
+		if reference.file.uri == s.file.uri {
+			highlights = append(highlights, protocol.DocumentHighlight{
+				Range: reference.Range(),
+				Kind:  protocol.DocumentHighlightKindText,
+			})
+		}
+	}
+
+	// Add the definition if it's in the same file
+	if s.def != nil && s.def.file.uri == s.file.uri {
+		highlights = append(highlights, protocol.DocumentHighlight{
+			Range: s.def.Range(),
+			Kind:  protocol.DocumentHighlightKindText,
+		})
+	} else if s.def == nil {
+		// If there's no separate definition, the symbol itself is the definition
+		highlights = append(highlights, protocol.DocumentHighlight{
+			Range: s.Range(),
+			Kind:  protocol.DocumentHighlightKindText,
+		})
+	}
+
+	return highlights
+}
+
 // LogValue provides the log value for a symbol.
 func (s *symbol) LogValue() slog.Value {
 	if s == nil {
@@ -234,12 +296,34 @@ func (s *symbol) FormatDocs() string {
 		builtin, _ := s.kind.(*builtin)
 		comments, ok := builtinDocs[builtin.predeclared.String()]
 		if ok {
+			// Use specific anchor for map, generic anchor for other builtins
+			anchor := "field-types"
+			if builtin.predeclared.String() == "map" {
+				anchor = "maps"
+			}
 			comments = append(
 				comments,
 				"",
 				fmt.Sprintf(
-					"`%s` is a Protobuf builtin. [Learn more on protobuf.com.](https://protobuf.com/docs/language-spec#field-types)",
+					"`%s` is a Protobuf builtin. [Learn more on protobuf.com.](https://protobuf.com/docs/language-spec#%s)",
 					builtin.predeclared,
+					anchor,
+				),
+			)
+			return strings.Join(comments, "\n")
+		}
+		return ""
+	case *keywordBuiltin:
+		kwBuiltin, _ := s.kind.(*keywordBuiltin)
+		comments, ok := builtinDocs[kwBuiltin.name]
+		if ok {
+			comments = append(
+				comments,
+				"",
+				fmt.Sprintf(
+					"`%s` is a Protobuf keyword. [Learn more on protobuf.com.](https://protobuf.com/docs/language-spec#%s)",
+					kwBuiltin.name,
+					kwBuiltin.anchor,
 				),
 			)
 			return strings.Join(comments, "\n")
@@ -302,9 +386,152 @@ func (s *symbol) GetSymbolInformation() protocol.SymbolInformation {
 		Kind:          kind,
 		Location:      location,
 		ContainerName: containerName,
-		// TODO: Use Tags with a protocol.CompletionItemTagDeprecated if the client supports tags.
-		Deprecated: isDeprecated,
+		Deprecated:    isDeprecated,
+		Tags: []protocol.SymbolTag{
+			protocol.SymbolTagDeprecated,
+		},
 	}
+}
+
+// Rename returns the [protocol.WorkspaceEdit] for renaming the symbol.
+func (s *symbol) Rename(newName string) (*protocol.WorkspaceEdit, error) {
+	var edits protocol.WorkspaceEdit
+	switch s.kind.(type) {
+	case *referenceable:
+		if err := checkRenameConflicts(s, newName); err != nil {
+			return nil, err
+		}
+		changes, err := renameChangesForReferenceableSymbol(s, newName)
+		if err != nil {
+			return nil, err
+		}
+		edits.Changes = changes
+	case *static:
+		if err := checkRenameConflicts(s, newName); err != nil {
+			return nil, err
+		}
+		edits.Changes = map[protocol.DocumentURI][]protocol.TextEdit{
+			s.file.uri: {{
+				Range:   reportSpanToProtocolRange(s.span),
+				NewText: newName,
+			}},
+		}
+	case *reference:
+		// For references, we attempt to rename the definition symbol, if resolved. This would
+		// include this reference symbol.
+		if s.def != nil {
+			if err := checkRenameConflicts(s.def, newName); err != nil {
+				return nil, err
+			}
+			changes, err := renameChangesForReferenceableSymbol(s.def, newName)
+			if err != nil {
+				return nil, err
+			}
+			edits.Changes = changes
+		}
+	}
+	// All other symbol types (options, imports, built-ins, and tags) cannot be renamed.
+	return &edits, nil
+}
+
+// renameChangesForReferenceableSymbol is a helper for getting all rename changes for the
+// given referenceable symbol.
+func renameChangesForReferenceableSymbol(s *symbol, newName string) (map[protocol.DocumentURI][]protocol.TextEdit, error) {
+	// At minimum, we would rename the symbol itself.
+	changes := map[protocol.DocumentURI][]protocol.TextEdit{
+		s.file.uri: {{
+			Range:   reportSpanToProtocolRange(s.span),
+			NewText: newName,
+		}},
+	}
+	// Get the referenceable kind to find all references
+	referenceableKind, ok := s.kind.(*referenceable)
+	if !ok && s.def != nil {
+		// If the symbol isn't referenceable itself, but has a referenceable definition, use the
+		// definition for the references.
+		referenceableKind, ok = s.def.kind.(*referenceable)
+	}
+	if ok {
+		for _, reference := range referenceableKind.references {
+			newText := newName
+			// For option references (extension usages), preserve package qualification and parentheses.
+			// e.g., if renaming "(subpkg.testing)" to "validated", result should be "(subpkg.validated)"
+			if _, isOption := reference.kind.(*option); isOption {
+				spanText := reference.span.Text()
+				// Extract components: prefix (opening paren + package), suffix (closing paren)
+				prefix := ""
+				suffix := ""
+				nameOnly := spanText
+
+				// Check for opening parenthesis
+				if strings.HasPrefix(spanText, "(") {
+					prefix = "("
+					nameOnly = nameOnly[1:]
+				}
+				// Check for closing parenthesis
+				if strings.HasSuffix(nameOnly, ")") {
+					suffix = ")"
+					nameOnly = nameOnly[:len(nameOnly)-1]
+				}
+				// Check if there's package qualification (contains a dot)
+				if lastDot := strings.LastIndex(nameOnly, "."); lastDot != -1 {
+					// Preserve the package qualification
+					packageQualification := nameOnly[:lastDot+1]
+					newText = prefix + packageQualification + newName + suffix
+				} else {
+					// No package qualification, just preserve parens
+					newText = prefix + newName + suffix
+				}
+			}
+			changes[reference.file.uri] = append(changes[reference.file.uri], protocol.TextEdit{
+				Range:   reportSpanToProtocolRange(reference.span),
+				NewText: newText,
+			})
+		}
+	} else {
+		return nil, fmt.Errorf("attempting to rename a non-referenceble symbol as a referenceable symbol: %v", s)
+	}
+	return changes, nil
+}
+
+// checkRenameConflicts takes the symbol and desired new name and checks if this conflicts
+// with an existing symbol in the same scope and returns an error if a conflict is found.
+func checkRenameConflicts(target *symbol, newName string) error {
+	parent := target.ir.FullName().Parent()
+	if parent != "" {
+		var existing source.Span
+		newFullName := parent.Append(newName)
+		containsFunc := func(s *symbol) bool {
+			existing = s.span
+			return s.ir.FullName() == newFullName
+		}
+		// We check all files in the workspace for a conflict, since a package can span an arbitrary
+		// number of files.
+		// We first check the current symbol's file.
+		if slices.ContainsFunc(target.file.symbols, containsFunc) {
+			return fmt.Errorf(
+				"Renaming %q to %q would conflict with existing symbol at %s:%d:%d",
+				target.ir.FullName().Name(),
+				newName,
+				target.file.ir.Path(),
+				existing.StartLoc().Line,
+				existing.StartLoc().Column,
+			)
+		}
+		for _, file := range target.file.workspace.PathToFile() {
+			if slices.ContainsFunc(file.symbols, containsFunc) {
+				return fmt.Errorf(
+					"Renaming %q to %q would conflict with existing symbol at %s:%d:%d",
+					target.ir.FullName().Name(),
+					newName,
+					file.ir.Path(),
+					existing.StartLoc().Line,
+					existing.StartLoc().Column,
+				)
+			}
+		}
+	}
+	return nil
 }
 
 func protowireTypeForPredeclared(name predeclared.Name) protowire.Type {
@@ -318,6 +545,55 @@ func protowireTypeForPredeclared(name predeclared.Name) protowire.Type {
 		return protowire.Fixed64Type
 	}
 	return protowire.BytesType
+}
+
+// leadingDocComments extracts the leading doc comments immediately preceding def
+// from the token stream and returns them as a trimmed markdown string.
+// Returns "" if def is zero, has no leading comments, or if a blank line separates
+// the comments from the definition.
+func leadingDocComments(def ast.DeclDef) string {
+	if def.IsZero() {
+		return ""
+	}
+	var comments []string
+	// We drop the other side of "Around" because we only care about the beginning -- we're
+	// traversing backwards for leading comments only.
+	tok, _ := def.Context().Stream().Around(def.Span().Start)
+	cursor := token.NewCursorAt(tok)
+	// Count consecutive newlines. If we accumulate 2+ without encountering a comment,
+	// there's a blank line separating the comments from the symbol.
+	newlinesSeen := 0
+	if tok.Kind() == token.Space {
+		newlinesSeen = strings.Count(tok.Text(), "\n")
+		if newlinesSeen >= 2 {
+			return ""
+		}
+	}
+	for {
+		t := cursor.PrevSkippable()
+		if t.Kind() == token.Comment {
+			if isTrailingComment(t) {
+				break
+			}
+			text := commentToMarkdown(t.Text()) + "\n"
+			newlinesSeen = 0
+			comments = append(comments, text)
+		} else if t.Kind() == token.Space {
+			newlinesSeen += strings.Count(t.Text(), "\n")
+			if newlinesSeen >= 2 {
+				break
+			}
+		} else {
+			break
+		}
+	}
+	comments = lineUpComments(comments)
+	slices.Reverse(comments)
+	var docs strings.Builder
+	for _, comment := range comments {
+		docs.WriteString(comment)
+	}
+	return strings.TrimRight(docs.String(), "\n")
 }
 
 // getDocsFromComments is a helper function that gets the doc string from the comments from
@@ -347,38 +623,7 @@ func (s *symbol) getDocsFromComments() string {
 		return ""
 	}
 
-	var comments []string
-	// We drop the other side of "Around" because we only care about the beginning -- we're
-	// traversing backwards for leading comemnts only.
-	_, start := def.Context().Stream().Around(def.Span().Start)
-	cursor := token.NewCursorAt(start)
-	t := cursor.PrevSkippable()
-	for !t.IsZero() {
-		switch t.Kind() {
-		case token.Comment:
-			comments = append(comments, commentToMarkdown(t.Text()))
-		}
-		prev := cursor.PeekPrevSkippable()
-		if !prev.Kind().IsSkippable() {
-			break
-		}
-		if prev.Kind() == token.Space {
-			// Check if the whitespace contains a newline. If so, then we break. This is to prevent
-			// picking up comments that are not contiguous to the declaration.
-			if strings.Contains(prev.Text(), "\n") {
-				break
-			}
-		}
-		t = cursor.PrevSkippable()
-	}
-	comments = lineUpComments(comments)
-	// Reverse the list and return joined.
-	slices.Reverse(comments)
-
-	var docs strings.Builder
-	for _, comment := range comments {
-		docs.WriteString(comment)
-	}
+	docs := leadingDocComments(def)
 
 	// If the file is a remote dependency, link to BSR docs.
 	if s.def != nil && s.def.file != nil && !s.def.file.IsLocal() {
@@ -393,42 +638,58 @@ func (s *symbol) getDocsFromComments() string {
 			hasAnchor = isExtension
 		}
 
-		var bsrHost, bsrAnchor string
+		var module bufmodule.Module
+		var bsrHost string
 		if s.def.file.IsWKT() {
-			bsrHost = "buf.build/protocolbuffers/wellknowntypes"
+			bsrHost = bufconnect.DefaultRemote + "/protocolbuffers/wellknowntypes"
 		} else if fileInfo, ok := s.def.file.objectInfo.(bufmodule.FileInfo); ok {
-			bsrHost = fileInfo.Module().FullName().String()
+			module = fileInfo.Module()
+			bsrHost = module.FullName().String()
 		}
+
 		defFullName := s.def.ir.FullName()
 		if !hasAnchor {
 			defFullName = defFullName.Parent()
 		}
-		bsrAnchor = string(defFullName)
+		bsrAnchor := string(defFullName)
 		// For extensions, we use the anchor for the extensions section in the BSR docs.
 		if isExtension {
 			bsrAnchor = "extensions"
 		}
+
 		if bsrHost != "" {
-			docs.WriteString(fmt.Sprintf(
-				"\n[`%s` on the Buf Schema Registry](https://%s/docs/main:%s#%s)",
-				defFullName,
-				bsrHost,
-				s.def.file.ir.Package(),
-				bsrAnchor,
-			))
+			packageName := string(s.def.file.ir.Package())
+			var url string
+			if s.def.file.IsWKT() {
+				// WKT uses special bsrHost format
+				url = "https://" + bsrHost + "/docs/main:" + packageName
+				if bsrAnchor != "" {
+					url += "#" + bsrAnchor
+				}
+			} else {
+				// Use bsrURL for non-WKT modules
+				url = bsrURL(module, packageName, bsrAnchor, bsrTabTypeDocs)
+			}
+			if url != "" {
+				docs += fmt.Sprintf(
+					"\n[`%s` on the Buf Schema Registry](%s)\n",
+					defFullName,
+					url,
+				)
+			}
 		}
 	}
-	return docs.String()
+	return docs
 }
 
 // commentToMarkdown processes comment strings and formats them for markdown display.
 func commentToMarkdown(comment string) string {
-	if strings.HasPrefix(comment, "//") {
+	if after, ok := strings.CutPrefix(comment, "//"); ok {
 		// NOTE: We do not trim the space here, because indentation is
 		// significant for Markdown code fences, and if every line
 		// starts with a space, Markdown will trim it for us, even off
 		// of code blocks.
-		return strings.TrimPrefix(comment, "//")
+		return after
 	}
 	if strings.HasPrefix(comment, "/**") && !strings.HasPrefix(comment, "/**/") {
 		// NOTE: Doxygen-style comments (/** ... */) to Markdown format
@@ -572,4 +833,20 @@ func plural(i int) string {
 		return ""
 	}
 	return "s"
+}
+
+// isTrailingComment returns true if the comment has code on the same line before it.
+func isTrailingComment(t token.Token) bool {
+	if t.Kind() != token.Comment {
+		return false
+	}
+	for c := token.NewCursorAt(t); ; {
+		p := c.PrevSkippable()
+		if p.IsZero() || strings.Contains(p.Text(), "\n") {
+			return false
+		}
+		if p.Kind() != token.Space {
+			return true
+		}
+	}
 }

@@ -12,28 +12,27 @@ import (
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
 
+	"github.com/MirrexOne/unqueryvet/internal/analyzer/sqlbuilders"
 	"github.com/MirrexOne/unqueryvet/pkg/config"
 )
 
 const (
-	// selectKeyword is the SQL SELECT method name in builders
-	selectKeyword = "Select"
-	// columnKeyword is the SQL Column method name in builders
-	columnKeyword = "Column"
-	// columnsKeyword is the SQL Columns method name in builders
-	columnsKeyword = "Columns"
 	// defaultWarningMessage is the standard warning for SELECT * usage
 	defaultWarningMessage = "avoid SELECT * - explicitly specify needed columns for better performance, maintainability and stability"
 )
 
+// Precompiled regex patterns for performance
+var (
+	// aliasedWildcardPattern matches SELECT alias.* patterns like "SELECT t.*", "SELECT u.*, o.*"
+	aliasedWildcardPattern = regexp.MustCompile(`(?i)SELECT\s+(?:[A-Za-z_][A-Za-z0-9_]*\s*\.\s*\*\s*,?\s*)+`)
+
+	// subquerySelectStarPattern matches SELECT * in subqueries like "(SELECT * FROM ...)"
+	subquerySelectStarPattern = regexp.MustCompile(`(?i)\(\s*SELECT\s+\*`)
+)
+
 // NewAnalyzer creates the Unqueryvet analyzer with enhanced logic for production use
 func NewAnalyzer() *analysis.Analyzer {
-	return &analysis.Analyzer{
-		Name:     "unqueryvet",
-		Doc:      "detects SELECT * in SQL queries and SQL builders, preventing performance issues and encouraging explicit column selection",
-		Run:      run,
-		Requires: []*analysis.Analyzer{inspect.Analyzer},
-	}
+	return NewAnalyzerWithSettings(config.DefaultSettings())
 }
 
 // NewAnalyzerWithSettings creates analyzer with provided settings for golangci-lint integration
@@ -48,6 +47,14 @@ func NewAnalyzerWithSettings(s config.UnqueryvetSettings) *analysis.Analyzer {
 	}
 }
 
+// analysisContext holds the context for AST analysis
+type analysisContext struct {
+	pass            *analysis.Pass
+	cfg             *config.UnqueryvetSettings
+	filter          *FilterContext
+	builderRegistry *sqlbuilders.Registry
+}
+
 // RunWithConfig performs analysis with provided configuration
 // This is the main entry point for configured analysis
 func RunWithConfig(pass *analysis.Pass, cfg *config.UnqueryvetSettings) (any, error) {
@@ -59,74 +66,124 @@ func RunWithConfig(pass *analysis.Pass, cfg *config.UnqueryvetSettings) (any, er
 		cfg = &defaultSettings
 	}
 
+	// Create filter context for efficient filtering
+	filter, err := NewFilterContext(cfg)
+	if err != nil {
+		// If filter creation fails, continue without filtering
+		filter = nil
+	}
+
+	// Check if current file should be ignored
+	if filter != nil && len(pass.Files) > 0 {
+		fileName := pass.Fset.File(pass.Files[0].Pos()).Name()
+		if filter.IsIgnoredFile(fileName) {
+			return nil, nil
+		}
+	}
+
+	// Create SQL builder registry for checking SQL builder patterns
+	var builderRegistry *sqlbuilders.Registry
+	if cfg.CheckSQLBuilders {
+		builderRegistry = sqlbuilders.NewRegistry(&cfg.SQLBuilders)
+	}
+
+	ctx := &analysisContext{
+		pass:            pass,
+		cfg:             cfg,
+		filter:          filter,
+		builderRegistry: builderRegistry,
+	}
+
 	// Define AST node types we're interested in
 	nodeFilter := []ast.Node{
 		(*ast.CallExpr)(nil),   // Function/method calls
 		(*ast.File)(nil),       // Files (for SQL builder analysis)
 		(*ast.AssignStmt)(nil), // Assignment statements for standalone literals
 		(*ast.GenDecl)(nil),    // General declarations (const, var, type)
+		(*ast.BinaryExpr)(nil), // Binary expressions for string concatenation
 	}
 
 	// Walk through all AST nodes and analyze them
-	insp.Preorder(nodeFilter, func(n ast.Node) {
-		switch node := n.(type) {
-		case *ast.File:
-			// Analyze SQL builders only if enabled in configuration
-			if cfg.CheckSQLBuilders {
-				analyzeSQLBuilders(pass, node)
-			}
-		case *ast.AssignStmt:
-			// Check assignment statements for standalone SQL literals
-			checkAssignStmt(pass, node, cfg)
-		case *ast.GenDecl:
-			// Check constant and variable declarations
-			checkGenDecl(pass, node, cfg)
-		case *ast.CallExpr:
-			// Analyze function calls for SQL with SELECT * usage
-			checkCallExpr(pass, node, cfg)
-		}
-	})
+	insp.Preorder(nodeFilter, ctx.handleNode)
 
 	return nil, nil
 }
 
-// run performs the main analysis of Go code files for SELECT * usage
-func run(pass *analysis.Pass) (any, error) {
-	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+// handleNode dispatches AST node to appropriate handler
+func (ctx *analysisContext) handleNode(n ast.Node) {
+	switch node := n.(type) {
+	case *ast.File:
+		ctx.handleFileNode(node)
+	case *ast.AssignStmt:
+		// Check assignment statements for standalone SQL literals
+		checkAssignStmt(ctx.pass, node, ctx.cfg)
+	case *ast.GenDecl:
+		// Check constant and variable declarations
+		checkGenDecl(ctx.pass, node, ctx.cfg)
+	case *ast.CallExpr:
+		ctx.handleCallExpr(node)
+		// Analyze function calls for SQL with SELECT * usage
+	case *ast.BinaryExpr:
+		ctx.handleBinaryExpr(node)
+	}
+}
 
-	// Define AST node types we're interested in
-	nodeFilter := []ast.Node{
-		(*ast.CallExpr)(nil),   // Function/method calls
-		(*ast.File)(nil),       // Files (for SQL builder analysis)
-		(*ast.AssignStmt)(nil), // Assignment statements for standalone literals
-		(*ast.GenDecl)(nil),    // General declarations (const, var)
+// handleFileNode processes file-level analysis
+func (ctx *analysisContext) handleFileNode(node *ast.File) {
+	// Note: SQL builder analysis with type checking is done by Registry.Check() in handleCallExpr.
+	// The old analyzeSQLBuilders() function was removed because it didn't use type checking
+	// and caused false positives (issue #5).
+
+	if ctx.cfg.N1DetectionEnabled {
+		AnalyzeN1(ctx.pass, node)
+	}
+	if ctx.cfg.SQLInjectionDetectionEnabled {
+		AnalyzeSQLInjection(ctx.pass, node)
+	}
+	if ctx.cfg.TxLeakDetectionEnabled {
+		AnalyzeTxLeaks(ctx.pass, node)
+	}
+}
+
+// handleCallExpr processes function/method call expressions
+func (ctx *analysisContext) handleCallExpr(node *ast.CallExpr) {
+	if ctx.filter != nil && ctx.filter.IsIgnoredFunction(node) {
+		return
 	}
 
-	// Always use default settings since passing settings through ResultOf doesn't work reliably
-	defaultSettings := config.DefaultSettings()
-	cfg := &defaultSettings
+	if ctx.cfg.CheckFormatStrings && CheckFormatFunction(ctx.pass, node, ctx.cfg) {
+		ctx.pass.Report(analysis.Diagnostic{
+			Pos:     node.Pos(),
+			Message: getDetailedWarningMessage("format_string"),
+		})
+		return
+	}
 
-	// Walk through all AST nodes and analyze them
-	insp.Preorder(nodeFilter, func(n ast.Node) {
-		switch node := n.(type) {
-		case *ast.File:
-			// Analyze SQL builders only if enabled in configuration
-			if cfg.CheckSQLBuilders {
-				analyzeSQLBuilders(pass, node)
-			}
-		case *ast.AssignStmt:
-			// Check assignment statements for standalone SQL literals
-			checkAssignStmt(pass, node, cfg)
-		case *ast.GenDecl:
-			// Check constant and variable declarations
-			checkGenDecl(pass, node, cfg)
-		case *ast.CallExpr:
-			// Analyze function calls for SQL with SELECT * usage
-			checkCallExpr(pass, node, cfg)
+	if ctx.builderRegistry != nil && ctx.builderRegistry.HasCheckers() {
+		violations := ctx.builderRegistry.Check(ctx.pass.TypesInfo, node)
+		for _, v := range violations {
+			ctx.pass.Report(analysis.Diagnostic{
+				Pos:     v.Pos,
+				End:     v.End,
+				Message: v.Message,
+			})
 		}
-	})
+		if len(violations) > 0 {
+			return
+		}
+	}
 
-	return nil, nil
+	checkCallExpr(ctx.pass, node, ctx.cfg)
+}
+
+// handleBinaryExpr processes binary expressions (string concatenation)
+func (ctx *analysisContext) handleBinaryExpr(node *ast.BinaryExpr) {
+	if ctx.cfg.CheckStringConcat && CheckConcatenation(ctx.pass, node, ctx.cfg) {
+		ctx.pass.Report(analysis.Diagnostic{
+			Pos:     node.Pos(),
+			Message: getDetailedWarningMessage("concat"),
+		})
+	}
 }
 
 // checkAssignStmt checks assignment statements for standalone SQL literals
@@ -178,17 +235,9 @@ func checkGenDecl(pass *analysis.Pass, decl *ast.GenDecl, cfg *config.Unqueryvet
 }
 
 // checkCallExpr analyzes function calls for SQL with SELECT * usage
-// Includes checking arguments and SQL builders
+// Note: SQL builder checking with type verification is done by Registry.Check() in handleCallExpr.
+// This function only checks raw SQL strings in function arguments.
 func checkCallExpr(pass *analysis.Pass, call *ast.CallExpr, cfg *config.UnqueryvetSettings) {
-	// Check SQL builders for SELECT * in arguments
-	if cfg.CheckSQLBuilders && isSQLBuilderSelectStar(call) {
-		pass.Report(analysis.Diagnostic{
-			Pos:     call.Pos(),
-			Message: getDetailedWarningMessage("sql_builder"),
-		})
-		return
-	}
-
 	// Check function call arguments for strings with SELECT *
 	for _, arg := range call.Args {
 		if lit, ok := arg.(*ast.BasicLit); ok && lit.Kind == token.STRING {
@@ -277,8 +326,9 @@ func isSelectStarQuery(query string, cfg *config.UnqueryvetSettings) bool {
 		}
 	}
 
-	// Check for SELECT * in query (case-insensitive)
 	upperQuery := strings.ToUpper(query)
+
+	// Check for SELECT * in query (case-insensitive)
 	if strings.Contains(upperQuery, "SELECT *") { //nolint:unqueryvet
 		// Ensure this is actually an SQL query by checking for SQL keywords
 		sqlKeywords := []string{"FROM", "WHERE", "JOIN", "GROUP", "ORDER", "HAVING", "UNION", "LIMIT"}
@@ -294,7 +344,28 @@ func isSelectStarQuery(query string, cfg *config.UnqueryvetSettings) bool {
 			return true
 		}
 	}
+
+	// Check for SELECT alias.* patterns (e.g., SELECT t.*, SELECT u.*, o.*)
+	if cfg.CheckAliasedWildcard && isSelectAliasStarQuery(query) {
+		return true
+	}
+
+	// Check for SELECT * in subqueries (e.g., (SELECT * FROM ...))
+	if cfg.CheckSubqueries && isSelectStarInSubquery(query) {
+		return true
+	}
+
 	return false
+}
+
+// isSelectAliasStarQuery detects SELECT alias.* patterns like "SELECT t.*", "SELECT u.*, o.*"
+func isSelectAliasStarQuery(query string) bool {
+	return aliasedWildcardPattern.MatchString(query)
+}
+
+// isSelectStarInSubquery detects SELECT * in subqueries like "(SELECT * FROM ...)"
+func isSelectStarInSubquery(query string) bool {
+	return subquerySelectStarPattern.MatchString(query)
 }
 
 // getWarningMessage returns informative warning message
@@ -311,155 +382,33 @@ func getDetailedWarningMessage(context string) string {
 		return "avoid SELECT * in subquery - can cause performance issues and unexpected results when schema changes"
 	case "empty_select":
 		return "SQL builder Select() without columns defaults to SELECT * - add specific columns with .Columns() method"
+	case "aliased_wildcard":
+		return "avoid SELECT alias.* - explicitly specify columns like alias.id, alias.name for better maintainability"
+	case "subquery":
+		return "avoid SELECT * in subquery - specify columns explicitly to prevent issues when schema changes"
+	case "concat":
+		return "avoid SELECT * in concatenated query - explicitly specify needed columns"
+	case "format_string":
+		return "avoid SELECT * in format string - explicitly specify needed columns"
 	default:
 		return defaultWarningMessage
 	}
 }
 
-// isSQLBuilderSelectStar checks SQL builder method calls for SELECT * usage
-func isSQLBuilderSelectStar(call *ast.CallExpr) bool {
-	fun, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok {
+// IsRuleEnabledExported checks if a rule is enabled in the configuration.
+// A rule is enabled if it exists in the Rules map and its severity is not "ignore".
+func IsRuleEnabledExported(rules config.RuleSeverity, ruleID string) bool {
+	if rules == nil {
 		return false
 	}
-
-	// Check that this is a Select method call
-	if fun.Sel == nil || fun.Sel.Name != selectKeyword {
+	severity, exists := rules[ruleID]
+	if !exists {
 		return false
 	}
-
-	if len(call.Args) == 0 {
-		return false
-	}
-
-	// Check Select method arguments for "*" or empty strings
-	for _, arg := range call.Args {
-		if lit, ok := arg.(*ast.BasicLit); ok && lit.Kind == token.STRING {
-			value := strings.Trim(lit.Value, "`\"")
-			// Consider both "*" and empty strings in Select() as problematic
-			if value == "*" || value == "" {
-				return true
-			}
-		}
-	}
-
-	return false
+	return severity != "ignore"
 }
 
-// analyzeSQLBuilders performs advanced SQL builder analysis
-// Key logic for handling edge-cases like Select().Columns("*")
-func analyzeSQLBuilders(pass *analysis.Pass, file *ast.File) {
-	// Track SQL builder variables and their state
-	builderVars := make(map[string]*ast.CallExpr) // Variables with empty Select() calls
-	hasColumns := make(map[string]bool)           // Flag: were columns added for variable
-
-	// First pass: find variables created with empty Select() calls
-	ast.Inspect(file, func(n ast.Node) bool {
-		switch node := n.(type) {
-		case *ast.AssignStmt:
-			// Analyze assignments like: query := builder.Select()
-			for i, expr := range node.Rhs {
-				if call, ok := expr.(*ast.CallExpr); ok {
-					if isEmptySelectCall(call) {
-						// Found empty Select() call, remember the variable
-						if i < len(node.Lhs) {
-							if ident, ok := node.Lhs[i].(*ast.Ident); ok {
-								builderVars[ident.Name] = call
-								hasColumns[ident.Name] = false
-							}
-						}
-					}
-				}
-			}
-		}
-		return true
-	})
-
-	// Second pass: check usage of Columns/Column methods
-	ast.Inspect(file, func(n ast.Node) bool {
-		switch node := n.(type) {
-		case *ast.CallExpr:
-			if sel, ok := node.Fun.(*ast.SelectorExpr); ok {
-				// Check calls to Columns() or Column() methods
-				if sel.Sel != nil && (sel.Sel.Name == columnsKeyword || sel.Sel.Name == columnKeyword) {
-					// Check for "*" in arguments
-					if hasStarInColumns(node) {
-						pass.Report(analysis.Diagnostic{
-							Pos:     node.Pos(),
-							Message: getDetailedWarningMessage("sql_builder"),
-						})
-					}
-
-					// Update variable state - columns were added
-					if ident, ok := sel.X.(*ast.Ident); ok {
-						if _, exists := builderVars[ident.Name]; exists {
-							if !hasStarInColumns(node) {
-								hasColumns[ident.Name] = true
-							}
-						}
-					}
-				}
-			}
-
-			// Check call chains like builder.Select().Columns("*")
-			if isSelectWithColumns(node) {
-				if hasStarInColumns(node) {
-					if sel, ok := node.Fun.(*ast.SelectorExpr); ok && sel.Sel != nil {
-						pass.Report(analysis.Diagnostic{
-							Pos:     node.Pos(),
-							Message: getDetailedWarningMessage("sql_builder"),
-						})
-					}
-				}
-				return true
-			}
-		}
-		return true
-	})
-
-	// Final check: warn about builders with empty Select() without subsequent columns
-	for varName, call := range builderVars {
-		if !hasColumns[varName] {
-			pass.Report(analysis.Diagnostic{
-				Pos:     call.Pos(),
-				Message: getDetailedWarningMessage("empty_select"),
-			})
-		}
-	}
-}
-
-// isEmptySelectCall checks if call is an empty Select()
-func isEmptySelectCall(call *ast.CallExpr) bool {
-	if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
-		if sel.Sel != nil && sel.Sel.Name == selectKeyword && len(call.Args) == 0 {
-			return true
-		}
-	}
-	return false
-}
-
-// isSelectWithColumns checks call chains like Select().Columns()
-func isSelectWithColumns(call *ast.CallExpr) bool {
-	if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
-		if sel.Sel != nil && (sel.Sel.Name == columnsKeyword || sel.Sel.Name == columnKeyword) {
-			// Check that previous call in chain is Select()
-			if innerCall, ok := sel.X.(*ast.CallExpr); ok {
-				return isEmptySelectCall(innerCall)
-			}
-		}
-	}
-	return false
-}
-
-// hasStarInColumns checks if call arguments contain "*" symbol
-func hasStarInColumns(call *ast.CallExpr) bool {
-	for _, arg := range call.Args {
-		if lit, ok := arg.(*ast.BasicLit); ok && lit.Kind == token.STRING {
-			value := strings.Trim(lit.Value, "`\"")
-			if value == "*" {
-				return true
-			}
-		}
-	}
-	return false
+// isRuleEnabled is an internal helper for checking rule enablement.
+func isRuleEnabled(rules config.RuleSeverity, ruleID string) bool {
+	return IsRuleEnabledExported(rules, ruleID)
 }

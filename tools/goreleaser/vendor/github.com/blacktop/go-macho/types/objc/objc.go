@@ -10,6 +10,10 @@ import (
 
 const IsDyldPreoptimized = 1 << 7
 
+const (
+	WORD_SHIFT = 3 // assuming 64-bit pointers (log2(8))
+)
+
 type Toc struct {
 	ClassList        uint64
 	NonLazyClassList uint64
@@ -400,6 +404,23 @@ type CFString64Type struct {
 	Length    uint64 // number of non-NULL characters in above
 }
 
+// CFString encoding constants (derived from Info field)
+const (
+	CFStringEncodingMask    = 0x0FF0 // mask to extract encoding from Info field
+	CFStringEncodingASCII   = 0x07C8 // UTF-8/ASCII encoding
+	CFStringEncodingUnicode = 0x07D0 // UTF-16LE encoding
+)
+
+// Encoding returns the string encoding type from the CFString Info field
+func (c CFString64Type) Encoding() uint64 {
+	return c.Info & CFStringEncodingMask
+}
+
+// IsUTF16 returns true if the CFString uses UTF-16 encoding
+func (c CFString64Type) IsUTF16() bool {
+	return c.Encoding() == CFStringEncodingUnicode
+}
+
 const (
 	FAST_IS_SWIFT_LEGACY = 1 << 0 // < 5
 	FAST_IS_SWIFT_STABLE = 1 << 1 // 5.X
@@ -423,11 +444,18 @@ type IvarList struct {
 }
 
 type IvarT struct {
-	Offset      uint64 // uint32_t*  (uint64_t* on x86_64)
-	NameVMAddr  uint64 // const char*
-	TypesVMAddr uint64 // const char*
-	Alignment   uint32
-	Size        uint32
+	Offset       uint64 // uint32_t*  (uint64_t* on x86_64)
+	NameVMAddr   uint64 // const char*
+	TypesVMAddr  uint64 // const char*
+	AlignmentRaw uint32
+	Size         uint32
+}
+
+func (i IvarT) Alignment() uint32 {
+	if i.AlignmentRaw == ^uint32(0) {
+		return 1 << WORD_SHIFT
+	}
+	return 1 << i.AlignmentRaw
 }
 
 type Ivar struct {

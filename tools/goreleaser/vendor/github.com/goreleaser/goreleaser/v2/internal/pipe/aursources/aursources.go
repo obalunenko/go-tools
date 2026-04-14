@@ -51,7 +51,7 @@ func (Pipe) Default(ctx *context.Context) error {
 		if pkg.Name == "" {
 			pkg.Name = ctx.Config.ProjectName
 		}
-		pkg.Name = trimBin(pkg.Name)
+		pkg.Name = strings.TrimSuffix(pkg.Name, "-bin")
 		if len(pkg.Arches) == 0 {
 			pkg.Arches = []string{"x86_64", "aarch64"}
 		}
@@ -73,14 +73,6 @@ func (Pipe) Default(ctx *context.Context) error {
 	}
 
 	return nil
-}
-
-func trimBin(s string) string {
-	if strings.HasSuffix(s, "-bin") {
-		return trimBin(strings.TrimSuffix(s, "-bin"))
-	}
-
-	return s
 }
 
 func (Pipe) Run(ctx *context.Context) error {
@@ -225,6 +217,7 @@ func applyTemplate(ctx *context.Context, tpl string, data templateData) (string,
 				"fixLines":   fixLines,
 				"pkgArray":   toPkgBuildArray,
 				"quoteField": quoteField,
+				"replaceAll": strings.ReplaceAll,
 			}).
 			Parse(tpl),
 	)
@@ -307,7 +300,7 @@ func dataFor(ctx *context.Context, cfg config.AURSource, cl client.ReleaseURLTem
 		}
 
 		result.Sources = sources{
-			DownloadURL: strings.ReplaceAll(url, result.Version, "${pkgver}"),
+			DownloadURL: url,
 			SHA256:      sum,
 			Format:      art.Format(),
 		}

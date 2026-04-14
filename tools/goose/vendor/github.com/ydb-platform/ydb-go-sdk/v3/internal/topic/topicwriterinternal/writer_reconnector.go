@@ -36,8 +36,8 @@ var (
 	errNonZeroCreatedAt                            = xerrors.Wrap(errors.New("ydb: non zero Message.CreatedAt and set auto fill created at option")) //nolint:lll
 	errNoAllowedCodecs                             = xerrors.Wrap(errors.New("ydb: no allowed codecs for write to topic"))
 	errLargeMessage                                = xerrors.Wrap(errors.New("ydb: message uncompressed size more, then limit"))                                                                                                                                                                                             //nolint:lll
-	PublicErrQueueIsFull                           = xerrors.Wrap(errors.New("ydb: queue is full"))                                                                                                                                                                                                                          // Deprecated.
-	PublicErrMessagesPutToInternalQueueBeforeError = xerrors.Wrap(errors.New("ydb: the messages was put to internal buffer before the error happened. It mean about the messages can be delivered to the server"))                                                                                                           //nolint:lll
+	ErrPublicQueueIsFull                           = xerrors.Wrap(errors.New("ydb: queue is full"))                                                                                                                                                                                                                          // Deprecated.
+	ErrPublicMessagesPutToInternalQueueBeforeError = xerrors.Wrap(errors.New("ydb: the messages was put to internal buffer before the error happened. It mean about the messages can be delivered to the server"))                                                                                                           //nolint:lll
 	errDiffetentTransactions                       = xerrors.Wrap(errors.New("ydb: internal writer has messages from different trasactions. It is internal logic error, write issue please: https://github.com/ydb-platform/ydb-go-sdk/issues/new?assignees=&labels=bug&projects=&template=01_BUG_REPORT.md&title=bug%3A+")) //nolint:lll
 
 	// errProducerIDNotEqualMessageGroupID is temporary
@@ -86,8 +86,8 @@ func NewWriterReconnectorConfig(options ...PublicWriterOption) WriterReconnector
 		},
 		AutoSetSeqNo:       true,
 		AutoSetCreatedTime: true,
-		MaxMessageSize:     50 * 1024 * 1024, //nolint:gomnd
-		MaxQueueLen:        1000,             //nolint:gomnd
+		MaxMessageSize:     50 * 1024 * 1024, //nolint:mnd
+		MaxQueueLen:        1000,             //nolint:mnd
 		RetrySettings: topic.RetrySettings{
 			StartTimeout: topic.DefaultStartTimeout,
 		},
@@ -100,6 +100,10 @@ func NewWriterReconnectorConfig(options ...PublicWriterOption) WriterReconnector
 		f(&cfg)
 	}
 
+	if cfg.LogContext == nil {
+		cfg.LogContext = context.Background()
+	}
+
 	if cfg.connectTimeout == 0 {
 		cfg.connectTimeout = cfg.Common.OperationTimeout()
 	}
@@ -110,6 +114,17 @@ func NewWriterReconnectorConfig(options ...PublicWriterOption) WriterReconnector
 
 	if cfg.producerID == "" {
 		WithProducerID(uuid.NewString())(&cfg)
+	}
+
+	if cfg.Connect == nil {
+		var connector ConnectFunc = func(ctx context.Context, tracer *trace.Topic) (
+			RawTopicWriterStream,
+			error,
+		) {
+			return cfg.rawTopicClient.StreamWrite(xcontext.MergeContexts(ctx, cfg.LogContext), tracer)
+		}
+
+		cfg.Connect = connector
 	}
 
 	return cfg
@@ -250,7 +265,7 @@ func (w *WriterReconnector) Write(ctx context.Context, messages []PublicMessage)
 	}
 	defer func() {
 		if resErr != nil {
-			resErr = xerrors.Join(resErr, PublicErrMessagesPutToInternalQueueBeforeError)
+			resErr = xerrors.Join(resErr, ErrPublicMessagesPutToInternalQueueBeforeError)
 		}
 	}()
 
@@ -312,8 +327,10 @@ func (w *WriterReconnector) createMessagesWithContent(messages []PublicMessage) 
 	w.m.WithRLock(func() {
 		sessionID = w.sessionID
 	})
+	logCtx := w.cfg.LogContext
 	onCompressDone := trace.TopicOnWriterCompressMessages(
 		w.cfg.Tracer,
+		&logCtx,
 		w.writerInstanceID,
 		sessionID,
 		w.cfg.forceCodec.ToInt32(),
@@ -328,6 +345,7 @@ func (w *WriterReconnector) createMessagesWithContent(messages []PublicMessage) 
 	}
 	err := cacheMessages(res, targetCodec, w.cfg.compressorCount)
 	onCompressDone(err)
+
 	if err != nil {
 		return nil, err
 	}
@@ -343,7 +361,7 @@ func (w *WriterReconnector) Close(ctx context.Context) error {
 	reason := xerrors.WithStackTrace(errStopWriterReconnector)
 	w.queue.StopAddNewMessages(reason)
 
-	flushErr := w.Flush(ctx) //nolint:ifshort,nolintlint
+	flushErr := w.Flush(ctx)
 	closeErr := w.close(ctx, reason)
 
 	if flushErr != nil {
@@ -354,9 +372,9 @@ func (w *WriterReconnector) Close(ctx context.Context) error {
 }
 
 func (w *WriterReconnector) close(ctx context.Context, reason error) (resErr error) {
-	onDone := trace.TopicOnWriterClose(w.cfg.Tracer, w.writerInstanceID, reason)
 	defer func() {
-		onDone(resErr)
+		logCtx := w.cfg.LogContext
+		trace.TopicOnWriterClose(w.cfg.Tracer, &logCtx, w.writerInstanceID, reason)
 	}()
 
 	// stop background work and single stream writer
@@ -375,7 +393,6 @@ func (w *WriterReconnector) close(ctx context.Context, reason error) (resErr err
 
 func (w *WriterReconnector) connectionLoop(ctx context.Context) {
 	attempt := 0
-
 	createStreamContext := func() (context.Context, context.CancelFunc) {
 		// need suppress parent context cancelation for flush buffer while close writer
 		return xcontext.WithCancel(xcontext.ValueOnly(ctx))
@@ -413,15 +430,17 @@ func (w *WriterReconnector) connectionLoop(ctx context.Context) {
 			}
 		}
 
+		logCtx := w.cfg.LogContext
 		onWriterStarted := trace.TopicOnWriterReconnect(
 			w.cfg.Tracer,
+			&logCtx,
 			w.writerInstanceID,
 			w.cfg.topic,
 			w.cfg.producerID,
 			attempt,
 		)
 
-		writer, err := w.startWriteStream(ctx, streamCtx)
+		writer, err := w.startWriteStream(streamCtx)
 		w.onWriterChange(writer)
 		onStreamError := onWriterStarted(err)
 		if err == nil {
@@ -466,18 +485,26 @@ func (w *WriterReconnector) handleReconnectRetry(
 	return false
 }
 
-func (w *WriterReconnector) startWriteStream(ctx, streamCtx context.Context) (
-	writer *SingleStreamWriter,
-	err error,
-) {
-	stream, err := w.connectWithTimeout(streamCtx)
+func (w *WriterReconnector) startWriteStream(ctx context.Context) (writer *SingleStreamWriter, err error) {
+	// connectCtx with timeout applies only to the connection phase,
+	// allowing the main stream context to remain active after exiting this method
+	connectCtx, stopConnectCtx := xcontext.WithStoppableTimeoutCause(ctx, w.cfg.connectTimeout, errConnTimeout)
+	defer func() {
+		// If the context was cancelled during connection (the stream was cancelled),
+		// we should return a timeout error
+		if !stopConnectCtx() && err == nil {
+			err = context.Cause(connectCtx)
+		}
+	}()
+
+	stream, err := w.connectWithTimeout(connectCtx)
 	if err != nil {
 		return nil, err
 	}
 
 	w.queue.ResetSentProgress()
 
-	return NewSingleStreamWriter(ctx, w.createWriterStreamConfig(stream))
+	return NewSingleStreamWriter(connectCtx, w.createWriterStreamConfig(stream))
 }
 
 func (w *WriterReconnector) needReceiveLastSeqNo() bool {
@@ -486,45 +513,16 @@ func (w *WriterReconnector) needReceiveLastSeqNo() bool {
 	return res
 }
 
-func (w *WriterReconnector) connectWithTimeout(streamLifetimeContext context.Context) (RawTopicWriterStream, error) {
-	connectCtx, connectCancel := xcontext.WithCancel(streamLifetimeContext)
-
-	type resT struct {
-		stream RawTopicWriterStream
-		err    error
-	}
-	resCh := make(chan resT, 1)
-
-	go func() {
-		defer func() {
-			p := recover()
-			if p != nil {
-				resCh <- resT{
-					stream: nil,
-					err:    xerrors.WithStackTrace(xerrors.Wrap(fmt.Errorf("ydb: panic while connect to topic writer: %+v", p))),
-				}
-			}
-		}()
-
-		stream, err := w.cfg.Connect(connectCtx, w.cfg.Tracer)
-		resCh <- resT{stream: stream, err: err}
+func (w *WriterReconnector) connectWithTimeout(ctx context.Context) (stream RawTopicWriterStream, err error) {
+	defer func() {
+		p := recover()
+		if p != nil {
+			stream = nil
+			err = xerrors.WithStackTrace(xerrors.Wrap(fmt.Errorf("ydb: panic while connect to topic writer: %+v", p)))
+		}
 	}()
 
-	timer := time.NewTimer(w.cfg.connectTimeout)
-	defer timer.Stop()
-
-	select {
-	case <-timer.C:
-		connectCancel()
-
-		return nil, xerrors.WithStackTrace(errConnTimeout)
-	case res := <-resCh:
-		// force no cancel connect context - because it will break stream
-		// context will cancel by cancel streamLifetimeContext while reconnect or stop connection
-		_ = connectCancel
-
-		return res.stream, res.err
-	}
+	return w.cfg.Connect(ctx, w.cfg.Tracer)
 }
 
 func (w *WriterReconnector) onAckReceived(count int) {

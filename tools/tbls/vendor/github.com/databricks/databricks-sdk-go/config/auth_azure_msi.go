@@ -14,8 +14,10 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var errInvalidToken = errors.New("invalid token")
-var errInvalidTokenExpiry = errors.New("invalid token expiry")
+var (
+	errInvalidToken       = errors.New("invalid token")
+	errInvalidTokenExpiry = errors.New("invalid token expiry")
+)
 
 // well-known URL for Azure Instance Metadata Service (IMDS)
 // https://learn.microsoft.com/en-us/azure-stack/user/instance-metadata-service
@@ -24,28 +26,30 @@ var instanceMetadataPrefix = "http://169.254.169.254/metadata"
 // timeout to wait for IMDS response
 const azureMsiTimeout = 10 * time.Second
 
-type AzureMsiCredentials struct {
-}
+type AzureMsiCredentials struct{}
 
 func (c AzureMsiCredentials) Name() string {
 	return "azure-msi"
 }
 
 func (c AzureMsiCredentials) Configure(ctx context.Context, cfg *Config) (credentials.CredentialsProvider, error) {
-	if !cfg.IsAzure() || !cfg.AzureUseMSI || (cfg.AzureResourceID == "" && !cfg.IsAccountClient()) {
+	if !cfg.IsAzure() || !cfg.AzureUseMSI || (cfg.AzureResourceID == "" && cfg.Host == "") {
 		return nil, nil
 	}
 	env := cfg.Environment()
-	if !cfg.IsAccountClient() {
+	// If the host is not set, we need to resolve it from the Azure Resource ID.
+	// This is only needed for Workspaces, because Accounts always have a host.
+	if cfg.Host == "" {
 		err := cfg.azureEnsureWorkspaceUrl(ctx, c)
 		if err != nil {
 			return nil, fmt.Errorf("resolve host: %w", err)
 		}
 	}
 	logger.Debugf(ctx, "Generating AAD token via Azure MSI")
-	inner := azureReuseTokenSource(nil, c.tokenSourceFor(ctx, cfg, "", env.AzureApplicationID))
-	management := azureReuseTokenSource(nil, c.tokenSourceFor(ctx, cfg, "", env.AzureServiceManagementEndpoint()))
-	visitor := azureVisitor(cfg, serviceToServiceVisitor(inner, management, xDatabricksAzureSpManagementToken))
+	opts := cacheOptions(cfg)
+	inner := azureReuseTokenSource(nil, c.tokenSourceFor(ctx, cfg, "", env.AzureApplicationID), opts...)
+	management := azureReuseTokenSource(nil, c.tokenSourceFor(ctx, cfg, "", env.AzureServiceManagementEndpoint()), opts...)
+	visitor := azureVisitor(cfg, serviceToServiceVisitor(inner, management, xDatabricksAzureSpManagementToken, false, opts...))
 	return credentials.NewOAuthCredentialsProvider(visitor, inner.Token), nil
 }
 

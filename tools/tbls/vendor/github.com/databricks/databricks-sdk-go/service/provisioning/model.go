@@ -142,6 +142,9 @@ type CreateCustomerManagedKeyRequest struct {
 }
 
 type CreateGcpKeyInfo struct {
+	// Globally unique service account email that has access to the KMS key. The
+	// service account exists within the Databricks CP project.
+	GcpServiceAccount *GcpServiceAccount `json:"gcp_service_account,omitempty"`
 	// Globally unique kms key resource id of the form
 	// projects/testProjectId/locations/us-east4/keyRings/gcpCmkKeyRing/cryptoKeys/cmk-eastus4
 	KmsKeyId string `json:"kms_key_id"`
@@ -262,7 +265,8 @@ func (s CreateVpcEndpointRequest) MarshalJSON() ([]byte, error) {
 
 type CreateWorkspaceRequest struct {
 	AwsRegion string `json:"aws_region,omitempty"`
-	// The cloud name. This field always has the value `gcp`.
+	// DEPRECATED: This field is being ignored by the server and will be removed
+	// in the future. The cloud name. This field always has the value `gcp`.
 	Cloud string `json:"cloud,omitempty"`
 
 	CloudResourceContainer *CloudResourceContainer `json:"cloud_resource_container,omitempty"`
@@ -316,6 +320,10 @@ type CreateWorkspaceRequest struct {
 	// history. The provided key configuration object property use_cases must
 	// contain MANAGED_SERVICES.
 	ManagedServicesCustomerManagedKeyId string `json:"managed_services_customer_managed_key_id,omitempty"`
+	// The object ID of network connectivity config. Once assigned, the
+	// workspace serverless compute resources use the same set of stable IP CIDR
+	// blocks and optional private link to access your resources.
+	NetworkConnectivityConfigId string `json:"network_connectivity_config_id,omitempty"`
 	// The ID of the workspace's network configuration object. To use AWS
 	// PrivateLink, this field is required.
 	NetworkId string `json:"network_id,omitempty"`
@@ -527,6 +535,8 @@ type EndpointUseCase string
 
 const EndpointUseCaseDataplaneRelayAccess EndpointUseCase = `DATAPLANE_RELAY_ACCESS`
 
+const EndpointUseCaseGeneralAccess EndpointUseCase = `GENERAL_ACCESS`
+
 const EndpointUseCaseWorkspaceAccess EndpointUseCase = `WORKSPACE_ACCESS`
 
 // String representation for [fmt.Print]
@@ -537,11 +547,11 @@ func (f *EndpointUseCase) String() string {
 // Set raw string value and validate it against allowed values
 func (f *EndpointUseCase) Set(v string) error {
 	switch v {
-	case `DATAPLANE_RELAY_ACCESS`, `WORKSPACE_ACCESS`:
+	case `DATAPLANE_RELAY_ACCESS`, `GENERAL_ACCESS`, `WORKSPACE_ACCESS`:
 		*f = EndpointUseCase(v)
 		return nil
 	default:
-		return fmt.Errorf(`value "%s" is not one of "DATAPLANE_RELAY_ACCESS", "WORKSPACE_ACCESS"`, v)
+		return fmt.Errorf(`value "%s" is not one of "DATAPLANE_RELAY_ACCESS", "GENERAL_ACCESS", "WORKSPACE_ACCESS"`, v)
 	}
 }
 
@@ -551,6 +561,7 @@ func (f *EndpointUseCase) Set(v string) error {
 func (f *EndpointUseCase) Values() []EndpointUseCase {
 	return []EndpointUseCase{
 		EndpointUseCaseDataplaneRelayAccess,
+		EndpointUseCaseGeneralAccess,
 		EndpointUseCaseWorkspaceAccess,
 	}
 }
@@ -632,6 +643,9 @@ func (s GcpCommonNetworkConfig) MarshalJSON() ([]byte, error) {
 }
 
 type GcpKeyInfo struct {
+	// Globally unique service account email that has access to the KMS key. The
+	// service account exists within the Databricks CP project.
+	GcpServiceAccount *GcpServiceAccount `json:"gcp_service_account,omitempty"`
 	// Globally unique kms key resource id of the form
 	// projects/testProjectId/locations/us-east4/keyRings/gcpCmkKeyRing/cryptoKeys/cmk-eastus4
 	KmsKeyId string `json:"kms_key_id"`
@@ -676,6 +690,20 @@ type GcpNetworkInfo struct {
 	SubnetRegion string `json:"subnet_region"`
 	// The customer-provided VPC ID.
 	VpcId string `json:"vpc_id"`
+}
+
+type GcpServiceAccount struct {
+	ServiceAccountEmail string `json:"service_account_email,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *GcpServiceAccount) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s GcpServiceAccount) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
 }
 
 type GcpVpcEndpointInfo struct {
@@ -1192,9 +1220,9 @@ type VpcEndpoint struct {
 	// that was used when creating this VPC endpoint. If the VPC endpoint
 	// connects to the Databricks control plane for either the front-end
 	// connection or the back-end REST API connection, the value is
-	// WORKSPACE_ACCESS. If the VPC endpoint connects to the Databricks
-	// workspace for the back-end secure cluster connectivity relay, the value
-	// is DATAPLANE_RELAY_ACCESS.
+	// GENERAL_ACCESS. If the VPC endpoint connects to the Databricks workspace
+	// for the back-end secure cluster connectivity relay, the value is
+	// DATAPLANE_RELAY_ACCESS.
 	UseCase EndpointUseCase `json:"use_case,omitempty"`
 	// Databricks VPC endpoint ID. This is the Databricks-specific name of the
 	// VPC endpoint. Do not confuse this with the `aws_vpc_endpoint_id`, which
@@ -1301,7 +1329,7 @@ type Workspace struct {
 	AwsRegion string `json:"aws_region,omitempty"`
 
 	AzureWorkspaceInfo *AzureWorkspaceInfo `json:"azure_workspace_info,omitempty"`
-	// The cloud name. This field always has the value `gcp`.
+	// The cloud name. This field can have values like `azure`, `gcp`.
 	Cloud string `json:"cloud,omitempty"`
 
 	CloudResourceContainer *CloudResourceContainer `json:"cloud_resource_container,omitempty"`

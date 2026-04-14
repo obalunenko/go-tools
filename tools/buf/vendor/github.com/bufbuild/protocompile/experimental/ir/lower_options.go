@@ -44,7 +44,7 @@ func resolveEarlyOptions(file *File) {
 			option := def.AsOption().Option
 
 			// If this option's path has more than one component, skip.
-			first, ok := iterx.OnlyOne(option.Path.Components)
+			first, ok := iterx.OnlyOne(option.Path.Components())
 			if !ok || !first.Separator().IsZero() {
 				continue
 			}
@@ -337,7 +337,7 @@ func validateOptionTargetsInValue(m MessageValue, decl source.Span, target Optio
 			if path := key.AsPath(); !path.IsZero() {
 				// Pull out the last component.
 				// TODO: write a function on Path that does this cheaply.
-				last, _ := iterx.Last(path.Components)
+				last, _ := iterx.Last(path.Components())
 				span = last.Name().Span()
 			}
 
@@ -365,7 +365,7 @@ func validateOptionTargetsInValue(m MessageValue, decl source.Span, target Optio
 	}
 }
 
-// symbolRef is all of the information necessary to resolve an option reference.
+// optionRef is all of the information necessary to resolve an option reference.
 type optionRef struct {
 	*File
 	*report.Report
@@ -393,7 +393,7 @@ func (r optionRef) resolve() {
 	field := current.Field()
 	var path ast.Path
 	var raw slot
-	for pc := range r.def.Path.Components {
+	for pc := range r.def.Path.Components() {
 		// If this is the first iteration, use the *Options value as the current
 		// message.
 		message := field.Element()
@@ -432,6 +432,7 @@ func (r optionRef) resolve() {
 				want:   taxa.Extension,
 
 				allowScalars:  false,
+				allowOption:   true,
 				suggestImport: true,
 			}.resolve()
 
@@ -463,7 +464,7 @@ func (r optionRef) resolve() {
 					report.Snippetf(pc, "this field is not a %s", taxa.Extension),
 					report.Snippetf(field.AST().Name(), "field declared inside of `%s` here", field.Parent().FullName()),
 					report.Helpf("%s syntax should only be used with %ss", taxa.CustomOption, taxa.Extension),
-					report.SuggestEdits(pc.Name(), fmt.Sprintf("replace %s with a field name", taxa.Parens), report.Edit{
+					report.SuggestEdits(pc.Name(), "replace `(...)` with a field name", report.Edit{
 						Start: 0, End: pc.Name().Span().Len(),
 						Replace: field.Name(),
 					}),
@@ -504,7 +505,7 @@ func (r optionRef) resolve() {
 				ids.MessageFeatures, ids.FieldFeatures, ids.OneofFeatures,
 				ids.EnumFeatures, ids.EnumValueFeatures:
 				if syn := r.Syntax(); !syn.IsEdition() {
-					r.Errorf("`features` cannot be set in %s", prettyEdition(syn)).Apply(
+					r.Errorf("`features` cannot be set in %s", syn.Name()).Apply(
 						report.Snippet(pc),
 						report.Snippetf(r.AST().Syntax().Value(), "syntax specified here"),
 					)
@@ -623,6 +624,8 @@ func (r optionRef) resolve() {
 
 	v := evaluator.eval(args)
 	if raw.IsZero() && !v.IsZero() {
+		// Set this as a top-level option message.
+		v.Raw().isTopLevel = true
 		raw.Insert(v)
 	}
 }

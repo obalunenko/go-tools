@@ -8,8 +8,36 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/types"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xstring"
+	"github.com/ydb-platform/ydb-go-sdk/v3/pkg/xstring"
 )
+
+func IsNull(v Value) bool {
+	if v == nil {
+		return true
+	}
+
+	if opt, has := v.(*optionalValue); has {
+		return opt.value == nil
+	}
+
+	return false
+}
+
+func Unwrap(v Value) Value {
+	if v == nil {
+		return nil
+	}
+
+	if opt, has := v.(*optionalValue); has {
+		if opt.value == nil {
+			return nil
+		}
+
+		return opt.value
+	}
+
+	return v
+}
 
 func NullableBoolValue(v *bool) Value {
 	if v == nil {
@@ -115,12 +143,44 @@ func NullableDateValueFromTime(v *time.Time) Value {
 	return OptionalValue(DateValueFromTime(*v))
 }
 
+func NullableDate32Value(v *int32) Value {
+	if v == nil {
+		return NullValue(types.Date32)
+	}
+
+	return OptionalValue(Date32Value(*v))
+}
+
+func NullableDate32ValueFromTime(v *time.Time) Value {
+	if v == nil {
+		return NullValue(types.Date32)
+	}
+
+	return OptionalValue(Date32ValueFromTime(*v))
+}
+
 func NullableDatetimeValue(v *uint32) Value {
 	if v == nil {
 		return NullValue(types.Datetime)
 	}
 
 	return OptionalValue(DatetimeValue(*v))
+}
+
+func NullableDatetime64Value(v *int64) Value {
+	if v == nil {
+		return NullValue(types.Datetime64)
+	}
+
+	return OptionalValue(Datetime64Value(*v))
+}
+
+func NullableDatetime64ValueFromTime(v *time.Time) Value {
+	if v == nil {
+		return NullValue(types.Datetime64)
+	}
+
+	return OptionalValue(Datetime64ValueFromTime(*v))
 }
 
 func NullableDatetimeValueFromTime(v *time.Time) Value {
@@ -195,6 +255,22 @@ func NullableTimestampValueFromTime(v *time.Time) Value {
 	return OptionalValue(TimestampValueFromTime(*v))
 }
 
+func NullableTimestamp64Value(v *int64) Value {
+	if v == nil {
+		return NullValue(types.Timestamp64)
+	}
+
+	return OptionalValue(Timestamp64Value(*v))
+}
+
+func NullableTimestamp64ValueFromTime(v *time.Time) Value {
+	if v == nil {
+		return NullValue(types.Timestamp64)
+	}
+
+	return OptionalValue(Timestamp64ValueFromTime(*v))
+}
+
 func NullableTzTimestampValue(v *string) Value {
 	if v == nil {
 		return NullValue(types.TzTimestamp)
@@ -225,6 +301,22 @@ func NullableIntervalValueFromDuration(v *time.Duration) Value {
 	}
 
 	return OptionalValue(IntervalValueFromDuration(*v))
+}
+
+func NullableInterval64ValueFromNanoseconds(v *int64) Value {
+	if v == nil {
+		return NullValue(types.Interval64)
+	}
+
+	return OptionalValue(Interval64Value(*v))
+}
+
+func NullableInterval64ValueFromDuration(v *time.Duration) Value {
+	if v == nil {
+		return NullValue(types.Interval64)
+	}
+
+	return OptionalValue(Interval64ValueFromDuration(*v))
 }
 
 func NullableBytesValue(v *[]byte) Value {
@@ -299,7 +391,7 @@ func NullableUUIDValueWithIssue1501(v *[16]byte) Value {
 	return OptionalValue(UUIDWithIssue1501Value(*v))
 }
 
-func NullableUuidValue(v *uuid.UUID) Value { //nolint:revive,stylecheck
+func NullableUuidValue(v *uuid.UUID) Value { //nolint:revive
 	if v == nil {
 		return NullValue(types.UUID)
 	}
@@ -423,6 +515,15 @@ func Nullable(t types.Type, v interface{}) Value {
 		default:
 			panic(fmt.Sprintf("unsupported type conversion from %T to TypeDate", tt))
 		}
+	case types.Date32:
+		switch tt := v.(type) {
+		case *int32:
+			return NullableDate32Value(tt)
+		case *time.Time:
+			return NullableDate32ValueFromTime(tt)
+		default:
+			panic(fmt.Sprintf("unsupported type conversion from %T to TypeDate32", tt))
+		}
 	case types.Datetime:
 		switch tt := v.(type) {
 		case *uint32:
@@ -431,6 +532,15 @@ func Nullable(t types.Type, v interface{}) Value {
 			return NullableDatetimeValueFromTime(tt)
 		default:
 			panic(fmt.Sprintf("unsupported type conversion from %T to TypeDatetime", tt))
+		}
+	case types.Datetime64:
+		switch tt := v.(type) {
+		case *int64:
+			return NullableDatetime64Value(tt)
+		case *time.Time:
+			return NullableDatetime64ValueFromTime(tt)
+		default:
+			panic(fmt.Sprintf("unsupported type conversion from %T to TypeDatetime64", tt))
 		}
 	case types.Timestamp:
 		switch tt := v.(type) {
@@ -441,6 +551,15 @@ func Nullable(t types.Type, v interface{}) Value {
 		default:
 			panic(fmt.Sprintf("unsupported type conversion from %T to TypeTimestamp", tt))
 		}
+	case types.Timestamp64:
+		switch tt := v.(type) {
+		case *int64:
+			return NullableTimestamp64Value(tt)
+		case *time.Time:
+			return NullableTimestamp64ValueFromTime(tt)
+		default:
+			panic(fmt.Sprintf("unsupported type conversion from %T to TypeTimestamp64", tt))
+		}
 	case types.Interval:
 		switch tt := v.(type) {
 		case *int64:
@@ -449,6 +568,15 @@ func Nullable(t types.Type, v interface{}) Value {
 			return NullableIntervalValueFromDuration(tt)
 		default:
 			panic(fmt.Sprintf("unsupported type conversion from %T to TypeInterval", tt))
+		}
+	case types.Interval64:
+		switch tt := v.(type) {
+		case *int64:
+			return NullableInterval64ValueFromNanoseconds(tt)
+		case *time.Duration:
+			return NullableInterval64ValueFromDuration(tt)
+		default:
+			panic(fmt.Sprintf("unsupported type conversion from %T to TypeInterval64", tt))
 		}
 	case types.TzDate:
 		switch tt := v.(type) {

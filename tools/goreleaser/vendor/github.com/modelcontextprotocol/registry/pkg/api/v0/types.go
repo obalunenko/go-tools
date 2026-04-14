@@ -7,10 +7,12 @@ import (
 )
 
 type RegistryExtensions struct {
-	Status      model.Status `json:"status" enum:"active,deprecated,deleted" doc:"Server lifecycle status"`
-	PublishedAt time.Time    `json:"publishedAt" format:"date-time" doc:"Timestamp when the server was first published to the registry"`
-	UpdatedAt   time.Time    `json:"updatedAt,omitempty" format:"date-time" doc:"Timestamp when the server entry was last updated"`
-	IsLatest    bool         `json:"isLatest" doc:"Whether this is the latest version of the server"`
+	Status          model.Status `json:"status" enum:"active,deprecated,deleted" doc:"Server lifecycle status"`
+	StatusChangedAt time.Time    `json:"statusChangedAt" format:"date-time" doc:"Timestamp when the server status was last changed"`
+	StatusMessage   *string      `json:"statusMessage,omitempty" doc:"Optional message explaining status change (e.g., deprecation reason, migration guidance)"`
+	PublishedAt     time.Time    `json:"publishedAt" format:"date-time" doc:"Timestamp when the server was first published to the registry"`
+	UpdatedAt       time.Time    `json:"updatedAt,omitempty" format:"date-time" doc:"Timestamp when the server entry was last updated"`
+	IsLatest        bool         `json:"isLatest" doc:"Whether this is the latest version of the server"`
 }
 
 type ResponseMeta struct {
@@ -32,7 +34,7 @@ type ServerMeta struct {
 }
 
 type ServerJSON struct {
-	Schema      string            `json:"$schema" required:"true" minLength:"1" format:"uri" doc:"JSON Schema URI for this server.json format" example:"https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json"`
+	Schema      string            `json:"$schema" required:"true" minLength:"1" format:"uri" doc:"JSON Schema URI for this server.json format" example:"https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json"`
 	Name        string            `json:"name" minLength:"3" maxLength:"200" pattern:"^[a-zA-Z0-9.-]+/[a-zA-Z0-9._-]+$" doc:"Server name in reverse-DNS format. Must contain exactly one forward slash separating namespace from server name." example:"io.github.user/weather"`
 	Description string            `json:"description" minLength:"1" maxLength:"100" doc:"Clear human-readable explanation of server functionality." example:"MCP server providing weather data and forecasts via OpenWeatherMap API"`
 	Title       string            `json:"title,omitempty" minLength:"1" maxLength:"100" doc:"Optional human-readable title or display name for the MCP server." example:"Weather API"`

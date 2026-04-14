@@ -11,8 +11,10 @@ import (
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/query/result"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/types"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/value"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xcontext"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xslices"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/common"
+	"github.com/ydb-platform/ydb-go-sdk/v3/pkg/xslices"
 )
 
 var (
@@ -149,10 +151,12 @@ func (r *rows) Next(dst []driver.Value) error {
 	for i := range values {
 		if !r.discarded[i] {
 			if v := values[i]; v != nil {
-				dst[dstI], err = value.Any(*(v.(*value.Value)))
+				dst[dstI], err = value.Any(*(v.(*value.Value))) //nolint:forcetypeassert
 				if err != nil {
 					return xerrors.WithStackTrace(err)
 				}
+
+				dst[dstI] = common.ToDatabaseSQLValue(dst[dstI])
 			}
 			dstI++
 		}
@@ -163,6 +167,10 @@ func (r *rows) Next(dst []driver.Value) error {
 
 func (r *rows) Close() error {
 	ctx := context.Background()
+
+	if r.conn != nil && r.conn.ctx != nil {
+		ctx = xcontext.ValueOnly(r.conn.ctx)
+	}
 
 	return r.result.Close(ctx)
 }

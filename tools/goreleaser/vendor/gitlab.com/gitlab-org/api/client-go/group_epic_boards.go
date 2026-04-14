@@ -16,11 +16,6 @@
 
 package gitlab
 
-import (
-	"fmt"
-	"net/http"
-)
-
 type (
 	GroupEpicBoardsServiceInterface interface {
 		ListGroupEpicBoards(gid any, opt *ListGroupEpicBoardsOptions, options ...RequestOptionFunc) ([]*GroupEpicBoard, *Response, error)
@@ -69,24 +64,11 @@ type ListGroupEpicBoardsOptions struct {
 // GitLab API docs:
 // https://docs.gitlab.com/api/group_epic_boards/#list-all-epic-boards-in-a-group
 func (s *GroupEpicBoardsService) ListGroupEpicBoards(gid any, opt *ListGroupEpicBoardsOptions, options ...RequestOptionFunc) ([]*GroupEpicBoard, *Response, error) {
-	group, err := parseID(gid)
-	if err != nil {
-		return nil, nil, err
-	}
-	u := fmt.Sprintf("groups/%s/epic_boards", PathEscape(group))
-
-	req, err := s.client.NewRequest(http.MethodGet, u, opt, options)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var gs []*GroupEpicBoard
-	resp, err := s.client.Do(req, &gs)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return gs, resp, nil
+	return do[[]*GroupEpicBoard](s.client,
+		withPath("groups/%s/epic_boards", GroupID{gid}),
+		withAPIOpts(opt),
+		withRequestOpts(options...),
+	)
 }
 
 // GetGroupEpicBoard gets a single epic board of a group.
@@ -94,22 +76,8 @@ func (s *GroupEpicBoardsService) ListGroupEpicBoards(gid any, opt *ListGroupEpic
 // GitLab API docs:
 // https://docs.gitlab.com/api/group_epic_boards/#single-group-epic-board
 func (s *GroupEpicBoardsService) GetGroupEpicBoard(gid any, board int64, options ...RequestOptionFunc) (*GroupEpicBoard, *Response, error) {
-	group, err := parseID(gid)
-	if err != nil {
-		return nil, nil, err
-	}
-	u := fmt.Sprintf("groups/%s/epic_boards/%d", PathEscape(group), board)
-
-	req, err := s.client.NewRequest(http.MethodGet, u, nil, options)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	gib := new(GroupEpicBoard)
-	resp, err := s.client.Do(req, gib)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return gib, resp, nil
+	return do[*GroupEpicBoard](s.client,
+		withPath("groups/%s/epic_boards/%d", GroupID{gid}, board),
+		withRequestOpts(options...),
+	)
 }

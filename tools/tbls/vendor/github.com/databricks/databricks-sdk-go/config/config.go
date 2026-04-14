@@ -18,6 +18,7 @@ import (
 	"github.com/databricks/databricks-sdk-go/credentials/u2m"
 	"github.com/databricks/databricks-sdk-go/httpclient"
 	"github.com/databricks/databricks-sdk-go/logger"
+	"golang.org/x/exp/slices"
 	"golang.org/x/oauth2"
 )
 
@@ -39,6 +40,44 @@ type Loader interface {
 	Configure(*Config) error
 }
 
+// HostType represents the type of API the configured host supports.
+type HostType string
+
+const (
+	// WorkspaceHost supports only workspace-level APIs.
+	WorkspaceHost HostType = "WORKSPACE_HOST"
+	// AccountHost supports only account-level APIs.
+	AccountHost HostType = "ACCOUNT_HOST"
+	// UnifiedHost supports both workspace-level and account-level APIs.
+	UnifiedHost HostType = "UNIFIED_HOST"
+)
+
+// ConfigType represents the type of API this config is valid for.
+type ConfigType string
+
+const (
+	// WorkspaceConfig is valid for workspace-level API requests.
+	WorkspaceConfig ConfigType = "WORKSPACE_CONFIG"
+	// AccountConfig is valid for account-level API requests.
+	AccountConfig ConfigType = "ACCOUNT_CONFIG"
+	// InvalidConfig is returned when the config is not valid for either workspace-level or account-level APIs.
+	InvalidConfig ConfigType = "INVALID_CONFIG"
+)
+
+var defaultScopes = []string{"all-apis"}
+
+// DefaultCredentialStrategy is the default factory for creating a
+// [CredentialsStrategy] when [Config.Credentials] is not set. It can be
+// overridden to change the default authentication behavior for all Config
+// instances.
+//
+// Note: This variable is not thread safe and is expected to be set during
+// program initialization or before any concurrent use. Changing it at runtime
+// in a concurrent context may lead to race conditions and undefined behavior.
+var DefaultCredentialStrategyProvider func() CredentialsStrategy = func() CredentialsStrategy {
+	return &DefaultCredentials{}
+}
+
 // Config represents configuration for Databricks Connectivity
 type Config struct {
 	// Credentials holds an instance of Credentials Strategy to authenticate with Databricks REST APIs.
@@ -57,6 +96,9 @@ type Config struct {
 
 	// Databricks Account ID for Accounts API. This field is used in dependencies.
 	AccountID string `name:"account_id" env:"DATABRICKS_ACCOUNT_ID"`
+
+	// Databricks Workspace ID for Workspace clients when working with unified hosts
+	WorkspaceID string `name:"workspace_id" env:"DATABRICKS_WORKSPACE_ID"`
 
 	Token    string `name:"token" env:"DATABRICKS_TOKEN" auth:"pat,sensitive"`
 	Username string `name:"username" env:"DATABRICKS_USERNAME" auth:"basic"`
@@ -108,6 +150,30 @@ type Config struct {
 	ClientID     string `name:"client_id" env:"DATABRICKS_CLIENT_ID" auth:"oauth" auth_types:"oauth-m2m"`
 	ClientSecret string `name:"client_secret" env:"DATABRICKS_CLIENT_SECRET" auth:"oauth,sensitive" auth_types:"oauth-m2m"`
 
+	// Scopes is a list of OAuth scopes to request when authenticating.
+	//
+	// WARNING:
+	//   - This feature is still in development and may not work as expected
+	//   - This feature is EXPERIMENTAL and may change or be removed without notice.
+	//   - Do NOT use this feature in production environments.
+	//
+	// Notes:
+	//   - If Scopes is nil or empty, the default ["all-apis"] scope will be used for backward compatibility.
+	//   - For U2M authentication, the "offline_access" scope will automatically be added to obtain a refresh token
+	//     unless you set DisableOAuthRefreshToken to true.
+	//   - You cannot set Scopes via environment variables.
+	//   - The scopes list will be sorted in-place during configuration resolution.
+	//   - The U2M token cache currently does NOT support differentiated caching for scopes.
+	Scopes []string `name:"scopes" auth:"-"`
+
+	// DisableOAuthRefreshToken controls whether a refresh token should be requested
+	// during the U2M authentication flow (default to false).
+	DisableOAuthRefreshToken bool `name:"disable_oauth_refresh_token" env:"DATABRICKS_DISABLE_OAUTH_REFRESH_TOKEN" auth:"-"`
+
+	// DisableAsyncTokenRefresh controls whether asynchronous token refresh
+	// should be disabled for OAuth tokens.
+	DisableAsyncTokenRefresh bool
+
 	// Path to the Databricks CLI (version >= 0.100.0).
 	DatabricksCliPath string `name:"databricks_cli_path" env:"DATABRICKS_CLI_PATH" auth_types:"databricks-cli"`
 
@@ -144,7 +210,11 @@ type Config struct {
 	// HTTPTransport can be overriden for unit testing and together with tooling like https://github.com/google/go-replayers
 	HTTPTransport http.RoundTripper
 
-	// Environment override to return when resolving the current environment.
+	// Cloud is the cloud provider for this Databricks deployment (AWS, Azure, GCP, or CloudUnknown).
+	//
+	// Experimental: subject to change.
+	Cloud environment.Cloud `name:"cloud" env:"DATABRICKS_CLOUD" auth:"-"`
+
 	DatabricksEnvironment *environment.DatabricksEnvironment
 
 	// When using Workload Identity Federation, the audience to specify when fetching an ID token from the ID token supplier.
@@ -183,6 +253,16 @@ type Config struct {
 
 	// Keep track of the source of each attribute
 	attrSource map[string]Source
+
+	// Marker for unified hosts. Will be redundant once we can recognize unified hosts by their hostname.
+	Experimental_IsUnifiedHost bool `name:"experimental_is_unified_host" env:"DATABRICKS_EXPERIMENTAL_IS_UNIFIED_HOST" auth:"-"`
+
+	// OpenID Connect discovery URL. When set, OIDC endpoints are fetched directly
+	// from this URL instead of the default host-type-based well-known endpoint logic.
+	// Mirrors discoveryUrl in the Java SDK.
+	//
+	// Experimental: subject to change.
+	DiscoveryURL string `name:"discovery_url" env:"DATABRICKS_DISCOVERY_URL" auth:"-"`
 }
 
 // NewWithWorkspaceHost returns a new instance of the Config with the host set to
@@ -195,7 +275,7 @@ func (c *Config) NewWithWorkspaceHost(host string) (*Config, error) {
 		return nil, err
 	}
 
-	var fieldsToSkip = map[string]struct{}{
+	fieldsToSkip := map[string]struct{}{
 		"Host":            {},
 		"AzureResourceID": {},
 		"AccountID":       {},
@@ -276,20 +356,31 @@ func (c *Config) IsAzure() bool {
 	if c.AzureResourceID != "" {
 		return true
 	}
+	if c.Cloud != environment.CloudUnknown {
+		return c.Cloud == environment.CloudAzure
+	}
 	return c.Environment().Cloud == environment.CloudAzure
 }
 
 // IsGcp returns if the client is configured for Databricks on Google Cloud.
 func (c *Config) IsGcp() bool {
+	if c.Cloud != environment.CloudUnknown {
+		return c.Cloud == environment.CloudGCP
+	}
 	return c.Environment().Cloud == environment.CloudGCP
 }
 
 // IsAws returns if the client is configured for Databricks on AWS.
 func (c *Config) IsAws() bool {
+	if c.Cloud != environment.CloudUnknown {
+		return c.Cloud == environment.CloudAWS
+	}
 	return c.Host != "" && !c.IsAzure() && !c.IsGcp()
 }
 
-// IsAccountClient returns true if client is configured for Accounts API
+// IsAccountClient returns true if client is configured for Accounts API.
+//
+// Deprecated: Use HostType() if possible, or ConfigType() if necessary.
 func (c *Config) IsAccountClient() bool {
 	if c.AccountID != "" && c.isTesting {
 		return true
@@ -305,6 +396,62 @@ func (c *Config) IsAccountClient() bool {
 		}
 	}
 	return false
+}
+
+// normalizedHost returns the normalized host for the client.
+// Small utility function to avoid duplicating the logic in HostType().
+func normalizedHost(host string) string {
+	if host != "" && !strings.Contains(host, "://") {
+		host = "https://" + host
+	}
+	return host
+}
+
+// HostType returns the type of host that the client is configured for.
+// HostType now only returns WorkspaceHost or AccountHost. UnifiedHost is
+// deprecated; host metadata resolution handles unified host behavior.
+func (c *Config) HostType() HostType {
+	// TODO: Remove this after TF updates its code.
+	if c.Experimental_IsUnifiedHost {
+		return UnifiedHost
+	}
+	// TODO: Refactor tests so that this is not needed.
+	if c.AccountID != "" && c.isTesting {
+		return AccountHost
+	}
+
+	// Normalize the host to ensure the scheme is present before checking
+	// prefixes. Profiles saved without "https://" (e.g. from user input)
+	// would otherwise fail the prefix check and be misclassified as
+	// workspace hosts.
+	host := normalizedHost(c.Host)
+	accountsPrefixes := []string{
+		"https://accounts.",
+		"https://accounts-dod.",
+	}
+	for _, prefix := range accountsPrefixes {
+		if strings.HasPrefix(host, prefix) {
+			return AccountHost
+		}
+	}
+
+	return WorkspaceHost
+}
+
+// ConfigType returns the type of config that the client is configured for.
+// Returns InvalidConfig if the config is invalid.
+// Use of this function should be avoided where possible, because we plan
+// to remove WorkspaceClient and AccountClient in favor of a single unified
+// client in the future.
+func (c *Config) ConfigType() ConfigType {
+	switch c.HostType() {
+	case AccountHost:
+		return AccountConfig
+	case WorkspaceHost:
+		return WorkspaceConfig
+	default:
+		return InvalidConfig
+	}
 }
 
 func (c *Config) EnsureResolved() error {
@@ -327,7 +474,6 @@ func (c *Config) EnsureResolved() error {
 		logger.Tracef(ctx, "Loading config via %s", loader.Name())
 		err := loader.Configure(c)
 		if err != nil {
-
 			return c.wrapDebug(fmt.Errorf("resolve: %w", err))
 		}
 	}
@@ -360,6 +506,9 @@ func (c *Config) EnsureResolved() error {
 			},
 		}
 	}
+	slices.Sort(c.Scopes)
+	c.Scopes = slices.Compact(c.Scopes)
+	c.resolveHostMetadata(ctx)
 	c.resolved = true
 	return nil
 }
@@ -373,6 +522,13 @@ func (c *Config) CanonicalHostName() string {
 	// Missing host is tolerated here.
 	_ = c.fixHostIfNeeded()
 	return c.Host
+}
+
+func (c *Config) GetScopes() []string {
+	if len(c.Scopes) == 0 {
+		return defaultScopes
+	}
+	return c.Scopes
 }
 
 func (c *Config) wrapDebug(err error) error {
@@ -394,7 +550,7 @@ func (c *Config) authenticateIfNeeded() error {
 		return nil
 	}
 	if c.Credentials == nil {
-		c.Credentials = &DefaultCredentials{}
+		c.Credentials = DefaultCredentialStrategyProvider()
 	}
 	if err := c.fixHostIfNeeded(); err != nil && !errors.Is(err, ErrNoHostConfigured) {
 		return err
@@ -469,22 +625,101 @@ func (c *Config) refreshTokenErrorMapper(ctx context.Context, resp common.Respon
 }
 
 // getOidcEndpoints returns the OAuth endpoints for the current configuration.
+// If DiscoveryURL is set, endpoints are fetched directly from it. Otherwise
+// falls back to host-type-based well-known endpoint logic.
 func (c *Config) getOidcEndpoints(ctx context.Context) (*u2m.OAuthAuthorizationServer, error) {
 	c.EnsureResolved()
 	oauthClient := &u2m.BasicOAuthEndpointSupplier{
 		Client: c.refreshClient,
 	}
-	host := c.CanonicalHostName()
-	if c.IsAccountClient() {
-		return oauthClient.GetAccountOAuthEndpoints(ctx, host, c.AccountID)
+	if c.DiscoveryURL != "" {
+		return oauthClient.GetEndpointsFromURL(ctx, c.DiscoveryURL)
 	}
-	return oauthClient.GetWorkspaceOAuthEndpoints(ctx, host)
+	host := c.CanonicalHostName()
+	switch c.HostType() {
+	case AccountHost:
+		return oauthClient.GetAccountOAuthEndpoints(ctx, host, c.AccountID)
+	case WorkspaceHost:
+		return oauthClient.GetWorkspaceOAuthEndpoints(ctx, host)
+	default:
+		return nil, fmt.Errorf("unknown host type: %v", c.HostType())
+	}
+}
+
+// resolveHostMetadata populates missing config fields from the host's
+// /.well-known/databricks-config discovery endpoint. It back-fills AccountID,
+// WorkspaceID, Cloud, and DiscoveryURL (with any {account_id} placeholder substituted)
+// if those fields are not already set.
+//
+// Errors from the metadata endpoint are non-fatal: a warning is logged and the
+// method returns without modifying the config. This mirrors the Python SDK
+// behavior where metadata resolution is best-effort during config init.
+func (c *Config) resolveHostMetadata(ctx context.Context) {
+	if c.Host == "" {
+		return
+	}
+	if err := c.fixHostIfNeeded(); err != nil {
+		logger.Warnf(ctx, "Failed to fix host for metadata resolution: %v", err)
+		return
+	}
+	meta, err := getHostMetadata(ctx, c.CanonicalHostName(), c.refreshClient)
+	if err != nil {
+		logger.Warnf(ctx, "Failed to resolve host metadata: %v. Falling back to user config.", err)
+		return
+	}
+	if c.AccountID == "" && meta.AccountID != "" {
+		logger.Debugf(ctx, "Resolved account_id from host metadata: %q", meta.AccountID)
+		c.AccountID = meta.AccountID
+	}
+	if c.WorkspaceID == "" && meta.WorkspaceID != "" {
+		logger.Debugf(ctx, "Resolved workspace_id from host metadata: %q", meta.WorkspaceID)
+		c.WorkspaceID = meta.WorkspaceID
+	}
+	if c.Cloud == "" && meta.Cloud != environment.CloudUnknown {
+		logger.Debugf(ctx, "Resolved cloud from host metadata: %q", meta.Cloud)
+		c.Cloud = meta.Cloud
+	}
+	if c.Cloud == "" {
+		c.Cloud = c.Environment().Cloud
+		logger.Debugf(ctx, "Resolved cloud from hostname: %q", c.Cloud)
+	}
+	if c.TokenAudience == "" && meta.WorkspaceID == "" && c.AccountID != "" {
+		logger.Debugf(ctx, "Setting token_audience to account_id for account host: %q", c.AccountID)
+		c.TokenAudience = c.AccountID
+	}
+	if c.DiscoveryURL == "" {
+		if meta.OIDCEndpoint == "" {
+			logger.Warnf(ctx, "Host metadata missing oidc_endpoint; skipping discovery URL resolution")
+			return
+		}
+		oidcRoot := meta.OIDCEndpoint
+		if strings.Contains(oidcRoot, "{account_id}") {
+			if c.AccountID == "" {
+				logger.Warnf(ctx, "Host metadata oidc_endpoint contains {account_id} placeholder but account_id is not set; skipping discovery URL resolution")
+				return
+			}
+			oidcRoot = strings.ReplaceAll(oidcRoot, "{account_id}", c.AccountID)
+		}
+		oidcRoot = strings.TrimRight(oidcRoot, "/")
+		discoveryURL := oidcRoot + "/.well-known/oauth-authorization-server"
+		logger.Debugf(ctx, "Resolved discovery_url from host metadata: %q", discoveryURL)
+		c.DiscoveryURL = discoveryURL
+	}
 }
 
 func (c *Config) getOAuthArgument() (u2m.OAuthArgument, error) {
-	host := c.CanonicalHostName()
-	if c.IsAccountClient() {
-		return u2m.NewBasicAccountOAuthArgument(host, c.AccountID)
+	err := c.EnsureResolved()
+	if err != nil {
+		return nil, err
 	}
-	return u2m.NewBasicWorkspaceOAuthArgument(host)
+	host := c.CanonicalHostName()
+	profile := c.Profile
+	switch c.HostType() {
+	case AccountHost:
+		return u2m.NewProfileAccountOAuthArgument(host, c.AccountID, profile)
+	case WorkspaceHost:
+		return u2m.NewProfileWorkspaceOAuthArgument(host, profile)
+	default:
+		return nil, fmt.Errorf("unknown host type: %v", c.HostType())
+	}
 }

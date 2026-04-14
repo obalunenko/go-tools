@@ -76,6 +76,10 @@ type Client interface {
 	// be upserted and some might not.
 	BulkUpsert(ctx context.Context, table string, data BulkUpsertData, opts ...Option) error
 
+	DescribeTable(ctx context.Context, path string,
+		opts ...options.DescribeTableOption,
+	) (desc *options.Description, err error)
+
 	// ReadRows reads a batch of rows non-transactionally.
 	ReadRows(
 		ctx context.Context, path string, keys types.Value,
@@ -283,6 +287,10 @@ func WithSnapshotReadOnly() TxOption {
 	return tx.WithSnapshotReadOnly()
 }
 
+func WithSnapshotReadWrite() TxOption {
+	return tx.WithSnapshotReadWrite()
+}
+
 func WithStaleReadOnly() TxOption {
 	return tx.WithStaleReadOnly()
 }
@@ -348,6 +356,11 @@ func SnapshotReadOnlyTxControl() *TransactionControl {
 		BeginTx(WithSnapshotReadOnly()),
 		CommitTx(), // open transactions not supported for StaleReadOnly
 	)
+}
+
+// SnapshotReadWriteTxControl returns snapshot read-write transaction control
+func SnapshotReadWriteTxControl(opts ...TxControlOption) *TransactionControl {
+	return tx.SnapshotReadWriteTxControl(opts...)
 }
 
 // QueryParameters

@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ func Modify(
 			modifyPhpMetadataNamespace,
 			modifyPhpNamespace,
 			modifyRubyPackage,
+			modifySwiftPrefix,
 			modifyJsType,
 		},
 		options...,
@@ -159,6 +160,20 @@ func ModifyRubyPackage(
 		image,
 		config,
 		modifyRubyPackage,
+		options...,
+	)
+}
+
+// ModifySwiftPrefix modifies the swift_prefix file option.
+func ModifySwiftPrefix(
+	image bufimage.Image,
+	config bufconfig.GenerateManagedConfig,
+	options ...ModifyOption,
+) error {
+	return modifyImageForSingleOption(
+		image,
+		config,
+		modifySwiftPrefix,
 		options...,
 	)
 }

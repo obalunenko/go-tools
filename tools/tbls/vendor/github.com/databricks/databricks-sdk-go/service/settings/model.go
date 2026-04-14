@@ -620,6 +620,8 @@ type CreatePrivateEndpointRule struct {
 	// The full target AWS endpoint service name that connects to the
 	// destination resources of the private endpoint.
 	EndpointService string `json:"endpoint_service,omitempty"`
+
+	ErrorMessage string `json:"error_message,omitempty"`
 	// Not used by customer-managed private endpoint services.
 	//
 	// The sub-resource type (group ID) of the target resource. Note that to
@@ -659,7 +661,7 @@ type CreateTokenRequest struct {
 	Comment string `json:"comment,omitempty"`
 	// The lifetime of the token, in seconds.
 	//
-	// If the lifetime is not specified, this token remains valid indefinitely.
+	// If the lifetime is not specified, this token remains valid for 2 years.
 	LifetimeSeconds int64 `json:"lifetime_seconds,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
@@ -777,6 +779,8 @@ type CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRule struct {
 	// The full target AWS endpoint service name that connects to the
 	// destination resources of the private endpoint.
 	EndpointService string `json:"endpoint_service,omitempty"`
+
+	ErrorMessage string `json:"error_message,omitempty"`
 	// The ID of a network connectivity configuration, which is the parent
 	// resource of this private endpoint rule object.
 	NetworkConnectivityConfigId string `json:"network_connectivity_config_id,omitempty"`
@@ -808,6 +812,10 @@ func (s CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRule) MarshalJS
 
 type CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionState string
 
+const CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionStateCreateFailed CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionState = `CREATE_FAILED`
+
+const CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionStateCreating CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionState = `CREATING`
+
 const CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionStateDisconnected CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionState = `DISCONNECTED`
 
 const CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionStateEstablished CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionState = `ESTABLISHED`
@@ -826,11 +834,11 @@ func (f *CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLin
 // Set raw string value and validate it against allowed values
 func (f *CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionState) Set(v string) error {
 	switch v {
-	case `DISCONNECTED`, `ESTABLISHED`, `EXPIRED`, `PENDING`, `REJECTED`:
+	case `CREATE_FAILED`, `CREATING`, `DISCONNECTED`, `ESTABLISHED`, `EXPIRED`, `PENDING`, `REJECTED`:
 		*f = CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionState(v)
 		return nil
 	default:
-		return fmt.Errorf(`value "%s" is not one of "DISCONNECTED", "ESTABLISHED", "EXPIRED", "PENDING", "REJECTED"`, v)
+		return fmt.Errorf(`value "%s" is not one of "CREATE_FAILED", "CREATING", "DISCONNECTED", "ESTABLISHED", "EXPIRED", "PENDING", "REJECTED"`, v)
 	}
 }
 
@@ -839,6 +847,8 @@ func (f *CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLin
 // There is no guarantee on the order of the values in the slice.
 func (f *CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionState) Values() []CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionState {
 	return []CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionState{
+		CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionStateCreateFailed,
+		CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionStateCreating,
 		CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionStateDisconnected,
 		CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionStateEstablished,
 		CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionStateExpired,
@@ -3279,6 +3289,8 @@ type NccAzurePrivateEndpointRule struct {
 	DomainNames []string `json:"domain_names,omitempty"`
 	// The name of the Azure private endpoint resource.
 	EndpointName string `json:"endpoint_name,omitempty"`
+
+	ErrorMessage string `json:"error_message,omitempty"`
 	// Only used by private endpoints to Azure first-party services.
 	//
 	// The sub-resource type (group ID) of the target resource. Note that to
@@ -3308,6 +3320,10 @@ func (s NccAzurePrivateEndpointRule) MarshalJSON() ([]byte, error) {
 
 type NccAzurePrivateEndpointRuleConnectionState string
 
+const NccAzurePrivateEndpointRuleConnectionStateCreateFailed NccAzurePrivateEndpointRuleConnectionState = `CREATE_FAILED`
+
+const NccAzurePrivateEndpointRuleConnectionStateCreating NccAzurePrivateEndpointRuleConnectionState = `CREATING`
+
 const NccAzurePrivateEndpointRuleConnectionStateDisconnected NccAzurePrivateEndpointRuleConnectionState = `DISCONNECTED`
 
 const NccAzurePrivateEndpointRuleConnectionStateEstablished NccAzurePrivateEndpointRuleConnectionState = `ESTABLISHED`
@@ -3328,11 +3344,11 @@ func (f *NccAzurePrivateEndpointRuleConnectionState) String() string {
 // Set raw string value and validate it against allowed values
 func (f *NccAzurePrivateEndpointRuleConnectionState) Set(v string) error {
 	switch v {
-	case `DISCONNECTED`, `ESTABLISHED`, `EXPIRED`, `INIT`, `PENDING`, `REJECTED`:
+	case `CREATE_FAILED`, `CREATING`, `DISCONNECTED`, `ESTABLISHED`, `EXPIRED`, `INIT`, `PENDING`, `REJECTED`:
 		*f = NccAzurePrivateEndpointRuleConnectionState(v)
 		return nil
 	default:
-		return fmt.Errorf(`value "%s" is not one of "DISCONNECTED", "ESTABLISHED", "EXPIRED", "INIT", "PENDING", "REJECTED"`, v)
+		return fmt.Errorf(`value "%s" is not one of "CREATE_FAILED", "CREATING", "DISCONNECTED", "ESTABLISHED", "EXPIRED", "INIT", "PENDING", "REJECTED"`, v)
 	}
 }
 
@@ -3341,6 +3357,8 @@ func (f *NccAzurePrivateEndpointRuleConnectionState) Set(v string) error {
 // There is no guarantee on the order of the values in the slice.
 func (f *NccAzurePrivateEndpointRuleConnectionState) Values() []NccAzurePrivateEndpointRuleConnectionState {
 	return []NccAzurePrivateEndpointRuleConnectionState{
+		NccAzurePrivateEndpointRuleConnectionStateCreateFailed,
+		NccAzurePrivateEndpointRuleConnectionStateCreating,
 		NccAzurePrivateEndpointRuleConnectionStateDisconnected,
 		NccAzurePrivateEndpointRuleConnectionStateEstablished,
 		NccAzurePrivateEndpointRuleConnectionStateExpired,
@@ -3421,7 +3439,10 @@ type NccPrivateEndpointRule struct {
 	// DISCONNECTED: Connection was removed by the private link resource owner,
 	// the private endpoint becomes informative and should be deleted for
 	// clean-up. - EXPIRED: If the endpoint was created but not approved in 14
-	// days, it will be EXPIRED.
+	// days, it will be EXPIRED. - CREATING: The endpoint creation is in
+	// progress. Once successfully created, the state will transition to
+	// PENDING. - CREATE_FAILED: The endpoint creation failed. You can check the
+	// error_message field for more details.
 	ConnectionState NccPrivateEndpointRulePrivateLinkConnectionState `json:"connection_state,omitempty"`
 	// Time in epoch milliseconds when this object was created.
 	CreationTime int64 `json:"creation_time,omitempty"`
@@ -3445,6 +3466,8 @@ type NccPrivateEndpointRule struct {
 	// The full target AWS endpoint service name that connects to the
 	// destination resources of the private endpoint.
 	EndpointService string `json:"endpoint_service,omitempty"`
+
+	ErrorMessage string `json:"error_message,omitempty"`
 	// Not used by customer-managed private endpoint services.
 	//
 	// The sub-resource type (group ID) of the target resource. Note that to
@@ -3484,6 +3507,10 @@ func (s NccPrivateEndpointRule) MarshalJSON() ([]byte, error) {
 
 type NccPrivateEndpointRulePrivateLinkConnectionState string
 
+const NccPrivateEndpointRulePrivateLinkConnectionStateCreateFailed NccPrivateEndpointRulePrivateLinkConnectionState = `CREATE_FAILED`
+
+const NccPrivateEndpointRulePrivateLinkConnectionStateCreating NccPrivateEndpointRulePrivateLinkConnectionState = `CREATING`
+
 const NccPrivateEndpointRulePrivateLinkConnectionStateDisconnected NccPrivateEndpointRulePrivateLinkConnectionState = `DISCONNECTED`
 
 const NccPrivateEndpointRulePrivateLinkConnectionStateEstablished NccPrivateEndpointRulePrivateLinkConnectionState = `ESTABLISHED`
@@ -3502,11 +3529,11 @@ func (f *NccPrivateEndpointRulePrivateLinkConnectionState) String() string {
 // Set raw string value and validate it against allowed values
 func (f *NccPrivateEndpointRulePrivateLinkConnectionState) Set(v string) error {
 	switch v {
-	case `DISCONNECTED`, `ESTABLISHED`, `EXPIRED`, `PENDING`, `REJECTED`:
+	case `CREATE_FAILED`, `CREATING`, `DISCONNECTED`, `ESTABLISHED`, `EXPIRED`, `PENDING`, `REJECTED`:
 		*f = NccPrivateEndpointRulePrivateLinkConnectionState(v)
 		return nil
 	default:
-		return fmt.Errorf(`value "%s" is not one of "DISCONNECTED", "ESTABLISHED", "EXPIRED", "PENDING", "REJECTED"`, v)
+		return fmt.Errorf(`value "%s" is not one of "CREATE_FAILED", "CREATING", "DISCONNECTED", "ESTABLISHED", "EXPIRED", "PENDING", "REJECTED"`, v)
 	}
 }
 
@@ -3515,6 +3542,8 @@ func (f *NccPrivateEndpointRulePrivateLinkConnectionState) Set(v string) error {
 // There is no guarantee on the order of the values in the slice.
 func (f *NccPrivateEndpointRulePrivateLinkConnectionState) Values() []NccPrivateEndpointRulePrivateLinkConnectionState {
 	return []NccPrivateEndpointRulePrivateLinkConnectionState{
+		NccPrivateEndpointRulePrivateLinkConnectionStateCreateFailed,
+		NccPrivateEndpointRulePrivateLinkConnectionStateCreating,
 		NccPrivateEndpointRulePrivateLinkConnectionStateDisconnected,
 		NccPrivateEndpointRulePrivateLinkConnectionStateEstablished,
 		NccPrivateEndpointRulePrivateLinkConnectionStateExpired,
@@ -3745,7 +3774,21 @@ type ReplaceIpAccessList struct {
 }
 
 type RestrictWorkspaceAdminsMessage struct {
+	// When true, workspace admins cannot create governance tags. ALLOW_ALL
+	// status does not override this; they are independent.
+	DisableGovTagCreation bool `json:"disable_gov_tag_creation,omitempty"`
+
 	Status RestrictWorkspaceAdminsMessageStatus `json:"status"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *RestrictWorkspaceAdminsMessage) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s RestrictWorkspaceAdminsMessage) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
 }
 
 type RestrictWorkspaceAdminsMessageStatus string
@@ -4626,6 +4669,8 @@ type UpdatePrivateEndpointRule struct {
 	// Update this field to activate/deactivate this private endpoint to allow
 	// egress access from serverless compute resources.
 	Enabled bool `json:"enabled,omitempty"`
+
+	ErrorMessage string `json:"error_message,omitempty"`
 	// Only used by private endpoints towards AWS S3 service.
 	//
 	// The globally unique S3 bucket names that will be accessed via the VPC

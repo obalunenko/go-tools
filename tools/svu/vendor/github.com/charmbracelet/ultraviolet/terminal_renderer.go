@@ -67,8 +67,7 @@ func (v capabilities) Contains(c capabilities) bool {
 
 // cursor represents a terminal cursor.
 type cursor struct {
-	Style
-	Link
+	Cell
 	Position
 }
 
@@ -86,9 +85,9 @@ type tFlag uint
 // Terminal writer flags.
 const (
 	tRelativeCursor tFlag = 1 << iota
-	tCursorHidden
-	tAltScreen
+	tFullscreen
 	tMapNewline
+	tScrollOptim
 )
 
 // Set sets the given flags.
@@ -129,7 +128,7 @@ func (v tFlag) Contains(c tFlag) bool {
 type TerminalRenderer struct {
 	w                io.Writer
 	buf              *bytes.Buffer // buffer for writing to the screen
-	curbuf           *Buffer       // the current buffer
+	curbuf           *RenderBuffer // the current buffer
 	tabs             *TabStops
 	hasher           maphash.Hash
 	oldhash, newhash []uint64     // the old and new hash values for each line
@@ -143,7 +142,6 @@ type TerminalRenderer struct {
 	caps             capabilities // terminal control sequence capabilities
 	atPhantom        bool         // whether the cursor is out of bounds and at a phantom cell
 	logger           Logger       // The logger used for debugging.
-	laterFlush       bool         // whether this is the first flush of the renderer
 
 	// profile is the color profile to use when downsampling colors. This is
 	// used to determine the appropriate color the terminal can display.
@@ -165,10 +163,9 @@ func NewTerminalRenderer(w io.Writer, env []string) (s *TerminalRenderer) {
 	s.w = w
 	s.profile = colorprofile.Detect(w, env)
 	s.buf = new(bytes.Buffer)
-	s.curbuf = NewBuffer(0, 0)
 	s.term = Environ(env).Getenv("TERM")
 	s.caps = xtermCaps(s.term)
-	s.cur = cursor{Position: Pos(-1, -1)} // start at -1 to force a move
+	s.cur = cursor{Cell: EmptyCell, Position: Pos(-1, -1)} // start at -1 to force a move
 	s.saved = s.cur
 	s.scrollHeight = 0
 	s.oldhash, s.newhash = nil, nil
@@ -185,6 +182,15 @@ func (s *TerminalRenderer) SetLogger(logger Logger) {
 // is used to determine the appropriate color the terminal can display.
 func (s *TerminalRenderer) SetColorProfile(profile colorprofile.Profile) {
 	s.profile = profile
+}
+
+// SetScrollOptim sets whether to use hard scroll optimizations.
+func (s *TerminalRenderer) SetScrollOptim(v bool) {
+	if v {
+		s.flags.Set(tScrollOptim)
+	} else {
+		s.flags.Reset(tScrollOptim)
+	}
 }
 
 // SetMapNewline sets whether the terminal is currently mapping newlines to
@@ -220,42 +226,22 @@ func (s *TerminalRenderer) SetTabStops(width int) {
 	}
 }
 
-// SetAltScreen sets whether the alternate screen is enabled. This is used to
-// control the internal alternate screen state when it was changed outside the
-// renderer.
-func (s *TerminalRenderer) SetAltScreen(v bool) {
+// SetFullscreen sets whether whole screen is being used. This is usually
+// paired with the alternate screen mode, and used to control cursor movements
+// and optimizations when the terminal is occupying the whole screen.
+func (s *TerminalRenderer) SetFullscreen(v bool) {
 	if v {
-		s.flags.Set(tAltScreen)
+		s.flags.Set(tFullscreen)
 	} else {
-		s.flags.Reset(tAltScreen)
+		s.flags.Reset(tFullscreen)
 	}
 }
 
-// AltScreen returns whether the alternate screen is enabled. This returns the
-// state of the renderer's alternate screen which does not necessarily reflect
-// the actual alternate screen state of the terminal if it was changed outside
-// the renderer.
-func (s *TerminalRenderer) AltScreen() bool {
-	return s.flags.Contains(tAltScreen)
-}
-
-// SetCursorHidden sets whether the cursor is hidden. This is used to control
-// the internal cursor visibility state when it was changed outside the
-// renderer.
-func (s *TerminalRenderer) SetCursorHidden(v bool) {
-	if v {
-		s.flags.Set(tCursorHidden)
-	} else {
-		s.flags.Reset(tCursorHidden)
-	}
-}
-
-// CursorHidden returns the current cursor visibility state. This returns the
-// state of the renderer's cursor visibility which does not necessarily reflect
-// the actual cursor visibility state of the terminal if it was changed outside
-// the renderer.
-func (s *TerminalRenderer) CursorHidden() bool {
-	return s.flags.Contains(tCursorHidden)
+// Fullscreen returns whether whole screen is being used. This is usually
+// paired with the alternate screen mode, and used to control cursor movements
+// and optimizations when the terminal is occupying the whole screen.
+func (s *TerminalRenderer) Fullscreen() bool {
+	return s.flags.Contains(tFullscreen)
 }
 
 // SetRelativeCursor sets whether to use relative cursor movements.
@@ -267,50 +253,60 @@ func (s *TerminalRenderer) SetRelativeCursor(v bool) {
 	}
 }
 
-// EnterAltScreen enters the alternate screen. This is used to switch to a
-// different screen buffer.
-// This queues the escape sequence command to enter the alternate screen, the
-// current cursor visibility state, saves the current cursor properties, and
-// queues a screen clear command.
+// SaveCursor saves the current cursor position and styles. This can be used
+// when a program enters the alternate screen buffer mode using DECSET 1049
+// [ansi.ModeAltScreenSaveCursor] and wants to restore the cursor position and
+// styles later.
+func (s *TerminalRenderer) SaveCursor() {
+	s.saved = s.cur
+}
+
+// RestoreCursor restores the saved cursor position and styles. This can be
+// used when a program exits the alternate screen buffer mode using DECRST 1049
+// [ansi.ModeAltScreenSaveCursor] and wants to restore the cursor position and
+// styles saved earlier.
+func (s *TerminalRenderer) RestoreCursor() {
+	s.cur = s.saved
+}
+
+// EnterAltScreen is a helper that queues the [ansi.ModeAltScreenSaveCursor]
+// escape sequence to enter the alternate screen buffer and save cursor mode.
+//
+// It saves the current cursor properties, enables
+// [TerminalRenderer.SetFullscreen] flag, and disables
+// [TerminalRenderer.SetRelativeCursor] flag. On the next call to
+// [TerminalRenderer.Render], it will move the cursor home and clear the screen
+// to prepare for rendering the new buffer.
+//
+// Note: you might want to reapply the cursor visibility state after calling
+// this method, as some terminals reset the cursor visibility when switching to
+// the alternate screen.
 func (s *TerminalRenderer) EnterAltScreen() {
-	if !s.flags.Contains(tAltScreen) {
-		_, _ = s.buf.WriteString(ansi.SetAltScreenSaveCursorMode)
-		s.saved = s.cur
-		s.clear = true
-	}
-	s.flags.Set(tAltScreen)
+	s.SaveCursor()
+	s.buf.WriteString(ansi.SetModeAltScreenSaveCursor)
+	s.SetFullscreen(true)
+	s.SetRelativeCursor(false)
+	s.Erase()
 }
 
-// ExitAltScreen exits the alternate screen. This is used to switch back to the
-// main screen buffer.
-// This queues the escape sequence command to exit the alternate screen, , the
-// last cursor visibility state, restores the cursor properties, and queues a
-// screen clear command.
+// ExitAltScreen is a helper that queues the [ansi.ModeAltScreenSaveCursor]
+// escape sequence to exit the alternate screen buffer and restore cursor mode.
+//
+// It restores the saved cursor properties, disables
+// [TerminalRenderer.SetFullscreen] flag, and enables
+// [TerminalRenderer.SetRelativeCursor] flag. On the next call to
+// [TerminalRenderer.Render], it will move the cursor to the first line and
+// clear everything below the cursor to prepare for rendering the new buffer.
+//
+// Note: you might want to reapply the cursor visibility state after calling
+// this method, as some terminals reset the cursor visibility when switching to
+// the alternate screen.
 func (s *TerminalRenderer) ExitAltScreen() {
-	if s.flags.Contains(tAltScreen) {
-		_, _ = s.buf.WriteString(ansi.ResetAltScreenSaveCursorMode)
-		s.cur = s.saved
-		s.clear = true
-	}
-	s.flags.Reset(tAltScreen)
-}
-
-// ShowCursor queues the escape sequence to show the cursor. This is used to
-// make the text cursor visible on the screen.
-func (s *TerminalRenderer) ShowCursor() {
-	if s.flags.Contains(tCursorHidden) {
-		_, _ = s.buf.WriteString(ansi.ShowCursor)
-	}
-	s.flags.Reset(tCursorHidden)
-}
-
-// HideCursor queues the escape sequence to hide the cursor. This is used to
-// make the text cursor invisible on the screen.
-func (s *TerminalRenderer) HideCursor() {
-	if !s.flags.Contains(tCursorHidden) {
-		_, _ = s.buf.WriteString(ansi.HideCursor)
-	}
-	s.flags.Set(tCursorHidden)
+	s.Erase()
+	s.SetRelativeCursor(true)
+	s.SetFullscreen(false)
+	s.buf.WriteString(ansi.ResetModeAltScreenSaveCursor)
+	s.RestoreCursor()
 }
 
 // PrependString adds the lines of the given string to the top of the terminal
@@ -321,12 +317,8 @@ func (s *TerminalRenderer) HideCursor() {
 // the whole screen may not produce any visible effects. This is because
 // once the terminal writes the prepended lines, they will get overwritten
 // by the next frame.
-func (s *TerminalRenderer) PrependString(str string) {
-	s.prependStringLines(strings.Split(str, "\n")...)
-}
-
-func (s *TerminalRenderer) prependStringLines(lines ...string) {
-	if len(lines) == 0 {
+func (s *TerminalRenderer) PrependString(newbuf *RenderBuffer, str string) {
+	if len(str) == 0 {
 		return
 	}
 
@@ -336,43 +328,40 @@ func (s *TerminalRenderer) prependStringLines(lines ...string) {
 	// We need to scroll the screen up by the number of lines in the queue.
 	// We can't use [ansi.SU] because we want the cursor to move down until
 	// it reaches the bottom of the screen.
-	s.move(s.curbuf, 0, s.curbuf.Height()-1)
-	s.buf.WriteString(strings.Repeat("\n", len(lines)))
-	s.cur.Y += len(lines)
+	w, h := newbuf.Width(), newbuf.Height()
+	s.move(newbuf, 0, h-1)
+	lines := strings.Split(str, "\n")
+	offset := 0
+	for _, line := range lines {
+		lineWidth := ansi.StringWidth(line)
+		if w > 0 && lineWidth > w {
+			offset += (lineWidth / w)
+		}
+		if lineWidth == 0 || lineWidth%w != 0 {
+			offset++
+		}
+	}
+
+	s.buf.WriteString(strings.Repeat("\n", offset))
+	s.cur.Y += offset
 	// XXX: Now go to the top of the screen, insert new lines, and write
 	// the queued strings. It is important to use [Screen.moveCursor]
 	// instead of [Screen.move] because we don't want to perform any checks
 	// on the cursor position.
-	s.moveCursor(s.curbuf, 0, 0, false)
-	s.buf.WriteString(ansi.InsertLine(len(lines)))
+	s.moveCursor(newbuf, 0, 0, false)
+	s.buf.WriteString(ansi.InsertLine(offset))
 	for _, line := range lines {
 		s.buf.WriteString(line)
 		s.buf.WriteString("\r\n")
 	}
 }
 
-// PrependLines adds lines of cells to the top of the terminal screen. The
-// added lines are unmanaged and will not be cleared or updated by the
-// renderer.
-//
-// Using this when the terminal is using the alternate screen or when occupying
-// the whole screen may not produce any visible effects. This is because once
-// the terminal writes the prepended lines, they will get overwritten by the
-// next frame.
-func (s *TerminalRenderer) PrependLines(lines ...Line) {
-	strLines := make([]string, len(lines))
-	for i, line := range lines {
-		strLines[i] = line.Render()
-	}
-	s.prependStringLines(strLines...)
-}
-
 // moveCursor moves the cursor to the specified position.
 //
 // It is safe to call this function with a nil [Buffer], in that case, it won't
 // be using any optimizations that depend on the buffer.
-func (s *TerminalRenderer) moveCursor(newbuf *Buffer, x, y int, overwrite bool) {
-	if !s.flags.Contains(tAltScreen) && s.flags.Contains(tRelativeCursor) &&
+func (s *TerminalRenderer) moveCursor(newbuf *RenderBuffer, x, y int, overwrite bool) {
+	if !s.flags.Contains(tFullscreen) && s.flags.Contains(tRelativeCursor) &&
 		s.cur.X == -1 && s.cur.Y == -1 {
 		// First cursor movement in inline mode, move the cursor to the first
 		// column before moving to the target position.
@@ -390,10 +379,13 @@ func (s *TerminalRenderer) moveCursor(newbuf *Buffer, x, y int, overwrite bool) 
 //
 // It is safe to call this function with a nil [Buffer], in that case, it won't
 // be using any optimizations that depend on the buffer.
-func (s *TerminalRenderer) move(newbuf *Buffer, x, y int) {
+func (s *TerminalRenderer) move(newbuf *RenderBuffer, x, y int) {
 	// XXX: Make sure we use the max height and width of the buffer in case
 	// we're in the middle of a resize operation.
-	width, height := s.curbuf.Width(), s.curbuf.Height()
+	var width, height int
+	if s.curbuf != nil {
+		width, height = s.curbuf.Width(), s.curbuf.Height()
+	}
 	if newbuf != nil {
 		width = max(newbuf.Width(), width)
 		height = max(newbuf.Height(), height)
@@ -464,6 +456,12 @@ func cellEqual(a, b *Cell) bool {
 	if a == b {
 		return true
 	}
+	// TODO: This is needed to handle empty lines correctly when scroll
+	// optimizations are enabled. Instead, a nil check should be equivalent to
+	// checking for an [EmptyCell], should it?
+	// Investigate why when we assign the pointers to &[EmptyCell], this causes
+	// scroll optimization related artifacts where excess lines are left behind
+	// in empty lines after scrolling.
 	if a == nil || b == nil {
 		return false
 	}
@@ -471,9 +469,9 @@ func cellEqual(a, b *Cell) bool {
 }
 
 // putCell draws a cell at the current cursor position.
-func (s *TerminalRenderer) putCell(newbuf *Buffer, cell *Cell) {
+func (s *TerminalRenderer) putCell(newbuf *RenderBuffer, cell *Cell) {
 	width, height := newbuf.Width(), newbuf.Height()
-	if s.flags.Contains(tAltScreen) && s.cur.X == width-1 && s.cur.Y == height-1 {
+	if s.flags.Contains(tFullscreen) && s.cur.X == width-1 && s.cur.Y == height-1 {
 		s.putCellLR(newbuf, cell)
 	} else {
 		s.putAttrCell(newbuf, cell)
@@ -492,17 +490,13 @@ func (s *TerminalRenderer) wrapCursor() {
 	}
 }
 
-func (s *TerminalRenderer) putAttrCell(newbuf *Buffer, cell *Cell) {
+func (s *TerminalRenderer) putAttrCell(newbuf *RenderBuffer, cell *Cell) {
 	if cell != nil && cell.IsZero() {
 		// XXX: Zero width cells are special and should not be written to the
 		// screen no matter what other attributes they have.
 		// Zero width cells are used for wide characters that are split into
 		// multiple cells.
 		return
-	}
-
-	if cell == nil {
-		cell = s.clearBlank()
 	}
 
 	// We're at pending wrap state (phantom cell), incoming cell should
@@ -513,52 +507,84 @@ func (s *TerminalRenderer) putAttrCell(newbuf *Buffer, cell *Cell) {
 	}
 
 	s.updatePen(cell)
-	_, _ = s.buf.WriteString(cell.Content)
+	cellWidth := 1
+	if cell == nil {
+		_ = s.buf.WriteByte(' ')
+	} else {
+		_, _ = s.buf.WriteString(cell.Content)
+		cellWidth = cell.Width
+	}
 
-	s.cur.X += cell.Width
+	s.cur.X += cellWidth
 	if s.cur.X >= newbuf.Width() {
 		s.atPhantom = true
 	}
 }
 
 // putCellLR draws a cell at the lower right corner of the screen.
-func (s *TerminalRenderer) putCellLR(newbuf *Buffer, cell *Cell) {
+func (s *TerminalRenderer) putCellLR(newbuf *RenderBuffer, cell *Cell) {
 	// Optimize for the lower right corner cell.
 	curX := s.cur.X
 	if cell == nil || !cell.IsZero() {
-		_, _ = s.buf.WriteString(ansi.ResetAutoWrapMode)
+		_, _ = s.buf.WriteString(ansi.ResetModeAutoWrap)
 		s.putAttrCell(newbuf, cell)
 		// Writing to lower-right corner cell should not wrap.
 		s.atPhantom = false
 		s.cur.X = curX
-		_, _ = s.buf.WriteString(ansi.SetAutoWrapMode)
+		_, _ = s.buf.WriteString(ansi.SetModeAutoWrap)
 	}
 }
 
 // updatePen updates the cursor pen styles.
 func (s *TerminalRenderer) updatePen(cell *Cell) {
 	if cell == nil {
-		cell = &EmptyCell
+		if !s.cur.Style.IsZero() {
+			_, _ = s.buf.WriteString(ansi.ResetStyle)
+			s.cur.Style = Style{} // Reset style
+		}
+		if !s.cur.Link.IsZero() {
+			_, _ = s.buf.WriteString(ansi.ResetHyperlink())
+		}
+		return
 	}
 
-	if s.profile != 0 {
-		// Downsample colors to the given color profile.
-		cell.Style = ConvertStyle(cell.Style, s.profile)
-		cell.Link = ConvertLink(cell.Link, s.profile)
-	}
+	// Downsample pen when we don't have a [colorprofile.TrueColor],
+	// otherwise, use the original style.
+	newStyle := ConvertStyle(cell.Style, s.profile)
+	newLink := ConvertLink(cell.Link, s.profile)
+	oldStyle := ConvertStyle(s.cur.Style, s.profile)
+	oldLink := ConvertLink(s.cur.Link, s.profile)
 
-	if !cell.Style.Equal(&s.cur.Style) {
-		seq := cell.Style.DiffSequence(s.cur.Style)
-		if cell.Style.IsZero() && len(seq) > len(ansi.ResetStyle) {
+	if !newStyle.Equal(&oldStyle) {
+		seq := newStyle.Diff(&oldStyle)
+		if newStyle.IsZero() && len(seq) > len(ansi.ResetStyle) {
 			seq = ansi.ResetStyle
 		}
 		_, _ = s.buf.WriteString(seq)
-		s.cur.Style = cell.Style
+		s.cur.Style = cell.Style // Copy the original style
 	}
-	if !cell.Link.Equal(&s.cur.Link) {
-		_, _ = s.buf.WriteString(ansi.SetHyperlink(cell.Link.URL, cell.Link.Params))
-		s.cur.Link = cell.Link
+	if !newLink.Equal(&oldLink) {
+		_, _ = s.buf.WriteString(ansi.SetHyperlink(newLink.URL, newLink.Params))
+		s.cur.Link = cell.Link // Copy the original link
 	}
+}
+
+// canClearWith checks whether the given cell can be used by clearing commands
+// like [ansi.EL] to clear the screen. It tests if a cell is empty i.e. space
+// or blank and doesn't include any bad style attributes such as [AttrReverse].
+func canClearWith(c *Cell) bool {
+	if c == nil {
+		return true
+	}
+	if c.Width != 1 || len(c.Content) != 1 || c.Content != " " {
+		return false
+	}
+	// NOTE: This assumes that the terminal supports bce terminfo capability
+	// which all xterm-compatible terminals and terminals that use xterm*
+	// terminal types do.
+	return c.Style.Underline == UnderlineNone &&
+		c.Style.Attrs&^(AttrBold|AttrFaint|AttrItalic|AttrBlink|AttrRapidBlink) == 0 &&
+		c.Link.IsZero()
 }
 
 // emitRange emits a range of cells to the buffer. It it equivalent to calling
@@ -566,7 +592,7 @@ func (s *TerminalRenderer) updatePen(cell *Cell) {
 // [ansi.ECH] and [ansi.REP].
 // Returns whether the cursor is at the end of interval or somewhere in the
 // middle.
-func (s *TerminalRenderer) emitRange(newbuf *Buffer, line Line, n int) (eoi bool) {
+func (s *TerminalRenderer) emitRange(newbuf *RenderBuffer, line Line, n int) (eoi bool) {
 	hasECH := s.caps.Contains(capECH)
 	hasREP := s.caps.Contains(capREP)
 	if hasECH || hasREP { //nolint:nestif
@@ -592,7 +618,7 @@ func (s *TerminalRenderer) emitRange(newbuf *Buffer, line Line, n int) (eoi bool
 			ech := ansi.EraseCharacter(count)
 			cup := ansi.CursorPosition(s.cur.X+count, s.cur.Y)
 			rep := ansi.RepeatPreviousCharacter(count)
-			if hasECH && count > len(ech)+len(cup) && cell0.IsBlank() {
+			if hasECH && count > len(ech)+len(cup) && canClearWith(&cell0) {
 				s.updatePen(&cell0)
 				_, _ = s.buf.WriteString(ech)
 
@@ -648,7 +674,7 @@ func (s *TerminalRenderer) emitRange(newbuf *Buffer, line Line, n int) (eoi bool
 // putRange puts a range of cells from the old line to the new line.
 // Returns whether the cursor is at the end of interval or somewhere in the
 // middle.
-func (s *TerminalRenderer) putRange(newbuf *Buffer, oldLine, newLine Line, y, start, end int) (eoi bool) {
+func (s *TerminalRenderer) putRange(newbuf *RenderBuffer, oldLine, newLine Line, y, start, end int) (eoi bool) {
 	inline := min(len(ansi.CursorPosition(start+1, y+1)),
 		min(len(ansi.HorizontalPositionAbsolute(start+1)),
 			len(ansi.CursorForward(start+1))))
@@ -687,10 +713,13 @@ func (s *TerminalRenderer) putRange(newbuf *Buffer, oldLine, newLine Line, y, st
 
 // clearToEnd clears the screen from the current cursor position to the end of
 // line.
-func (s *TerminalRenderer) clearToEnd(newbuf *Buffer, blank *Cell, force bool) { //nolint:unparam
+func (s *TerminalRenderer) clearToEnd(newbuf *RenderBuffer, blank *Cell, force bool) {
 	if s.cur.Y >= 0 {
 		curline := s.curbuf.Line(s.cur.Y)
-		for j := s.cur.X; j < s.curbuf.Width(); j++ {
+		// We use the newbuf width because the current buffer might be smaller
+		// than the new buffer during a resize operation and we want to detect
+		// that.
+		for j := s.cur.X; j < newbuf.Width(); j++ {
 			if j >= 0 {
 				c := curline.At(j)
 				if !cellEqual(c, blank) {
@@ -716,24 +745,19 @@ func (s *TerminalRenderer) clearToEnd(newbuf *Buffer, blank *Cell, force bool) {
 
 // clearBlank returns a blank cell based on the current cursor background color.
 func (s *TerminalRenderer) clearBlank() *Cell {
-	c := EmptyCell
-	if !s.cur.Style.IsZero() || !s.cur.Link.IsZero() {
-		c.Style = s.cur.Style
-		c.Link = s.cur.Link
-	}
-	return &c
+	return &s.cur.Cell
 }
 
 // insertCells inserts the count cells pointed by the given line at the current
 // cursor position.
-func (s *TerminalRenderer) insertCells(newbuf *Buffer, line Line, count int) {
+func (s *TerminalRenderer) insertCells(newbuf *RenderBuffer, line Line, count int) {
 	supportsICH := s.caps.Contains(capICH)
 	if supportsICH {
 		// Use [ansi.ICH] as an optimization.
 		_, _ = s.buf.WriteString(ansi.InsertCharacter(count))
 	} else {
 		// Otherwise, use [ansi.IRM] mode.
-		_, _ = s.buf.WriteString(ansi.SetInsertReplaceMode)
+		_, _ = s.buf.WriteString(ansi.SetModeInsertReplace)
 	}
 
 	for i := 0; count > 0; i++ {
@@ -742,7 +766,7 @@ func (s *TerminalRenderer) insertCells(newbuf *Buffer, line Line, count int) {
 	}
 
 	if !supportsICH {
-		_, _ = s.buf.WriteString(ansi.ResetInsertReplaceMode)
+		_, _ = s.buf.WriteString(ansi.ResetModeInsertReplace)
 	}
 }
 
@@ -760,197 +784,188 @@ func (s *TerminalRenderer) el0Cost() int {
 // transformLine transforms the given line in the current window to the
 // corresponding line in the new window. It uses [ansi.ICH] and [ansi.DCH] to
 // insert or delete characters.
-func (s *TerminalRenderer) transformLine(newbuf *Buffer, y int) {
+func (s *TerminalRenderer) transformLine(newbuf *RenderBuffer, y int) {
 	var firstCell, oLastCell, nLastCell int // first, old last, new last index
 	oldLine := s.curbuf.Line(y)
 	newLine := newbuf.Line(y)
 
 	// Find the first changed cell in the line
-	var lineChanged bool
-	for i := 0; i < newbuf.Width(); i++ {
-		if !cellEqual(newLine.At(i), oldLine.At(i)) {
-			lineChanged = true
-			break
+	blank := newLine.At(0)
+
+	// It might be cheaper to clear leading spaces with [ansi.EL] 1 i.e.
+	// [ansi.EraseLineLeft].
+	if canClearWith(blank) { //nolint:nestif
+		var oFirstCell, nFirstCell int
+		for oFirstCell = 0; oFirstCell < s.curbuf.Width(); oFirstCell++ {
+			if !cellEqual(oldLine.At(oFirstCell), blank) {
+				break
+			}
+		}
+		for nFirstCell = 0; nFirstCell < newbuf.Width(); nFirstCell++ {
+			if !cellEqual(newLine.At(nFirstCell), blank) {
+				break
+			}
+		}
+
+		if nFirstCell == oFirstCell {
+			firstCell = nFirstCell
+
+			// Find the first differing cell
+			for firstCell < newbuf.Width() &&
+				cellEqual(oldLine.At(firstCell), newLine.At(firstCell)) {
+				firstCell++
+			}
+		} else if oFirstCell > nFirstCell {
+			firstCell = nFirstCell
+		} else if oFirstCell < nFirstCell {
+			firstCell = oFirstCell
+			el1Cost := len(ansi.EraseLineLeft)
+			if el1Cost < nFirstCell-oFirstCell {
+				if nFirstCell >= newbuf.Width() {
+					s.move(newbuf, 0, y)
+					s.updatePen(blank)
+					_, _ = s.buf.WriteString(ansi.EraseLineRight)
+				} else {
+					s.move(newbuf, nFirstCell-1, y)
+					s.updatePen(blank)
+					_, _ = s.buf.WriteString(ansi.EraseLineLeft)
+				}
+
+				for firstCell < nFirstCell {
+					oldLine.Set(firstCell, blank)
+					firstCell++
+				}
+			}
+		}
+	} else {
+		// Find the first differing cell
+		for firstCell < newbuf.Width() && cellEqual(newLine.At(firstCell), oldLine.At(firstCell)) {
+			firstCell++
 		}
 	}
 
-	const ceolStandoutGlitch = false
-	if ceolStandoutGlitch && lineChanged { //nolint:nestif
-		s.move(newbuf, 0, y)
-		s.clearToEnd(newbuf, nil, false)
-		s.putRange(newbuf, oldLine, newLine, y, 0, newbuf.Width()-1)
-	} else {
-		blank := newLine.At(0)
+	// If we didn't find one, we're done
+	if firstCell >= newbuf.Width() {
+		return
+	}
 
-		// It might be cheaper to clear leading spaces with [ansi.EL] 1 i.e.
-		// [ansi.EraseLineLeft].
-		if blank == nil || blank.IsBlank() {
-			var oFirstCell, nFirstCell int
-			for oFirstCell = 0; oFirstCell < s.curbuf.Width(); oFirstCell++ {
-				if !cellEqual(oldLine.At(oFirstCell), blank) {
-					break
-				}
-			}
-			for nFirstCell = 0; nFirstCell < newbuf.Width(); nFirstCell++ {
-				if !cellEqual(newLine.At(nFirstCell), blank) {
-					break
-				}
-			}
-
-			if nFirstCell == oFirstCell {
-				firstCell = nFirstCell
-
-				// Find the first differing cell
-				for firstCell < newbuf.Width() &&
-					cellEqual(oldLine.At(firstCell), newLine.At(firstCell)) {
-					firstCell++
-				}
-			} else if oFirstCell > nFirstCell {
-				firstCell = nFirstCell
-			} else if oFirstCell < nFirstCell {
-				firstCell = oFirstCell
-				el1Cost := len(ansi.EraseLineLeft)
-				if el1Cost < nFirstCell-oFirstCell {
-					if nFirstCell >= newbuf.Width() {
-						s.move(newbuf, 0, y)
-						s.updatePen(blank)
-						_, _ = s.buf.WriteString(ansi.EraseLineRight)
-					} else {
-						s.move(newbuf, nFirstCell-1, y)
-						s.updatePen(blank)
-						_, _ = s.buf.WriteString(ansi.EraseLineLeft)
-					}
-
-					for firstCell < nFirstCell {
-						oldLine.Set(firstCell, blank)
-						firstCell++
-					}
-				}
-			}
-		} else {
-			// Find the first differing cell
-			for firstCell < newbuf.Width() && cellEqual(newLine.At(firstCell), oldLine.At(firstCell)) {
-				firstCell++
-			}
-		}
-
-		// If we didn't find one, we're done
-		if firstCell >= newbuf.Width() {
-			return
-		}
-
-		blank = newLine.At(newbuf.Width() - 1)
-		if blank != nil && !blank.IsBlank() {
-			// Find the last differing cell
-			nLastCell = newbuf.Width() - 1
-			for nLastCell > firstCell && cellEqual(newLine.At(nLastCell), oldLine.At(nLastCell)) {
-				nLastCell--
-			}
-
-			if nLastCell >= firstCell {
-				s.move(newbuf, firstCell, y)
-				s.putRange(newbuf, oldLine, newLine, y, firstCell, nLastCell)
-				if firstCell < len(oldLine) && firstCell < len(newLine) {
-					copy(oldLine[firstCell:], newLine[firstCell:])
-				} else {
-					copy(oldLine, newLine)
-				}
-			}
-
-			return
-		}
-
-		// Find last non-blank cell in the old line.
-		oLastCell = s.curbuf.Width() - 1
-		for oLastCell > firstCell && cellEqual(oldLine.At(oLastCell), blank) {
-			oLastCell--
-		}
-
-		// Find last non-blank cell in the new line.
+	blank = newLine.At(newbuf.Width() - 1)
+	if blank != nil && !canClearWith(blank) {
+		// Find the last differing cell
 		nLastCell = newbuf.Width() - 1
-		for nLastCell > firstCell && cellEqual(newLine.At(nLastCell), blank) {
+		for nLastCell > firstCell && cellEqual(newLine.At(nLastCell), oldLine.At(nLastCell)) {
 			nLastCell--
 		}
 
-		if nLastCell == firstCell && s.el0Cost() < oLastCell-nLastCell {
+		if nLastCell >= firstCell {
 			s.move(newbuf, firstCell, y)
-			if !cellEqual(newLine.At(firstCell), blank) {
-				s.putCell(newbuf, newLine.At(firstCell))
+			s.putRange(newbuf, oldLine, newLine, y, firstCell, nLastCell)
+			if firstCell < len(oldLine) && firstCell < len(newLine) {
+				copy(oldLine[firstCell:], newLine[firstCell:])
+			} else {
+				copy(oldLine, newLine)
+			}
+		}
+
+		return
+	}
+
+	// Find last non-blank cell in the old line.
+	// We always use the newbuf width to detect new cell changes.
+	oLastCell = newbuf.Width() - 1
+	for oLastCell > firstCell && cellEqual(oldLine.At(oLastCell), blank) {
+		oLastCell--
+	}
+
+	// Find last non-blank cell in the new line.
+	// We always use the newbuf width to detect new cell changes.
+	nLastCell = newbuf.Width() - 1
+	for nLastCell > firstCell && cellEqual(newLine.At(nLastCell), blank) {
+		nLastCell--
+	}
+
+	if nLastCell == firstCell && s.el0Cost() < oLastCell-nLastCell { //nolint:nestif
+		s.move(newbuf, firstCell, y)
+		if !cellEqual(newLine.At(firstCell), blank) {
+			s.putCell(newbuf, newLine.At(firstCell))
+		}
+		s.clearToEnd(newbuf, blank, false)
+	} else if nLastCell != oLastCell &&
+		!cellEqual(newLine.At(nLastCell), oldLine.At(oLastCell)) {
+		s.move(newbuf, firstCell, y)
+		if oLastCell-nLastCell > s.el0Cost() {
+			if s.putRange(newbuf, oldLine, newLine, y, firstCell, nLastCell) {
+				s.move(newbuf, nLastCell+1, y)
 			}
 			s.clearToEnd(newbuf, blank, false)
-		} else if nLastCell != oLastCell &&
-			!cellEqual(newLine.At(nLastCell), oldLine.At(oLastCell)) {
+		} else {
+			n := max(nLastCell, oLastCell)
+			s.putRange(newbuf, oldLine, newLine, y, firstCell, n)
+		}
+	} else {
+		nLastNonBlank := nLastCell
+		oLastNonBlank := oLastCell
+
+		// Find the last cells that really differ.
+		// Can be -1 if no cells differ.
+		for cellEqual(newLine.At(nLastCell), oldLine.At(oLastCell)) {
+			if !cellEqual(newLine.At(nLastCell-1), oldLine.At(oLastCell-1)) {
+				break
+			}
+			nLastCell--
+			oLastCell--
+			if nLastCell == -1 || oLastCell == -1 {
+				break
+			}
+		}
+
+		n := min(oLastCell, nLastCell)
+		if n >= firstCell {
 			s.move(newbuf, firstCell, y)
-			if oLastCell-nLastCell > s.el0Cost() {
-				if s.putRange(newbuf, oldLine, newLine, y, firstCell, nLastCell) {
-					s.move(newbuf, nLastCell+1, y)
+			s.putRange(newbuf, oldLine, newLine, y, firstCell, n)
+		}
+
+		if oLastCell < nLastCell {
+			m := max(nLastNonBlank, oLastNonBlank)
+			if n != 0 {
+				for n > 0 {
+					wide := newLine.At(n + 1)
+					if wide == nil || !wide.IsZero() {
+						break
+					}
+					n--
+					oLastCell--
+				}
+			} else if n >= firstCell && newLine.At(n) != nil && newLine.At(n).Width > 1 {
+				next := newLine.At(n + 1)
+				for next != nil && next.IsZero() {
+					n++
+					oLastCell++
+				}
+			}
+
+			// TODO: This can sometimes send unnecessary cursor movements with
+			// negative or zero ranges. This could happen on a screen resize
+			// where oLastCell < nLastCell and oLastCell is -1 or less.
+			// Investigate and fix.
+			s.move(newbuf, n+1, y)
+			ichCost := 3 + nLastCell - oLastCell
+			if s.caps.Contains(capICH) && (nLastCell < nLastNonBlank || ichCost > (m-n)) {
+				s.putRange(newbuf, oldLine, newLine, y, n+1, m)
+			} else {
+				s.insertCells(newbuf, newLine[n+1:], nLastCell-oLastCell)
+			}
+		} else if oLastCell > nLastCell {
+			s.move(newbuf, n+1, y)
+			dchCost := 3 + oLastCell - nLastCell
+			if dchCost > len(ansi.EraseLineRight)+nLastNonBlank-(n+1) {
+				if s.putRange(newbuf, oldLine, newLine, y, n+1, nLastNonBlank) {
+					s.move(newbuf, nLastNonBlank+1, y)
 				}
 				s.clearToEnd(newbuf, blank, false)
 			} else {
-				n := max(nLastCell, oLastCell)
-				s.putRange(newbuf, oldLine, newLine, y, firstCell, n)
-			}
-		} else {
-			nLastNonBlank := nLastCell
-			oLastNonBlank := oLastCell
-
-			// Find the last cells that really differ.
-			// Can be -1 if no cells differ.
-			for cellEqual(newLine.At(nLastCell), oldLine.At(oLastCell)) {
-				if !cellEqual(newLine.At(nLastCell-1), oldLine.At(oLastCell-1)) {
-					break
-				}
-				nLastCell--
-				oLastCell--
-				if nLastCell == -1 || oLastCell == -1 {
-					break
-				}
-			}
-
-			n := min(oLastCell, nLastCell)
-			if n >= firstCell {
-				s.move(newbuf, firstCell, y)
-				s.putRange(newbuf, oldLine, newLine, y, firstCell, n)
-			}
-
-			if oLastCell < nLastCell {
-				m := max(nLastNonBlank, oLastNonBlank)
-				if n != 0 {
-					for n > 0 {
-						wide := newLine.At(n + 1)
-						if wide == nil || !wide.IsZero() {
-							break
-						}
-						n--
-						oLastCell--
-					}
-				} else if n >= firstCell && newLine.At(n) != nil && newLine.At(n).Width > 1 {
-					next := newLine.At(n + 1)
-					for next != nil && next.IsZero() {
-						n++
-						oLastCell++
-					}
-				}
-
-				s.move(newbuf, n+1, y)
-				ichCost := 3 + nLastCell - oLastCell
-				if s.caps.Contains(capICH) && (nLastCell < nLastNonBlank || ichCost > (m-n)) {
-					s.putRange(newbuf, oldLine, newLine, y, n+1, m)
-				} else {
-					s.insertCells(newbuf, newLine[n+1:], nLastCell-oLastCell)
-				}
-			} else if oLastCell > nLastCell {
-				s.move(newbuf, n+1, y)
-				dchCost := 3 + oLastCell - nLastCell
-				if dchCost > len(ansi.EraseLineRight)+nLastNonBlank-(n+1) {
-					if s.putRange(newbuf, oldLine, newLine, y, n+1, nLastNonBlank) {
-						s.move(newbuf, nLastNonBlank+1, y)
-					}
-					s.clearToEnd(newbuf, blank, false)
-				} else {
-					s.updatePen(blank)
-					s.deleteCells(oLastCell - nLastCell)
-				}
+				s.updatePen(blank)
+				s.deleteCells(oLastCell - nLastCell)
 			}
 		}
 	}
@@ -991,7 +1006,7 @@ func (s *TerminalRenderer) clearToBottom(blank *Cell) {
 // the screen update. Scan backwards through lines in the screen checking if
 // each is blank and one or more are changed.
 // It returns the top line.
-func (s *TerminalRenderer) clearBottom(newbuf *Buffer, total int) (top int) {
+func (s *TerminalRenderer) clearBottom(newbuf *RenderBuffer, total int) (top int) {
 	if total <= 0 {
 		return 0
 	}
@@ -999,7 +1014,7 @@ func (s *TerminalRenderer) clearBottom(newbuf *Buffer, total int) (top int) {
 	top = total
 	last := min(s.curbuf.Width(), newbuf.Width())
 	blank := s.clearBlank()
-	canClearWithBlank := blank == nil || blank.IsBlank()
+	canClearWithBlank := canClearWith(blank)
 
 	if canClearWithBlank { //nolint:nestif
 		var row int
@@ -1049,16 +1064,16 @@ func (s *TerminalRenderer) clearScreen(blank *Cell) {
 }
 
 // clearBelow clears everything below and including the row.
-func (s *TerminalRenderer) clearBelow(newbuf *Buffer, blank *Cell, row int) {
+func (s *TerminalRenderer) clearBelow(newbuf *RenderBuffer, blank *Cell, row int) {
 	s.move(newbuf, 0, row)
 	s.clearToBottom(blank)
 }
 
 // clearUpdate forces a screen redraw.
-func (s *TerminalRenderer) clearUpdate(newbuf *Buffer) {
+func (s *TerminalRenderer) clearUpdate(newbuf *RenderBuffer) {
 	blank := s.clearBlank()
 	var nonEmpty int
-	if s.flags.Contains(tAltScreen) {
+	if s.flags.Contains(tFullscreen) {
 		// XXX: We're using the maximum height of the two buffers to ensure we
 		// write newly added lines to the screen in
 		// [terminalWriter.transformLine].
@@ -1094,60 +1109,38 @@ func (s *TerminalRenderer) Flush() (err error) {
 	// Write the buffer
 	if n := s.buf.Len(); n > 0 {
 		bts := s.buf.Bytes()
-		if !s.flags.Contains(tCursorHidden) {
-			// Hide the cursor during the flush operation.
-			buf := make([]byte, len(bts)+len(ansi.HideCursor)+len(ansi.ShowCursor))
-			copy(buf, ansi.HideCursor)
-			copy(buf[len(ansi.HideCursor):], bts)
-			copy(buf[len(ansi.HideCursor)+len(bts):], ansi.ShowCursor)
-			bts = buf
-		}
 		if s.logger != nil {
 			s.logf("output: %q", bts)
 		}
 		_, err = s.w.Write(bts)
 		s.buf.Reset()
-		s.laterFlush = true
-	}
-	return
-}
-
-// Touched returns the number of lines that have been touched or changed.
-func (s *TerminalRenderer) Touched(buf *Buffer) (n int) {
-	if buf.Touched == nil {
-		return buf.Height()
-	}
-	for _, ch := range buf.Touched {
-		if ch != nil {
-			n++
-		}
 	}
 	return
 }
 
 // Redraw forces a full redraw of the screen. It's equivalent to calling
 // [TerminalRenderer.Erase] and [TerminalRenderer.Render].
-func (s *TerminalRenderer) Redraw(newbuf *Buffer) {
+func (s *TerminalRenderer) Redraw(newbuf *RenderBuffer) {
 	s.clear = true
 	s.Render(newbuf)
 }
 
 // Render renders changes of the screen to the internal buffer. Call
 // [terminalWriter.Flush] to flush pending changes to the screen.
-func (s *TerminalRenderer) Render(newbuf *Buffer) {
+func (s *TerminalRenderer) Render(newbuf *RenderBuffer) {
 	// Do we need to render anything?
-	touchedLines := s.Touched(newbuf)
+	touchedLines := newbuf.TouchedLines()
 	if !s.clear && touchedLines == 0 {
 		return
 	}
 
+	if s.curbuf == nil || s.curbuf.Bounds().Empty() {
+		// Initialize the current buffer
+		s.curbuf = NewRenderBuffer(newbuf.Width(), newbuf.Height())
+	}
+
 	newWidth, newHeight := newbuf.Width(), newbuf.Height()
 	curWidth, curHeight := s.curbuf.Width(), s.curbuf.Height()
-
-	// Do we have a buffer to compare to?
-	if s.curbuf == nil || s.curbuf.Bounds().Empty() {
-		s.curbuf = NewBuffer(newWidth, newHeight)
-	}
 
 	if curWidth != newWidth || curHeight != newHeight {
 		s.oldhash, s.newhash = nil, nil
@@ -1170,7 +1163,7 @@ func (s *TerminalRenderer) Render(newbuf *Buffer) {
 	// lines at the bottom of the screen. This is because in inline mode, we
 	// don't use the full screen height and the current buffer size might be
 	// larger than the new buffer size.
-	partialClear := !s.flags.Contains(tAltScreen) && s.cur.X != -1 && s.cur.Y != -1 &&
+	partialClear := !s.flags.Contains(tFullscreen) && s.cur.X != -1 && s.cur.Y != -1 &&
 		curWidth == newWidth &&
 		curHeight > 0 &&
 		curHeight > newHeight
@@ -1187,7 +1180,7 @@ func (s *TerminalRenderer) Render(newbuf *Buffer) {
 		// misbehaves and moves the cursor outside of the scrolling region. For
 		// now, we disable the optimizations completely on Windows.
 		// See https://github.com/microsoft/terminal/issues/19016
-		if s.flags.Contains(tAltScreen) && !isWindows {
+		if s.flags.Contains(tScrollOptim) && s.flags.Contains(tFullscreen) {
 			// Optimize scrolling for the alternate screen buffer.
 			// TODO: Should we optimize for inline mode as well? If so, we need
 			// to know the actual cursor position to use [ansi.DECSTBM].
@@ -1197,7 +1190,7 @@ func (s *TerminalRenderer) Render(newbuf *Buffer) {
 		var changedLines int
 		var i int
 
-		if s.flags.Contains(tAltScreen) {
+		if s.flags.Contains(tFullscreen) {
 			nonEmpty = min(curHeight, newHeight)
 		} else {
 			nonEmpty = newHeight
@@ -1225,7 +1218,7 @@ func (s *TerminalRenderer) Render(newbuf *Buffer) {
 		}
 	}
 
-	if !s.laterFlush && !s.flags.Contains(tAltScreen) && s.scrollHeight < newHeight-1 {
+	if !s.flags.Contains(tFullscreen) && s.scrollHeight < newHeight-1 {
 		s.move(newbuf, 0, newHeight-1)
 	}
 
@@ -1281,7 +1274,6 @@ func (s *TerminalRenderer) Position() (x, y int) {
 // buffers.
 func (s *TerminalRenderer) SetPosition(x, y int) {
 	s.cur.X, s.cur.Y = x, y
-	s.saved.X, s.saved.Y = x, y
 }
 
 // WriteString writes the given string to the underlying buffer.
@@ -1322,7 +1314,7 @@ func notLocal(cols, fx, fy, tx, ty int) bool {
 //
 // It is safe to call this function with a nil [Buffer]. In that case, it won't
 // use any optimizations that require the new buffer such as overwrite.
-func relativeCursorMove(s *TerminalRenderer, newbuf *Buffer, fx, fy, tx, ty int, overwrite, useTabs, useBackspace bool) (string, int) {
+func relativeCursorMove(s *TerminalRenderer, newbuf *RenderBuffer, fx, fy, tx, ty int, overwrite, useTabs, useBackspace bool) (string, int) {
 	var seq strings.Builder
 	var scrollHeight int
 	if newbuf == nil {
@@ -1340,9 +1332,9 @@ func relativeCursorMove(s *TerminalRenderer, newbuf *Buffer, fx, fy, tx, ty int,
 			if cud := ansi.CursorDown(n); yseq == "" || len(cud) < len(yseq) {
 				yseq = cud
 			}
-			shouldScroll := !s.flags.Contains(tAltScreen) && ty > s.scrollHeight
-			if lf := strings.Repeat("\n", n); shouldScroll || len(lf) < len(yseq) {
-				yseq = lf
+			shouldScroll := !s.flags.Contains(tFullscreen) && ty > s.scrollHeight
+			if shouldScroll || n < len(yseq) { // n is the cost of using newline characters
+				yseq = strings.Repeat("\n", n)
 				scrollHeight = ty
 				if s.flags.Contains(tMapNewline) {
 					fx = 0
@@ -1480,7 +1472,7 @@ func relativeCursorMove(s *TerminalRenderer, newbuf *Buffer, fx, fy, tx, ty int,
 //
 // It is safe to call this function with a nil [Buffer]. In that case, it won't
 // use any optimizations that require the new buffer such as overwrite.
-func moveCursor(s *TerminalRenderer, newbuf *Buffer, x, y int, overwrite bool) (seq string, scrollHeight int) {
+func moveCursor(s *TerminalRenderer, newbuf *RenderBuffer, x, y int, overwrite bool) (seq string, scrollHeight int) {
 	fx, fy := s.cur.X, s.cur.Y
 
 	if !s.flags.Contains(tRelativeCursor) {

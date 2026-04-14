@@ -15,6 +15,7 @@ import (
 	"github.com/k1LoW/tbls/drivers/spanner"
 	"github.com/k1LoW/tbls/schema"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/impersonate"
 	"google.golang.org/api/option"
 )
@@ -63,7 +64,13 @@ func NewBigqueryClient(ctx context.Context, urlstr string) (*bigquery.Client, st
 	}
 
 	if os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") == "" && os.Getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON") != "" {
-		options = append(options, option.WithCredentialsJSON([]byte(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON"))))
+		creds, err := google.CredentialsFromJSONWithTypeAndParams(ctx, []byte(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")), google.ServiceAccount, google.CredentialsParams{
+			Scopes: []string{bigquery.Scope},
+		})
+		if err != nil {
+			return nil, "", "", err
+		}
+		options = append(options, option.WithCredentials(creds))
 	}
 
 	// Setup impersonate service account configuration
@@ -131,7 +138,13 @@ func NewSpannerClient(ctx context.Context, urlstr string) (*cloudspanner.Client,
 	}
 
 	if os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") == "" && os.Getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON") != "" {
-		options = append(options, option.WithCredentialsJSON([]byte(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON"))))
+		creds, err := google.CredentialsFromJSONWithTypeAndParams(ctx, []byte(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")), google.ServiceAccount, google.CredentialsParams{
+			Scopes: []string{cloudspanner.Scope},
+		})
+		if err != nil {
+			return nil, "", err
+		}
+		options = append(options, option.WithCredentials(creds))
 	}
 
 	// Setup impersonate service account configuration

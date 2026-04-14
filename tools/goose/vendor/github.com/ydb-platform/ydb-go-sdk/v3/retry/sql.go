@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/stack"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/tx"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xcontext"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/badconn"
@@ -35,9 +36,6 @@ func (retryOptions doRetryOptionsOption) ApplyDoOption(opts *doOptions) {
 }
 
 // WithDoRetryOptions specified retry options
-// Deprecated: use explicit options instead.
-// Will be removed after Oct 2024.
-// Read about versioning policy: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#deprecated
 func WithDoRetryOptions(opts ...Option) doRetryOptionsOption {
 	return opts
 }
@@ -60,8 +58,6 @@ func Do(ctx context.Context, db *sql.DB, op func(ctx context.Context, cc *sql.Co
 }
 
 // DoWithResult is a retryer of database/sql conn with fallbacks on errors
-//
-// Experimental: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#experimental
 func DoWithResult[T any](ctx context.Context, db *sql.DB,
 	op func(ctx context.Context, cc *sql.Conn) (T, error),
 	opts ...doOption,
@@ -91,7 +87,7 @@ func DoWithResult[T any](ctx context.Context, db *sql.DB,
 		attempts++
 		cc, err := db.Conn(ctx)
 		if err != nil {
-			return zeroValue, unwrapErrBadConn(xerrors.WithStackTrace(err))
+			return zeroValue, xerrors.WithStackTrace(err)
 		}
 		defer func() {
 			if finalErr != nil && mustDeleteConn(finalErr, cc) {
@@ -104,7 +100,7 @@ func DoWithResult[T any](ctx context.Context, db *sql.DB,
 		}()
 		v, err := op(xcontext.MarkRetryCall(ctx), cc)
 		if err != nil {
-			return zeroValue, unwrapErrBadConn(xerrors.WithStackTrace(err))
+			return zeroValue, xerrors.WithStackTrace(err)
 		}
 
 		return v, nil
@@ -121,6 +117,7 @@ func DoWithResult[T any](ctx context.Context, db *sql.DB,
 type doTxOptions struct {
 	txOptions    *sql.TxOptions
 	retryOptions []Option
+	lazyTx       *bool
 }
 
 // doTxOption defines option for redefine default Retry behavior
@@ -137,9 +134,6 @@ func (doTxRetryOptions doTxRetryOptionsOption) ApplyDoTxOption(o *doTxOptions) {
 }
 
 // WithDoTxRetryOptions specified retry options
-// Deprecated: use explicit options instead.
-// Will be removed after Oct 2024.
-// Read about versioning policy: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#deprecated
 func WithDoTxRetryOptions(opts ...Option) doTxRetryOptionsOption {
 	return opts
 }
@@ -161,6 +155,27 @@ func WithTxOptions(txOptions *sql.TxOptions) txOptionsOption {
 	}
 }
 
+var _ doTxOption = lazyTxOption{}
+
+type lazyTxOption struct {
+	lazyTx bool
+}
+
+func (opt lazyTxOption) ApplyDoTxOption(o *doTxOptions) {
+	o.lazyTx = &opt.lazyTx
+}
+
+// WithLazyTx enables or disables lazy transactions for DoTx call.
+// When enabled, the Begin call will be a no-op and the first execute will create
+// an interactive transaction.
+//
+// Note: This option works only with query service (ydb.WithQueryService(true) connector option).
+//
+// Experimental: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#experimental
+func WithLazyTx(lazyTx bool) lazyTxOption {
+	return lazyTxOption{lazyTx: lazyTx}
+}
+
 // DoTx is a retryer of database/sql transactions with fallbacks on errors
 func DoTx(ctx context.Context, db *sql.DB, op func(context.Context, *sql.Tx) error, opts ...doTxOption) error {
 	_, err := DoTxWithResult(ctx, db, func(ctx context.Context, tx *sql.Tx) (*struct{}, error) {
@@ -179,8 +194,6 @@ func DoTx(ctx context.Context, db *sql.DB, op func(context.Context, *sql.Tx) err
 }
 
 // DoTxWithResult is a retryer of database/sql transactions with fallbacks on errors
-//
-// Experimental: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#experimental
 func DoTxWithResult[T any](ctx context.Context, db *sql.DB,
 	op func(context.Context, *sql.Tx) (T, error),
 	opts ...doTxOption,
@@ -212,21 +225,25 @@ func DoTxWithResult[T any](ctx context.Context, db *sql.DB,
 			opt.ApplyDoTxOption(&options)
 		}
 	}
+	if options.lazyTx != nil {
+		ctx = tx.WithLazyTx(ctx, *options.lazyTx)
+	}
 	v, err := RetryWithResult(ctx, func(ctx context.Context) (_ T, finalErr error) {
 		attempts++
 		tx, err := db.BeginTx(ctx, options.txOptions)
 		if err != nil {
-			return zeroValue, unwrapErrBadConn(xerrors.WithStackTrace(err))
+			return zeroValue, xerrors.WithStackTrace(err)
 		}
 		defer func() {
 			_ = tx.Rollback()
 		}()
 		v, err := op(xcontext.MarkRetryCall(ctx), tx)
 		if err != nil {
-			return zeroValue, unwrapErrBadConn(xerrors.WithStackTrace(err))
+			return zeroValue, xerrors.WithStackTrace(err)
 		}
 		if err = tx.Commit(); err != nil {
-			return zeroValue, unwrapErrBadConn(xerrors.WithStackTrace(err))
+			// We create and use tx in this method, so if we catch this error, it means context cancellation
+			return zeroValue, xerrors.WithStackTrace(transformCommitError(ctx, err))
 		}
 
 		return v, nil
@@ -238,6 +255,16 @@ func DoTxWithResult[T any](ctx context.Context, db *sql.DB,
 	}
 
 	return v, nil
+}
+
+func transformCommitError(ctx context.Context, err error) error {
+	if xerrors.Is(err, sql.ErrTxDone) {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+	}
+
+	return err
 }
 
 func mustDeleteConn[T interface {

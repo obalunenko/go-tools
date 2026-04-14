@@ -32,10 +32,12 @@ const (
 	AURSource      Key = "aur-source"
 	NFPM           Key = "nfpm"
 	Makeself       Key = "makeself"
+	Flatpak        Key = "flatpak"
 	Chocolatey     Key = "chocolatey"
 	Notarize       Key = "notarize"
 	Archive        Key = "archive"
 	MCP            Key = "mcp"
+	SRPM           Key = "srpm"
 )
 
 func String(ctx *context.Context) string {
@@ -126,6 +128,8 @@ var Release = Keys{
 	AURSource,
 	NFPM,
 	Makeself,
+	Flatpak,
+	SRPM,
 	Before,
 	Notarize,
 	Archive,

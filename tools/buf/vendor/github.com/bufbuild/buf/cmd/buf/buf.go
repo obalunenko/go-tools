@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -116,6 +116,7 @@ import (
 	"github.com/bufbuild/buf/cmd/buf/internal/command/registry/sdk/sdkinfo"
 	"github.com/bufbuild/buf/cmd/buf/internal/command/registry/sdk/version"
 	"github.com/bufbuild/buf/cmd/buf/internal/command/registry/whoami"
+	"github.com/bufbuild/buf/cmd/buf/internal/command/source/sourceedit/sourceeditdeprecate"
 	"github.com/bufbuild/buf/cmd/buf/internal/command/stats"
 	"github.com/bufbuild/buf/private/buf/bufcli"
 	"github.com/bufbuild/buf/private/buf/bufctl"
@@ -174,6 +175,19 @@ func newRootCommand(name string) *appcmd.Command {
 					configlslintrules.NewCommand("ls-lint-rules", builder),
 					configlsbreakingrules.NewCommand("ls-breaking-rules", builder),
 					configlsmodules.NewCommand("ls-modules", builder),
+				},
+			},
+			{
+				Use:   "source",
+				Short: "Work with Protobuf source files",
+				SubCommands: []*appcmd.Command{
+					{
+						Use:   "edit",
+						Short: "Edit Protobuf source files",
+						SubCommands: []*appcmd.Command{
+							sourceeditdeprecate.NewCommand("deprecate", builder),
+						},
+					},
 				},
 			},
 			{
@@ -350,9 +364,8 @@ func newRootCommand(name string) *appcmd.Command {
 						},
 					},
 					{
-						Use:    "policy",
-						Short:  "Manage BSR policies",
-						Hidden: true,
+						Use:   "policy",
+						Short: "Manage BSR policies",
 						SubCommands: []*appcmd.Command{
 							{
 								Use:   "commit",
@@ -449,7 +462,14 @@ func newRootCommand(name string) *appcmd.Command {
 		},
 		ModifyCobra: func(cobraCommand *cobra.Command) error {
 			cobraCommand.AddCommand(bufcobra.NewWebpagesCommand("webpages", cobraCommand))
-			return nil
+			return cobraCommand.RegisterFlagCompletionFunc(
+				"log-format",
+				cobra.FixedCompletions([]string{
+					appext.LogFormatText.String(),
+					appext.LogFormatColor.String(),
+					appext.LogFormatJSON.String(),
+				}, cobra.ShellCompDirectiveNoFileComp|cobra.ShellCompDirectiveKeepOrder),
+			)
 		},
 	}
 }

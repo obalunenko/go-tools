@@ -8,7 +8,8 @@ import (
 	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb"
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/value"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xstring"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xiter"
+	"github.com/ydb-platform/ydb-go-sdk/v3/pkg/xstring"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table/types"
 )
 
@@ -23,10 +24,24 @@ type (
 		value  value.Value
 	}
 	Parameters interface {
+		fmt.Stringer
+
 		ToYDB() (map[string]*Ydb.TypedValue, error)
+		Range() xiter.Seq2[string, value.Value]
 	}
 	Params []*Parameter
 )
+
+func (p *Params) Range() xiter.Seq2[string, value.Value] {
+	return func(yield func(name string, v value.Value) bool) {
+		for _, param := range *p {
+			cont := yield(param.name, param.value)
+			if !cont {
+				return
+			}
+		}
+	}
+}
 
 var _ Parameters = (*Params)(nil)
 
@@ -351,8 +366,24 @@ func (p *Parameter) JSON(v string) Builder {
 	}
 }
 
+func (p *Parameter) JSONFromBytes(v []byte) Builder {
+	p.value = value.JSONValueFromBytes(v)
+
+	return Builder{
+		params: append(p.parent.params, p),
+	}
+}
+
 func (p *Parameter) JSONDocument(v string) Builder {
 	p.value = value.JSONDocumentValue(v)
+
+	return Builder{
+		params: append(p.parent.params, p),
+	}
+}
+
+func (p *Parameter) JSONDocumentFromBytes(v []byte) Builder {
+	p.value = value.JSONDocumentValueFromBytes(v)
 
 	return Builder{
 		params: append(p.parent.params, p),
@@ -383,7 +414,7 @@ func (p *Parameter) UUIDWithIssue1501Value(v [16]byte) Builder {
 	}
 }
 
-func (p *Parameter) Uuid(val uuid.UUID) Builder { //nolint:revive,stylecheck
+func (p *Parameter) Uuid(val uuid.UUID) Builder { //nolint:revive
 	p.value = value.Uuid(val)
 
 	return Builder{

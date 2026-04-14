@@ -27,6 +27,55 @@ func HTTPClientConfigFromConfig(cfg *Config) (httpclient.ClientConfig, error) {
 		return httpclient.ClientConfig{}, err
 	}
 
+	visitors := []httpclient.RequestVisitor{
+		func(r *http.Request) error {
+			if r.URL == nil {
+				return fmt.Errorf("no URL found in request")
+			}
+			url, err := url.Parse(cfg.Host)
+			if err != nil {
+				return err
+			}
+			r.URL.Host = url.Host
+			r.URL.Scheme = url.Scheme
+			return nil
+		},
+		authInUserAgentVisitor(cfg),
+		func(r *http.Request) error {
+			// Detect if we are running in a CI/CD environment
+			provider := useragent.CiCdProvider()
+			if provider == "" {
+				return nil
+			}
+			// Add the detected CI/CD provider to the user agent
+			ctx := useragent.InContext(r.Context(), useragent.CicdKey, provider)
+			*r = *r.WithContext(ctx) // replace request
+			return nil
+		},
+		func(r *http.Request) error {
+			// Detect if the SDK is being run in a Databricks Runtime.
+			v := useragent.Runtime()
+			if v == "" {
+				return nil
+			}
+			// Add the detected Databricks Runtime version to the user agent
+			ctx := useragent.InContext(r.Context(), useragent.RuntimeKey, v)
+			*r = *r.WithContext(ctx) // replace request
+			return nil
+		},
+		func(r *http.Request) error {
+			// Detect if we are running inside a known AI coding agent.
+			provider := useragent.AgentProvider()
+			if provider == "" {
+				return nil
+			}
+			// Add the detected agent to the user agent.
+			ctx := useragent.InContext(r.Context(), useragent.AgentKey, provider)
+			*r = *r.WithContext(ctx) // replace request
+			return nil
+		},
+	}
+
 	return httpclient.ClientConfig{
 		AccountID:          cfg.AccountID,
 		Host:               cfg.Host,
@@ -38,43 +87,7 @@ func HTTPClientConfigFromConfig(cfg *Config) (httpclient.ClientConfig, error) {
 		InsecureSkipVerify: cfg.InsecureSkipVerify,
 		Transport:          cfg.HTTPTransport,
 		AuthVisitor:        cfg.Authenticate,
-		Visitors: []httpclient.RequestVisitor{
-			func(r *http.Request) error {
-				if r.URL == nil {
-					return fmt.Errorf("no URL found in request")
-				}
-				url, err := url.Parse(cfg.Host)
-				if err != nil {
-					return err
-				}
-				r.URL.Host = url.Host
-				r.URL.Scheme = url.Scheme
-				return nil
-			},
-			authInUserAgentVisitor(cfg),
-			func(r *http.Request) error {
-				// Detect if we are running in a CI/CD environment
-				provider := useragent.CiCdProvider()
-				if provider == "" {
-					return nil
-				}
-				// Add the detected CI/CD provider to the user agent
-				ctx := useragent.InContext(r.Context(), useragent.CicdKey, provider)
-				*r = *r.WithContext(ctx) // replace request
-				return nil
-			},
-			func(r *http.Request) error {
-				// Detect if the SDK is being run in a Databricks Runtime.
-				v := useragent.Runtime()
-				if v == "" {
-					return nil
-				}
-				// Add the detected Databricks Runtime version to the user agent
-				ctx := useragent.InContext(r.Context(), useragent.RuntimeKey, v)
-				*r = *r.WithContext(ctx) // replace request
-				return nil
-			},
-		},
+		Visitors:           visitors,
 		TransientErrors: []string{
 			// This is temporary workaround for SCIM API returning 500.
 			// TODO: Remove when it's fixed.

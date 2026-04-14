@@ -30,12 +30,19 @@ func (t *transaction) Exec(ctx context.Context, sql string, params *params.Param
 		opts = append(opts, options.WithTxControl(txControl))
 	}
 
+	if tx.CommitTxFromContext(ctx) {
+		opts = append(opts, options.WithCommit())
+	}
+
+	r := &resultWithStats{}
+	opts = append(opts, options.WithStatsMode(options.StatsModeBasic, r.onQueryStats))
+
 	err := t.tx.Exec(ctx, sql, opts...)
 	if err != nil {
 		return nil, xerrors.WithStackTrace(err)
 	}
 
-	return resultNoRows{}, nil
+	return r, nil
 }
 
 func (t *transaction) Query(ctx context.Context, sql string, params *params.Params) (driver.RowsNextResultSet, error) {
@@ -45,6 +52,10 @@ func (t *transaction) Query(ctx context.Context, sql string, params *params.Para
 
 	if txControl := tx.ControlFromContext(ctx, nil); txControl != nil {
 		opts = append(opts, options.WithTxControl(txControl))
+	}
+
+	if tx.CommitTxFromContext(ctx) {
+		opts = append(opts, options.WithCommit())
 	}
 
 	res, err := t.tx.Query(ctx, sql, opts...)
@@ -84,10 +95,9 @@ func (t *transaction) Commit(ctx context.Context) (finalErr error) {
 }
 
 func (t *transaction) Rollback(ctx context.Context) (finalErr error) {
-	err := t.tx.Rollback(ctx)
-	if err != nil {
+	if err := t.tx.Rollback(ctx); err != nil {
 		return xerrors.WithStackTrace(err)
 	}
 
-	return err
+	return nil
 }

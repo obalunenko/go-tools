@@ -19,7 +19,6 @@ package gitlab
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 )
@@ -236,6 +235,8 @@ type MergeRequestDiff struct {
 	RenamedFile   bool   `json:"renamed_file"`
 	DeletedFile   bool   `json:"deleted_file"`
 	GeneratedFile bool   `json:"generated_file"`
+	Collapsed     bool   `json:"collapsed"`
+	TooLarge      bool   `json:"too_large"`
 }
 
 // MergeRequestDiffVersion represents GitLab merge request version.
@@ -341,6 +342,7 @@ type ListProjectMergeRequestsOptions struct {
 	Sort                   *string           `url:"sort,omitempty" json:"sort,omitempty"`
 	Milestone              *string           `url:"milestone,omitempty" json:"milestone,omitempty"`
 	View                   *string           `url:"view,omitempty" json:"view,omitempty"`
+	Environment            *string           `url:"environment,omitempty" json:"environment,omitempty"`
 	Labels                 *LabelOptions     `url:"labels,comma,omitempty" json:"labels,omitempty"`
 	NotLabels              *LabelOptions     `url:"not[labels],comma,omitempty" json:"not[labels],omitempty"`
 	WithLabelsDetails      *bool             `url:"with_labels_details,omitempty" json:"with_labels_details,omitempty"`
@@ -349,6 +351,8 @@ type ListProjectMergeRequestsOptions struct {
 	CreatedBefore          *time.Time        `url:"created_before,omitempty" json:"created_before,omitempty"`
 	UpdatedAfter           *time.Time        `url:"updated_after,omitempty" json:"updated_after,omitempty"`
 	UpdatedBefore          *time.Time        `url:"updated_before,omitempty" json:"updated_before,omitempty"`
+	DeployedBefore         *time.Time        `url:"deployed_before,omitempty" json:"deployed_before,omitempty"`
+	DeployedAfter          *time.Time        `url:"deployed_after,omitempty" json:"deployed_after,omitempty"`
 	Scope                  *string           `url:"scope,omitempty" json:"scope,omitempty"`
 	AuthorID               *int64            `url:"author_id,omitempty" json:"author_id,omitempty"`
 	AuthorUsername         *string           `url:"author_username,omitempty" json:"author_username,omitempty"`
@@ -417,6 +421,7 @@ type ListGroupMergeRequestsOptions struct {
 	SourceBranch           *string           `url:"source_branch,omitempty" json:"source_branch,omitempty"`
 	TargetBranch           *string           `url:"target_branch,omitempty" json:"target_branch,omitempty"`
 	Search                 *string           `url:"search,omitempty" json:"search,omitempty"`
+	In                     *string           `url:"in,omitempty" json:"in,omitempty"`
 	Draft                  *bool             `url:"draft,omitempty" json:"draft,omitempty"`
 	WIP                    *string           `url:"wip,omitempty" json:"wip,omitempty"`
 }
@@ -562,28 +567,13 @@ type ShowMergeRequestRawDiffsOptions struct{}
 // GitLab API docs:
 // https://docs.gitlab.com/api/merge_requests/#show-merge-request-raw-diffs
 func (s *MergeRequestsService) ShowMergeRequestRawDiffs(pid any, mergeRequest int64, opt *ShowMergeRequestRawDiffsOptions, options ...RequestOptionFunc) ([]byte, *Response, error) {
-	p, err := ProjectID{pid}.forPath()
-	if err != nil {
-		return []byte{}, nil, err
-	}
-	u := fmt.Sprintf(
-		"projects/%s/merge_requests/%d/raw_diffs",
-		p,
-		mergeRequest,
+	b, resp, err := do[bytes.Buffer](s.client,
+		withPath("projects/%s/merge_requests/%d/raw_diffs", ProjectID{pid}, mergeRequest),
+		withAPIOpts(opt),
+		withRequestOpts(options...),
 	)
 
-	req, err := s.client.NewRequest(http.MethodGet, u, opt, options)
-	if err != nil {
-		return []byte{}, nil, err
-	}
-
-	var rd bytes.Buffer
-	resp, err := s.client.Do(req, &rd)
-	if err != nil {
-		return []byte{}, resp, err
-	}
-
-	return rd.Bytes(), resp, nil
+	return b.Bytes(), resp, err
 }
 
 // GetMergeRequestParticipants gets a list of merge request participants.

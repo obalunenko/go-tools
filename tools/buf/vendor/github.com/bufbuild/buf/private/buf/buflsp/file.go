@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ import (
 	"github.com/bufbuild/protocompile/experimental/report"
 	"github.com/bufbuild/protocompile/experimental/seq"
 	"github.com/bufbuild/protocompile/experimental/source"
+	"github.com/bufbuild/protocompile/experimental/token/keyword"
 	"go.lsp.dev/protocol"
 )
 
@@ -57,6 +58,8 @@ type file struct {
 	// diagnostics or symbols an operating refers to.
 	version int32
 	hasText bool // Whether this file has ever had text read into it.
+	// The local path of the descriptor.proto file used for compilation. This is stored for diagnostics.
+	descriptorProtoLocalPath string
 
 	workspace  *workspace         // May be nil.
 	objectInfo storage.ObjectInfo // Info in the context of the workspace.
@@ -65,7 +68,8 @@ type file struct {
 	referenceableSymbols map[ir.FullName]*symbol
 	referenceSymbols     []*symbol
 	symbols              []*symbol
-	diagnostics          []protocol.Diagnostic
+	irReport             *report.Report        // IR diagnostic report for code actions
+	diagnostics          []protocol.Diagnostic // Converted LSP diagnostics
 	cancelChecks         func()
 }
 
@@ -97,6 +101,9 @@ func (f *file) Reset(ctx context.Context) {
 		f.workspace.Release()
 		f.workspace = nil
 	}
+	// Evict the query key if there is a query cached on the file. We cache the [queries.File]
+	// query since this allows the executor to evict all dependent queries, e.g. AST and IR.
+	f.lsp.queryExecutor.Evict(f.queryFileKeys()...)
 	// Clear the file as nothing should use it after reset. This asserts that.
 	*f = file{}
 }
@@ -210,6 +217,14 @@ func (f *file) RefreshWorkspace(ctx context.Context) {
 //
 // This operation requires a workspace.
 func (f *file) RefreshIR(ctx context.Context) {
+	if f.objectInfo == nil {
+		// This can happen if the file that is opened is excluded from the workspace through
+		// includes/excludes in the build. In those cases, we ignore the file, the same way
+		// the rest of our tools would.
+		// In the future, we may want to rework this behavior in the LSP.
+		return
+	}
+
 	f.lsp.logger.Info(
 		"parsing IR for file",
 		slog.String("uri", string(f.uri)),
@@ -217,25 +232,40 @@ func (f *file) RefreshIR(ctx context.Context) {
 	)
 	f.diagnostics = nil
 	f.ir = nil
+	f.irReport = nil
 
 	// Opener creates a cached view of all files in the workspace.
 	pathToFiles := f.workspace.PathToFile()
 	files := make([]*file, 0, len(pathToFiles))
-	openerMap := make(map[string]*source.File, len(pathToFiles))
+	var evictQueryKeys []any
+
+	openerMap := f.lsp.opener.Get()
 	for path, file := range pathToFiles {
-		openerMap[path] = file.file
+		current := openerMap[path]
+		// If there is no entry for the current path or if the file content has changed, we
+		// update the opener and evict stale [queries.File] queries.
+		if current == nil || current.Text() != file.file.Text() {
+			openerMap[path] = file.file
+			if current != nil {
+				// This indicates the file content has changed, so we evict the query file keys.
+				evictQueryKeys = append(evictQueryKeys, file.queryFileKeys()...)
+			}
+		}
 		files = append(files, file)
 	}
-	opener := source.NewMap(openerMap)
 
-	session := new(ir.Session)
-	queries := xslices.Map(files, func(file *file) incremental.Query[*ir.File] {
-		return queries.IR{
-			Opener:  opener,
-			Path:    file.objectInfo.Path(),
-			Session: session,
+	// Remove paths that are no longer in the current workspace and evict stale query keys.
+	for path := range openerMap {
+		if _, ok := pathToFiles[path]; !ok {
+			delete(openerMap, path)
 		}
+	}
+	f.lsp.queryExecutor.Evict(evictQueryKeys...)
+
+	queries := xslices.Map(files, func(file *file) incremental.Query[*ir.File] {
+		return file.queryIR()
 	})
+
 	results, diagnosticReport, err := incremental.Run(
 		ctx,
 		f.lsp.queryExecutor,
@@ -250,33 +280,69 @@ func (f *file) RefreshIR(ctx context.Context) {
 		)
 		return
 	}
+
 	for i, file := range files {
 		file.ir = results[i].Value
+		if file.objectInfo.Path() == "google/protobuf/descriptor.proto" {
+			// Set local path for the descriptor.proto file used for diagnostics.
+			f.descriptorProtoLocalPath = file.objectInfo.LocalPath()
+		}
 		if f != file {
 			// Update symbols for imports.
 			file.IndexSymbols(ctx)
 		}
 	}
-	// Only hold on to diagnostics where the primary span is for this path.
+
+	// Store the IR report for code actions
+	f.irReport = diagnosticReport
+
+	// Only hold on to diagnostics where the primary span is for this file.
 	fileDiagnostics := xslices.Filter(diagnosticReport.Diagnostics, func(d report.Diagnostic) bool {
-		return d.Primary().Path() == f.objectInfo.Path()
+		// We avoid returning warnings from the compiler for now, since these may conflate with
+		// lint checks.
+		return d.Primary().Path() == f.objectInfo.LocalPath() && d.Level() < report.Warning
 	})
-	diagnostics, err := xslices.MapError(
-		fileDiagnostics,
-		reportDiagnosticToProtocolDiagnostic,
-	)
-	if err != nil {
-		f.lsp.logger.Error(
-			"failed to parse report diagnostics",
-			xslog.ErrorAttr(err),
-		)
-	}
-	f.diagnostics = diagnostics
+	f.diagnostics = xslices.Map(fileDiagnostics, reportDiagnosticToProtocolDiagnostic)
+
 	f.lsp.logger.DebugContext(
 		ctx, "ir diagnostic(s)",
 		slog.String("uri", f.uri.Filename()),
 		slog.Int("count", len(f.diagnostics)),
 	)
+}
+
+// queryIR returns the [queries.IR] for the current file.
+func (f *file) queryIR() incremental.Query[*ir.File] {
+	if f.objectInfo == nil {
+		return nil
+	}
+	return queries.IR{
+		Opener:  f.lsp.opener,
+		Path:    f.objectInfo.Path(),
+		Session: f.lsp.irSession,
+	}
+}
+
+// queryFileKeys returns the keys for [queries.File] with ReportError set to true and false.
+// This is because [queries.AST] depends on ReportError set to true and [queries.IR] depends
+// on ReportError set to false, so we need both keys when evicting cached [queries.File]
+// results for stale file states.
+func (f *file) queryFileKeys() []any {
+	if f.objectInfo == nil {
+		return nil
+	}
+	return []any{
+		queries.File{
+			Opener:      f.lsp.opener,
+			Path:        f.objectInfo.Path(),
+			ReportError: true,
+		}.Key(),
+		queries.File{
+			Opener:      f.lsp.opener,
+			Path:        f.objectInfo.Path(),
+			ReportError: false,
+		}.Key(),
+	}
 }
 
 // IndexSymbols processes the IR of a file and generates symbols for each symbol in
@@ -285,8 +351,23 @@ func (f *file) RefreshIR(ctx context.Context) {
 // This operation requires RefreshIR.
 func (f *file) IndexSymbols(ctx context.Context) {
 	defer xslog.DebugProfile(f.lsp.logger, slog.String("uri", string(f.uri)))()
-	// We cannot index symbols without the IR, so we keep the symbols as-is.
+
 	if f.ir == nil {
+		return
+	}
+
+	// The file has not completed lowering, so we cannot continue with symbol indexing here.
+	// To help the user better understand/diagnose this problem, we surface an additional
+	// diagnostic here.
+	if !f.ir.Lowered() {
+		f.diagnostics = append(f.diagnostics, protocol.Diagnostic{
+			Source:   serverName,
+			Severity: protocol.DiagnosticSeverityError,
+			Message: fmt.Sprintf(`The symbols for this file have not been fully resolved due to an invalid version of descriptor.proto located at: %q.
+This is likely due to a vendored descriptor.proto.`,
+				f.descriptorProtoLocalPath,
+			),
+		})
 		return
 	}
 
@@ -457,6 +538,21 @@ func (f *file) indexSymbols() ([]*symbol, []*symbol) {
 //   - The second slice contains symbols that resolution for their defs
 func (f *file) irToSymbols(irSymbol ir.Symbol) ([]*symbol, []*symbol) {
 	var resolved, unresolved []*symbol
+
+	// Skip synthetic fields that belong to MapEntry messages (key/value fields)
+	if irSymbol.Kind() == ir.SymbolKindField {
+		if irSymbol.AsMember().IsSynthetic() {
+			return nil, nil
+		}
+	}
+
+	// Skip synthetic MapEntry messages created for map fields
+	if irSymbol.Kind() == ir.SymbolKindMessage {
+		if irSymbol.AsType().IsMapEntry() {
+			return nil, nil
+		}
+	}
+
 	switch irSymbol.Kind() {
 	case ir.SymbolKindMessage:
 		msg := &symbol{
@@ -469,6 +565,7 @@ func (f *file) irToSymbols(irSymbol ir.Symbol) ([]*symbol, []*symbol) {
 		}
 		msg.def = msg
 		resolved = append(resolved, msg)
+		resolved = append(resolved, f.visibilityPrefixSymbols(irSymbol, irSymbol.AsType().AST())...)
 		unresolved = append(unresolved, f.messageToSymbols(irSymbol.AsType().Options())...)
 	case ir.SymbolKindEnum:
 		enum := &symbol{
@@ -481,6 +578,7 @@ func (f *file) irToSymbols(irSymbol ir.Symbol) ([]*symbol, []*symbol) {
 		}
 		enum.def = enum
 		resolved = append(resolved, enum)
+		resolved = append(resolved, f.visibilityPrefixSymbols(irSymbol, irSymbol.AsType().AST())...)
 		unresolved = append(unresolved, f.messageToSymbols(irSymbol.AsType().Options())...)
 	case ir.SymbolKindEnumValue:
 		name := &symbol{
@@ -504,19 +602,82 @@ func (f *file) irToSymbols(irSymbol ir.Symbol) ([]*symbol, []*symbol) {
 		resolved = append(resolved, tag)
 		unresolved = append(unresolved, f.messageToSymbols(irSymbol.AsMember().Options())...)
 	case ir.SymbolKindField:
-		typ := &symbol{
-			ir:   irSymbol,
-			file: f,
-			// We remove prefixes from the type, since we want to exclude the prefix from the
-			// symbol, e.g. repeated string values = 1;, we want to capture the symbol for "string".
-			span: irSymbol.AsMember().TypeAST().RemovePrefixes().Span(),
-		}
-		kind, needsResolution := getKindForMember(irSymbol.AsMember())
-		typ.kind = kind
-		if needsResolution {
-			unresolved = append(unresolved, typ)
+		// Check if this is a map field by looking for a generic type
+		typeWithoutPrefixes := irSymbol.AsMember().TypeAST().RemovePrefixes()
+		if genericType := typeWithoutPrefixes.AsGeneric(); !genericType.IsZero() {
+			// This is a map field - create symbols for "map" keyword, key type, and value type
+			keyType, valueType := genericType.AsMap()
+
+			// Create symbol for "map" keyword itself
+			if mapPath := genericType.Path(); !mapPath.IsZero() && !mapPath.Span().IsZero() {
+				mapSymbol := &symbol{
+					ir:   irSymbol,
+					file: f,
+					span: mapPath.Span(),
+					kind: &builtin{predeclared: predeclared.Map},
+				}
+				resolved = append(resolved, mapSymbol)
+			}
+
+			// Create symbol for key type
+			if !keyType.IsZero() {
+				if keyPath := keyType.RemovePrefixes().AsPath(); !keyPath.IsZero() && !keyPath.Span().IsZero() {
+					keySymbol := &symbol{
+						ir:   irSymbol,
+						file: f,
+						span: keyPath.Span(),
+					}
+					kind, needsResolution := getKindForMapType(keyType, irSymbol.AsMember(), true)
+					if kind != nil {
+						keySymbol.kind = kind
+						if needsResolution {
+							unresolved = append(unresolved, keySymbol)
+						} else {
+							resolved = append(resolved, keySymbol)
+						}
+					}
+				}
+			}
+
+			// Create symbol for value type
+			if !valueType.IsZero() {
+				if valuePath := valueType.RemovePrefixes().AsPath(); !valuePath.IsZero() && !valuePath.Span().IsZero() {
+					valueSymbol := &symbol{
+						ir:   irSymbol,
+						file: f,
+						span: valuePath.Span(),
+					}
+					kind, needsResolution := getKindForMapType(valueType, irSymbol.AsMember(), false)
+					if kind != nil {
+						valueSymbol.kind = kind
+						if needsResolution {
+							unresolved = append(unresolved, valueSymbol)
+						} else {
+							resolved = append(resolved, valueSymbol)
+						}
+					}
+				}
+			}
 		} else {
-			resolved = append(resolved, typ)
+			// Regular non-map field - use existing logic
+			// Get the type span. We prefer AsPath() which excludes modifiers like "repeated"
+			// while keeping package qualifiers, but fallback to RemovePrefixes() if AsPath is zero.
+			typeSpan := irSymbol.AsMember().TypeAST().AsPath().Span()
+			if typeSpan.IsZero() {
+				typeSpan = irSymbol.AsMember().TypeAST().RemovePrefixes().Span()
+			}
+			typ := &symbol{
+				ir:   irSymbol,
+				file: f,
+				span: typeSpan,
+			}
+			kind, needsResolution := getKindForMember(irSymbol.AsMember())
+			typ.kind = kind
+			if needsResolution {
+				unresolved = append(unresolved, typ)
+			} else {
+				resolved = append(resolved, typ)
+			}
 		}
 
 		field := &symbol{
@@ -540,7 +701,25 @@ func (f *file) irToSymbols(irSymbol ir.Symbol) ([]*symbol, []*symbol) {
 		resolved = append(resolved, tag)
 		unresolved = append(unresolved, f.messageToSymbols(irSymbol.AsMember().Options())...)
 	case ir.SymbolKindExtension:
-		// The symbol only includes the extension field name.
+		// Track the type reference for the extension field (e.g., "Testing" in "Testing testing = 89181;")
+		typeSpan := irSymbol.AsMember().TypeAST().AsPath().Span()
+		if typeSpan.IsZero() {
+			typeSpan = irSymbol.AsMember().TypeAST().RemovePrefixes().Span()
+		}
+		typ := &symbol{
+			ir:   irSymbol,
+			file: f,
+			span: typeSpan,
+		}
+		kind, needsResolution := getKindForMember(irSymbol.AsMember())
+		typ.kind = kind
+		if needsResolution {
+			unresolved = append(unresolved, typ)
+		} else {
+			resolved = append(resolved, typ)
+		}
+
+		// Track the extension field name itself.
 		ext := &symbol{
 			ir:   irSymbol,
 			file: f,
@@ -574,6 +753,7 @@ func (f *file) irToSymbols(irSymbol ir.Symbol) ([]*symbol, []*symbol) {
 		}
 		service.def = service
 		resolved = append(resolved, service)
+		resolved = append(resolved, f.visibilityPrefixSymbols(irSymbol, irSymbol.AsService().AST())...)
 		unresolved = append(unresolved, f.messageToSymbols(irSymbol.AsService().Options())...)
 	case ir.SymbolKindMethod:
 		method := &symbol{
@@ -588,28 +768,45 @@ func (f *file) irToSymbols(irSymbol ir.Symbol) ([]*symbol, []*symbol) {
 		resolved = append(resolved, method)
 
 		input, _ := irSymbol.AsMethod().Input()
-		inputSym := &symbol{
-			ir:   irSymbol,
-			file: f,
-			span: irSymbol.AsMethod().AST().AsMethod().Signature.Inputs().Span(),
-			kind: &reference{
-				def:      input.AST(), // Only messages can be method inputs and outputs
-				fullName: input.FullName(),
-			},
+		// Method input must be a single message type.
+		if astInputs := irSymbol.AsMethod().AST().AsMethod().Signature.Inputs(); astInputs.Len() == 1 {
+			inputAST := astInputs.At(0)
+			// Get the type span, preferring AsPath() but falling back to RemovePrefixes().
+			inputSpan := inputAST.AsPath().Span()
+			if inputSpan.IsZero() {
+				inputSpan = inputAST.RemovePrefixes().Span()
+			}
+			inputSym := &symbol{
+				ir:   irSymbol,
+				file: f,
+				span: inputSpan,
+				kind: &reference{
+					def:      input.AST(), // Only messages can be method inputs and outputs
+					fullName: input.FullName(),
+				},
+			}
+			unresolved = append(unresolved, inputSym)
 		}
-		unresolved = append(unresolved, inputSym)
-
 		output, _ := irSymbol.AsMethod().Output()
-		outputSym := &symbol{
-			ir:   irSymbol,
-			file: f,
-			span: irSymbol.AsMethod().AST().AsMethod().Signature.Outputs().Span(),
-			kind: &reference{
-				def:      output.AST(), // Only messages can be method inputs and outputs
-				fullName: output.FullName(),
-			},
+		// Method output must be a single message type.
+		if astOutputs := irSymbol.AsMethod().AST().AsMethod().Signature.Outputs(); astOutputs.Len() == 1 {
+			outputAST := astOutputs.At(0)
+			// Get the type span, preferring AsPath() but falling back to RemovePrefixes().
+			outputSpan := outputAST.AsPath().Span()
+			if outputSpan.IsZero() {
+				outputSpan = outputAST.RemovePrefixes().Span()
+			}
+			outputSym := &symbol{
+				ir:   irSymbol,
+				file: f,
+				span: outputSpan,
+				kind: &reference{
+					def:      output.AST(), // Only messages can be method inputs and outputs
+					fullName: output.FullName(),
+				},
+			}
+			unresolved = append(unresolved, outputSym)
 		}
-		unresolved = append(unresolved, outputSym)
 		unresolved = append(unresolved, f.messageToSymbols(irSymbol.AsMethod().Options())...)
 	}
 	return resolved, unresolved
@@ -632,11 +829,74 @@ func getKindForMember(member ir.Member) (kind, bool) {
 	}, true
 }
 
+// getKindForMapType returns the kind for a map key or value type.
+// For map fields, member.Element() returns the synthetic MapEntry message,
+// so we need to look up the actual type through the MapEntry's key/value fields.
+func getKindForMapType(typeAST ast.TypeAny, mapField ir.Member, isKey bool) (kind, bool) {
+	typePath := typeAST.RemovePrefixes().AsPath()
+	if typePath.IsZero() {
+		return nil, false
+	}
+
+	// Check if it's a predeclared type
+	if typePath.AsPredeclared() != predeclared.Unknown {
+		return &builtin{predeclared: typePath.AsPredeclared()}, false
+	}
+
+	// For custom types, navigate through the MapEntry to find the key/value field
+	elem := mapField.Element()
+	if elem.IsZero() || !elem.IsMessage() {
+		return &static{ast: mapField.AST()}, false
+	}
+
+	fieldName := "value"
+	if isKey {
+		fieldName = "key"
+	}
+
+	// Look for the key or value field in the MapEntry message
+	for i := range elem.Members().Len() {
+		if field := elem.Members().At(i); field.Name() == fieldName {
+			return &reference{
+				def:      field.Element().AST(),
+				fullName: field.Element().FullName(),
+			}, true
+		}
+	}
+
+	// Fallback if we couldn't resolve
+	return &static{ast: mapField.AST()}, false
+}
+
+// visibilityPrefixSymbols returns keywordBuiltin symbols for any export/local visibility
+// prefix tokens on the given decl, to support hover documentation on those keywords.
+func (f *file) visibilityPrefixSymbols(irSymbol ir.Symbol, decl ast.DeclDef) []*symbol {
+	var syms []*symbol
+	for prefix := range decl.Prefixes() {
+		kw := prefix.Prefix()
+		if kw != keyword.Export && kw != keyword.Local {
+			continue
+		}
+		prefixTok := prefix.PrefixToken()
+		if prefixTok.IsZero() {
+			continue
+		}
+		kwSym := &symbol{
+			ir:   irSymbol,
+			file: f,
+			span: prefixTok.Span(),
+			kind: &keywordBuiltin{name: kw.String(), anchor: "symbol-visibility"},
+		}
+		syms = append(syms, kwSym)
+	}
+	return syms
+}
+
 // importToSymbol takes an [ir.Import] and returns a symbol for it.
 func (f *file) importToSymbol(imp ir.Import) *symbol {
 	return &symbol{
 		file: f,
-		span: imp.Decl.Span(),
+		span: imp.Decl.ImportPath().Span(),
 		kind: &imported{
 			file: f.workspace.PathToFile()[imp.File.Path()],
 		},
@@ -684,12 +944,17 @@ func (f *file) messageToSymbolsHelper(msg ir.MessageValue, index int, parents []
 		//
 		// In the example, in the second definition, (option) and .message for field_b has a
 		// separate span from (option) and .message for field_a, but when we walk the mesasge
-		// tree, we get the span for (option) and .mesage for the first field. So we check the
+		// tree, we get the span for (option) and .message for the first field. So we check the
 		// symbols we've collected so far in parents and make sure we have captured a symbol for
 		// each path component.
 		for element := range seq.Values(field.Elements()) {
 			key := field.KeyASTs().At(element.ValueNodeIndex())
-			components := slices.Collect(key.AsPath().Components)
+			components := slices.Collect(key.AsPath().Components())
+			// If there are no path components for an element, then we skip it, since there are
+			// no symbols to track.
+			if len(components) == 0 {
+				continue
+			}
 			var span source.Span
 			// This covers the first case in the example above where the path is relative,
 			// e.g. field_a is a relative path within { } for (option).message.
@@ -699,6 +964,7 @@ func (f *file) messageToSymbolsHelper(msg ir.MessageValue, index int, parents []
 				// Otherwise, we get the component for the corresponding index.
 				span = components[index].Span()
 			}
+			span = trimLeadingDot(span)
 			sym := &symbol{
 				// NOTE: no [ir.Symbol] for option elements
 				file: f,
@@ -725,9 +991,10 @@ func (f *file) messageToSymbolsHelper(msg ir.MessageValue, index int, parents []
 					if component.IsLast() {
 						continue
 					}
+					componentSpan := trimLeadingDot(component.Span())
 					found := false
 					for _, parent := range parents {
-						if parent.span == component.Span() {
+						if parent.span == componentSpan {
 							found = true
 							break
 						}
@@ -736,7 +1003,7 @@ func (f *file) messageToSymbolsHelper(msg ir.MessageValue, index int, parents []
 						sym := &symbol{
 							// NOTE: no [ir.Symbol] for option elements
 							file: f,
-							span: component.Span(),
+							span: componentSpan,
 							kind: &option{
 								def:             parentType.AsValue().Field().AST(),
 								defFullName:     parentType.AsValue().Field().FullName(),
@@ -752,6 +1019,23 @@ func (f *file) messageToSymbolsHelper(msg ir.MessageValue, index int, parents []
 		}
 	}
 	return symbols
+}
+
+// findSymbolByFullName searches for a referenceable symbol with the given full name
+// in the current file and its workspace.
+func (f *file) findSymbolByFullName(fullName ir.FullName) *symbol {
+	if sym, ok := f.referenceableSymbols[fullName]; ok {
+		return sym
+	}
+	if f.workspace == nil {
+		return nil
+	}
+	for _, wsFile := range f.workspace.PathToFile() {
+		if sym, ok := wsFile.referenceableSymbols[fullName]; ok {
+			return sym
+		}
+	}
+	return nil
 }
 
 // resolveASTDefinition is a helper for resolving the [ast.DeclDef] to the *[symbol], if
@@ -850,40 +1134,37 @@ func (f *file) RunChecks(ctx context.Context) {
 	}
 
 	const checkTimeout = 30 * time.Second
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), checkTimeout)
+	ctx, cancel := context.WithTimeout(f.lsp.connCtx, checkTimeout)
 	f.cancelChecks = cancel
 
 	go func() {
-		image, diagnostics := buildImage(ctx, path, f.lsp.logger, opener)
-		if image == nil {
-			f.lsp.logger.DebugContext(ctx, "checks cancelled on image build", slog.String("uri", f.uri.Filename()))
-			return
-		}
-
-		f.lsp.logger.DebugContext(ctx, "checks running lint", slog.String("uri", f.uri.Filename()), slog.String("module", module.OpaqueID()))
 		var annotations []bufanalysis.FileAnnotation
-		if err := checkClient.Lint(
-			ctx,
-			workspace.GetLintConfigForOpaqueID(module.OpaqueID()),
-			image,
-			bufcheck.WithPluginConfigs(workspace.PluginConfigs()...),
-			bufcheck.WithPolicyConfigs(workspace.PolicyConfigs()...),
-		); err != nil {
-			var fileAnnotationSet bufanalysis.FileAnnotationSet
-			if !errors.As(err, &fileAnnotationSet) {
-				if errors.Is(err, context.Canceled) {
-					f.lsp.logger.DebugContext(ctx, "checks cancelled", slog.String("uri", f.uri.Filename()), xslog.ErrorAttr(err))
-				} else if errors.Is(err, context.DeadlineExceeded) {
-					f.lsp.logger.WarnContext(ctx, "checks deadline exceeded", slog.String("uri", f.uri.Filename()), xslog.ErrorAttr(err))
-				} else {
-					f.lsp.logger.WarnContext(ctx, "checks failed", slog.String("uri", f.uri.Filename()), xslog.ErrorAttr(err))
+		image, diagnostics := buildImage(ctx, path, f.lsp.logger, opener)
+		if image != nil {
+			f.lsp.logger.DebugContext(ctx, "checks running lint", slog.String("uri", f.uri.Filename()), slog.String("module", module.OpaqueID()))
+			if err := checkClient.Lint(
+				ctx,
+				workspace.GetLintConfigForOpaqueID(module.OpaqueID()),
+				image,
+				bufcheck.WithPluginConfigs(workspace.PluginConfigs()...),
+				bufcheck.WithPolicyConfigs(workspace.PolicyConfigs()...),
+			); err != nil {
+				var fileAnnotationSet bufanalysis.FileAnnotationSet
+				if !errors.As(err, &fileAnnotationSet) {
+					if errors.Is(err, context.Canceled) || ctx.Err() != nil {
+						f.lsp.logger.DebugContext(ctx, "checks cancelled", slog.String("uri", f.uri.Filename()), xslog.ErrorAttr(err))
+					} else if errors.Is(err, context.DeadlineExceeded) {
+						f.lsp.logger.WarnContext(ctx, "checks deadline exceeded", slog.String("uri", f.uri.Filename()), xslog.ErrorAttr(err))
+					} else {
+						f.lsp.logger.WarnContext(ctx, "checks failed", slog.String("uri", f.uri.Filename()), xslog.ErrorAttr(err))
+					}
+					return
 				}
-				return
-			}
-			if len(fileAnnotationSet.FileAnnotations()) == 0 {
-				f.lsp.logger.DebugContext(ctx, "checks lint passed", slog.String("uri", f.uri.Filename()))
-			} else {
-				annotations = append(annotations, fileAnnotationSet.FileAnnotations()...)
+				if len(fileAnnotationSet.FileAnnotations()) == 0 {
+					f.lsp.logger.DebugContext(ctx, "checks lint passed", slog.String("uri", f.uri.Filename()))
+				} else {
+					annotations = append(annotations, fileAnnotationSet.FileAnnotations()...)
+				}
 			}
 		}
 
@@ -920,16 +1201,26 @@ func (f *file) appendAnnotations(source string, annotations []bufanalysis.FileAn
 		startLocation := f.file.InverseLocation(annotation.StartLine(), annotation.StartColumn(), positionalEncoding)
 		endLocation := f.file.InverseLocation(annotation.EndLine(), annotation.EndColumn(), positionalEncoding)
 		protocolRange := reportLocationsToProtocolRange(startLocation, endLocation)
-		f.diagnostics = append(f.diagnostics, protocol.Diagnostic{
-			Range: protocolRange,
-			Code:  annotation.Type(),
-			CodeDescription: &protocol.CodeDescription{
-				Href: protocol.URI("https://buf.build/docs/lint/rules/#" + strings.ToLower(annotation.Type())),
-			},
+		diagnostic := protocol.Diagnostic{
+			Range:    protocolRange,
+			Code:     annotation.Type(),
 			Severity: protocol.DiagnosticSeverityWarning,
 			Source:   source,
 			Message:  annotation.Message(),
-		})
+		}
+		// Only link to buf.build/docs for built-in rules. Plugin and policy
+		// rules have their own documentation, so we skip the link entirely.
+		if annotation.PluginName() == "" && annotation.PolicyName() == "" {
+			diagnostic.CodeDescription = &protocol.CodeDescription{
+				Href: protocol.URI("https://buf.build/docs/lint/rules/#" + strings.ToLower(annotation.Type())),
+			}
+		}
+		if annotation.Type() == "IMPORT_USED" {
+			diagnostic.Tags = []protocol.DiagnosticTag{
+				protocol.DiagnosticTagUnnecessary,
+			}
+		}
+		f.diagnostics = append(f.diagnostics, diagnostic)
 	}
 }
 
@@ -1001,4 +1292,22 @@ func (f *file) GetSymbols(query string) iter.Seq[protocol.SymbolInformation] {
 			}
 		}
 	}
+}
+
+// trimLeadingDot removes the leading dot from a span if present.
+//
+// Option field references in protobuf use dot notation like "(extension).field",
+// but the AST component span includes the dot separator (e.g., ".field" instead
+// of "field"). We need to trim this to get the correct symbol span for renaming,
+// otherwise we'd end up renaming ".field" to ".newname", resulting in invalid
+// syntax like "(extension)newname" instead of "(extension).newname".
+func trimLeadingDot(span source.Span) source.Span {
+	if span.Text() != "" && span.Text()[0] == '.' {
+		return source.Span{
+			File:  span.File,
+			Start: span.Start + 1,
+			End:   span.End,
+		}
+	}
+	return span
 }

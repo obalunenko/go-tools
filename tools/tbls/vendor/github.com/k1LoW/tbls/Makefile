@@ -37,10 +37,10 @@ db_sqlite:
 	sqlite3 $(PWD)/testdata/testdb.sqlite3 < testdata/ddl/sqlite.sql
 
 test:
-	go test ./... -tags 'bq clickhouse databricks dynamo mariadb mongodb mssql mysql postgres redshift snowflake spanner sqlite' -coverprofile=coverage.out -covermode=count
+	go test ./... -tags 'bq clickhouse databricks dynamo mariadb mongodb mssql mysql postgres redshift snowflake spanner sqlite sqlite_fts5' -coverprofile=coverage.out -covermode=count
 
 test-no-db:
-	go test ./... -coverprofile=coverage.out -covermode=count
+	go test ./... -tags 'sqlite_fts5' -coverprofile=coverage.out -covermode=count
 
 doc: build doc_sqlite
 	$(TBLS) doc pg://postgres:pgpass@localhost:55432/testdb?sslmode=disable -c testdata/test_tbls_postgres.yml -f sample/postgres95
@@ -129,6 +129,7 @@ check_license:
 	go-licenses check ./... \
 	--ignore github.com/beta/freetype \
 	--ignore github.com/golang/freetype \
+	--ignore github.com/segmentio/asm \
 	--disallowed_types=permissive,forbidden,restricted \
 	--include_tests
 
@@ -174,12 +175,12 @@ lint:
 	golangci-lint run ./...
 
 build:
-	go build -tags timetzdata -ldflags="$(BUILD_LDFLAGS)"
+	go build -tags "timetzdata sqlite_fts5 sqlite_json1" -ldflags="$(BUILD_LDFLAGS)"
 
 depsdev:
 	go install github.com/linyows/git-semv/cmd/git-semv@latest
 	go install github.com/Songmu/ghch/cmd/ghch@latest
-	go install github.com/xo/usql@latest
+	go install github.com/xo/usql@v0.19.24
 	go install github.com/Songmu/gocredits/cmd/gocredits@latest
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
 	go install github.com/santhosh-tekuri/jsonschema/cmd/jv@latest
@@ -188,7 +189,7 @@ depsdev:
 prerelease:
 	git pull origin --tag
 	ghch -w -N ${VER}
-	gocredits -w .
+	gocredits -w -skip-missing .
 	cat _EXTRA_CREDITS >> CREDITS
 	git add CHANGELOG.md CREDITS
 	git commit -m'Bump up version number'

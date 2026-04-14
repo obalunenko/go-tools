@@ -32,7 +32,7 @@ type Posflag struct {
 // delim "." will convert the key `parent.child.key: 1`
 // to `{parent: {child: {key: 1}}}`.
 //
-// It takes an optional (but recommended) Koanf instance to see if the
+// It takes an optional (but recommended) Koanf instance to see if
 // the flags defined have been set from other providers, for instance,
 // a config file. If they are not, then the default values of the flags
 // are merged. If they do exist, the flag values are not merged but only
@@ -62,7 +62,7 @@ func ProviderWithValue(f *pflag.FlagSet, delim string, ko KoanfIntf, cb func(key
 // ProviderWithFlag takes pflag.FlagSet and a callback that takes *pflag.Flag
 // and applies the callback to all items in the flagset. It does not parse
 // pflag.Flag values and expects the callback to process the keys and values
-// from *pflag.Flag however. FlagVal() can be used in the callbakc to avoid
+// from *pflag.Flag however. FlagVal() can be used in the callback to avoid
 // repeating the type-switch block for parsing values.
 // Returning "" for the key causes the particular flag to be disregarded.
 //
@@ -153,29 +153,21 @@ func FlagVal(fs *pflag.FlagSet, f *pflag.Flag) interface{} {
 
 	switch f.Value.Type() {
 	case "int":
-		i, _ := fs.GetInt(key)
-		val = int64(i)
+		val, _ = fs.GetInt(key)
 	case "uint":
-		i, _ := fs.GetUint(key)
-		val = uint64(i)
+		val, _ = fs.GetUint(key)
 	case "int8":
-		i, _ := fs.GetInt8(key)
-		val = int64(i)
+		val, _ = fs.GetInt8(key)
 	case "uint8":
-		i, _ := fs.GetUint8(key)
-		val = uint64(i)
+		val, _ = fs.GetUint8(key)
 	case "int16":
-		i, _ := fs.GetInt16(key)
-		val = int64(i)
+		val, _ = fs.GetInt16(key)
 	case "uint16":
-		i, _ := fs.GetUint16(key)
-		val = uint64(i)
+		val, _ = fs.GetUint16(key)
 	case "int32":
-		i, _ := fs.GetInt32(key)
-		val = int64(i)
+		val, _ = fs.GetInt32(key)
 	case "uint32":
-		i, _ := fs.GetUint32(key)
-		val = uint64(i)
+		val, _ = fs.GetUint32(key)
 	case "int64":
 		val, _ = fs.GetInt64(key)
 	case "uint64":

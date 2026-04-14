@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/sv-tools/openapi/spec"
 )
 
@@ -73,7 +72,7 @@ func (p *Parser) parseGeneralAPIInfoV3(comments []string) error {
 				return err
 			}
 
-			setspecInfo(p.openAPI, attr, string(commentInfo))
+			setspecInfo(p.openAPI, descriptionAttr, string(commentInfo))
 		case "@host":
 			if len(p.openAPI.Servers) == 0 {
 				server := spec.NewServer()
@@ -142,6 +141,9 @@ func (p *Parser) parseGeneralAPIInfoV3(comments []string) error {
 			}
 
 			p.openAPI.Components.Spec.SecuritySchemes[key] = schemeSpec
+
+		case securityAttr:
+			p.openAPI.Security = append(p.openAPI.Security, parseSecurity(value))
 
 		case "@query.collection.format":
 			p.collectionFormatInQuery = TransToValidCollectionFormat(value)
@@ -235,7 +237,7 @@ func (p *Parser) parseGeneralAPIInfoV3(comments []string) error {
 			if strings.HasPrefix(attribute, "@x-") {
 				err := p.parseExtensionsV3(value, attribute)
 				if err != nil {
-					return errors.Wrap(err, "could not parse extension comment")
+					return fmt.Errorf("could not parse extension comment: %w", err)
 				}
 			}
 		}
@@ -336,13 +338,14 @@ func parseSecAttributesV3(context string, lines []string, index *int) (string, *
 	var search []string
 
 	attribute := strings.ToLower(FieldsByAnySpace(lines[*index], 2)[0])
+	key := getSecurityDefinitionKey(lines)
 	switch attribute {
 	case secBasicAttr:
 		scheme := spec.SecurityScheme{
 			Type:   "http",
 			Scheme: "basic",
 		}
-		return "basic", &scheme, nil
+		return key, &scheme, nil
 	case secAPIKeyAttr:
 		search = []string{in, name}
 	case secApplicationAttr, secPasswordAttr:
@@ -352,12 +355,38 @@ func parseSecAttributesV3(context string, lines []string, index *int) (string, *
 	case secAccessCodeAttr:
 		search = []string{tokenURL, authorizationURL, in}
 	case secBearerAuthAttr:
+		// Support Bearer scheme with parameters
 		scheme := spec.SecurityScheme{
-			Type:         "http",
-			Scheme:       "bearer",
-			BearerFormat: "JWT",
+			Type:   "http",
+			Scheme: "bearer",
 		}
-		return "bearerauth", &scheme, nil
+		// Parse parameters
+		*index++
+		description := ""
+		for ; *index < len(lines); *index++ {
+			v := strings.TrimSpace(lines[*index])
+			if len(v) == 0 {
+				continue
+			}
+			fields := FieldsByAnySpace(v, 2)
+			securityAttr := strings.ToLower(fields[0])
+			var value string
+			if len(fields) > 1 {
+				value = fields[1]
+			}
+			if securityAttr == "@description" {
+				description = value
+			}
+			if securityAttr == "@bearerformat" {
+				scheme.BearerFormat = value
+			}
+			if strings.HasPrefix(securityAttr, "@securitydefinitions.") {
+				*index--
+				break
+			}
+		}
+		scheme.Description = description
+		return key, &scheme, nil
 	}
 
 	// For the first line we get the attributes in the context parameter, so we skip to the next one
@@ -420,7 +449,7 @@ func parseSecAttributesV3(context string, lines []string, index *int) (string, *
 	}
 
 	scheme := &spec.SecurityScheme{}
-	key := getSecurityDefinitionKey(lines)
+	key = getSecurityDefinitionKey(lines)
 
 	switch attribute {
 	case secAPIKeyAttr:
@@ -484,8 +513,8 @@ func parseSecAttributesV3(context string, lines []string, index *int) (string, *
 
 func getSecurityDefinitionKey(lines []string) string {
 	for _, line := range lines {
-		if strings.HasPrefix(strings.ToLower(line), "@securitydefinitions") {
-			splittedLine := strings.Split(line, " ")
+		if strings.HasPrefix(strings.TrimSpace(strings.ToLower(line)), "@securitydefinitions") {
+			splittedLine := strings.Fields(line)
 			return splittedLine[len(splittedLine)-1]
 		}
 	}
@@ -703,12 +732,25 @@ func (p *Parser) ParseDefinitionV3(typeSpecDef *TypeSpecDef) (*SchemaV3, error) 
 	if p.isInStructStack(typeSpecDef) {
 		p.debug.Printf("Skipping '%s', recursion detected.", typeName)
 
-		return &SchemaV3{
-				Name:    typeName,
-				PkgPath: typeSpecDef.PkgPath,
-				Schema:  PrimitiveSchemaV3(OBJECT).Spec,
-			},
-			ErrRecursiveParseStruct
+		schemaName := typeName
+		if typeSpecDef.SchemaName != "" {
+			schemaName = typeSpecDef.SchemaName
+		}
+
+		schema := &SchemaV3{
+			Name:    schemaName,
+			PkgPath: typeSpecDef.PkgPath,
+			Schema:  PrimitiveSchemaV3(OBJECT).Spec,
+		}
+
+		p.parsedSchemasV3[typeSpecDef] = schema
+
+		if p.openAPI.Components.Spec.Schemas == nil {
+			p.openAPI.Components.Spec.Schemas = make(map[string]*spec.RefOrSpec[spec.Schema])
+		}
+		p.openAPI.Components.Spec.Schemas[schema.Name] = spec.NewRefOrSpec(nil, schema.Schema)
+
+		return schema, ErrRecursiveParseStruct
 	}
 
 	p.structStack = append(p.structStack, typeSpecDef)
@@ -745,9 +787,13 @@ func (p *Parser) ParseDefinitionV3(typeSpecDef *TypeSpecDef) (*SchemaV3, error) 
 			definition.Spec.Extensions[enumCommentsExtension] = enumComments
 		}
 	}
+	schemaName := typeName
+	if typeSpecDef.SchemaName != "" {
+		schemaName = typeSpecDef.SchemaName
+	}
 
 	sch := SchemaV3{
-		Name:    typeName,
+		Name:    schemaName,
 		PkgPath: typeSpecDef.PkgPath,
 		Schema:  definition.Spec,
 	}
@@ -811,7 +857,7 @@ func (p *Parser) parseTypeExprV3(file *ast.File, typeExpr ast.Expr, ref bool) (*
 	case *ast.Ident:
 		result, err := p.getTypeSchemaV3(expr.Name, file, ref)
 		if err != nil {
-			return nil, errors.Wrap(err, errMessage)
+			return nil, fmt.Errorf("%s: %w", errMessage, err)
 		}
 
 		return result, nil
@@ -824,7 +870,7 @@ func (p *Parser) parseTypeExprV3(file *ast.File, typeExpr ast.Expr, ref bool) (*
 		if xIdent, ok := expr.X.(*ast.Ident); ok {
 			result, err := p.getTypeSchemaV3(fullTypeName(xIdent.Name, expr.Sel.Name), file, ref)
 			if err != nil {
-				return nil, errors.Wrap(err, errMessage)
+				return nil, fmt.Errorf("%s: %w", errMessage, err)
 			}
 
 			return result, nil
@@ -838,7 +884,7 @@ func (p *Parser) parseTypeExprV3(file *ast.File, typeExpr ast.Expr, ref bool) (*
 
 		if itemSchema == nil {
 			schema := &spec.Schema{}
-			schema.Type = spec.NewSingleOrArray(ARRAY)
+			schema.Type = &spec.SingleOrArray[string]{ARRAY}
 			schema.Items = spec.NewBoolOrSchema(false, spec.NewSchemaSpec())
 			p.debug.Printf("Creating array with empty item schema %v", expr.Elt)
 
@@ -846,7 +892,7 @@ func (p *Parser) parseTypeExprV3(file *ast.File, typeExpr ast.Expr, ref bool) (*
 		}
 
 		result := &spec.Schema{}
-		result.Type = spec.NewSingleOrArray(ARRAY)
+		result.Type = &spec.SingleOrArray[string]{ARRAY}
 		result.Items = spec.NewBoolOrSchema(false, itemSchema)
 
 		return spec.NewRefOrSpec(nil, result), nil
@@ -855,7 +901,7 @@ func (p *Parser) parseTypeExprV3(file *ast.File, typeExpr ast.Expr, ref bool) (*
 		if _, ok := expr.Value.(*ast.InterfaceType); ok {
 			result := &spec.Schema{}
 			result.AdditionalProperties = spec.NewBoolOrSchema(false, spec.NewSchemaSpec())
-			result.Type = spec.NewSingleOrArray(OBJECT)
+			result.Type = &spec.SingleOrArray[string]{OBJECT}
 
 			return spec.NewRefOrSpec(nil, result), nil
 		}
@@ -867,7 +913,7 @@ func (p *Parser) parseTypeExprV3(file *ast.File, typeExpr ast.Expr, ref bool) (*
 
 		result := &spec.Schema{}
 		result.AdditionalProperties = spec.NewBoolOrSchema(false, schema)
-		result.Type = spec.NewSingleOrArray(OBJECT)
+		result.Type = &spec.SingleOrArray[string]{OBJECT}
 
 		return spec.NewRefOrSpec(nil, result), nil
 	case *ast.FuncType:
@@ -905,7 +951,7 @@ func (p *Parser) parseStructV3(file *ast.File, fields *ast.FieldList) (*spec.Ref
 	sort.Strings(required)
 
 	result := spec.NewSchemaSpec()
-	result.Spec.Type = spec.NewSingleOrArray(OBJECT)
+	result.Spec.Type = &spec.SingleOrArray[string]{OBJECT}
 	result.Spec.Properties = properties
 	result.Spec.Required = required
 
@@ -942,7 +988,7 @@ func (p *Parser) parseStructFieldV3(file *ast.File, field *ast.Field) (map[strin
 			return nil, nil, err
 		}
 
-		if len(schema.Spec.Type) > 0 && schema.Spec.Type[0] == OBJECT {
+		if len(*schema.Spec.Type) > 0 && (*schema.Spec.Type)[0] == OBJECT {
 			if len(schema.Spec.Properties) == 0 {
 				return nil, nil, nil
 			}
@@ -1055,26 +1101,28 @@ func (p *Parser) GetSchemaTypePathV3(schema *spec.RefOrSpec[spec.Schema], depth 
 		return nil
 	}
 
-	if schema.Spec != nil && len(schema.Spec.Type) > 0 {
-		switch schema.Spec.Type[0] {
+	if schema.Spec.Type != nil && len(*schema.Spec.Type) > 0 {
+		switch (*schema.Spec.Type)[0] {
 		case ARRAY:
-			depth--
+			if schema.Spec.Items != nil && schema.Spec.Items.Schema != nil {
+				depth--
 
-			s := []string{schema.Spec.Type[0]}
+				s := []string{(*schema.Spec.Type)[0]}
 
-			return append(s, p.GetSchemaTypePathV3(schema.Spec.Items.Schema, depth)...)
+				return append(s, p.GetSchemaTypePathV3(schema.Spec.Items.Schema, depth)...)
+			}
 		case OBJECT:
 			if schema.Spec.AdditionalProperties != nil && schema.Spec.AdditionalProperties.Schema != nil {
 				// for map
 				depth--
 
-				s := []string{schema.Spec.Type[0]}
+				s := []string{(*schema.Spec.Type)[0]}
 
 				return append(s, p.GetSchemaTypePathV3(schema.Spec.AdditionalProperties.Schema, depth)...)
 			}
 		}
 
-		return []string{schema.Spec.Type[0]}
+		return []string{(*schema.Spec.Type)[0]}
 	}
 
 	println("found schema with no Type, returning any")
@@ -1083,5 +1131,11 @@ func (p *Parser) GetSchemaTypePathV3(schema *spec.RefOrSpec[spec.Schema], depth 
 
 func (p *Parser) getSchemaByRef(ref *spec.Ref) *spec.Schema {
 	searchString := strings.ReplaceAll(ref.Ref, "#/components/schemas/", "")
-	return p.openAPI.Components.Spec.Schemas[searchString].Spec
+	schemaRef, exists := p.openAPI.Components.Spec.Schemas[searchString]
+	if !exists || schemaRef == nil {
+		println(fmt.Sprintf("Schema not found for ref: %s, returning any", ref.Ref))
+		return &spec.Schema{} // return empty schema if not found
+	}
+
+	return schemaRef.Spec
 }

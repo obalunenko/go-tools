@@ -34,6 +34,7 @@ type readerConnectFunc func(ctx context.Context) (batchedStreamReader, error)
 type readerReconnector struct {
 	background                 background.Worker
 	clock                      clockwork.Clock
+	logContext                 context.Context //nolint:containedctx
 	retrySettings              topic.RetrySettings
 	streamVal                  batchedStreamReader
 	streamContextCancel        context.CancelCauseFunc
@@ -52,6 +53,7 @@ type readerReconnector struct {
 }
 
 func newReaderReconnector(
+	logContext context.Context,
 	readerID int64,
 	connector readerConnectFunc,
 	connectTimeout time.Duration,
@@ -64,6 +66,7 @@ func newReaderReconnector(
 		readerConnect:  connector,
 		streamErr:      errUnconnected,
 		connectTimeout: connectTimeout,
+		logContext:     logContext,
 		tracer:         tracer,
 		retrySettings:  retrySettings,
 	}
@@ -76,6 +79,15 @@ func newReaderReconnector(
 	res.start()
 
 	return res
+}
+
+func (r *readerReconnector) TopicOnReaderStart(consumer string, err error) {
+	logCtx := r.logContext
+	trace.TopicOnReaderStart(r.tracer, &logCtx, r.readerID, consumer, err)
+}
+
+func (r *readerReconnector) SetLogContext(ctx context.Context) {
+	r.logContext = ctx
 }
 
 func (r *readerReconnector) PopMessagesBatchTx(
@@ -200,9 +212,21 @@ func (r *readerReconnector) CloseWithError(ctx context.Context, reason error) er
 	r.closeOnce.Do(func() {
 		closeErr = r.background.Close(ctx, reason)
 
-		if r.streamVal != nil {
-			streamCloseErr := r.streamVal.CloseWithError(ctx, xerrors.WithStackTrace(errReaderClosed))
-			r.streamContextCancel(errReaderClosed)
+		// Get references under lock
+		var streamVal batchedStreamReader
+		var streamCancel context.CancelCauseFunc
+
+		r.m.WithLock(func() {
+			streamVal = r.streamVal
+			streamCancel = r.streamContextCancel
+		})
+
+		// Make I/O calls outside the lock
+		if streamVal != nil {
+			streamCloseErr := streamVal.CloseWithError(ctx, xerrors.WithStackTrace(errReaderClosed))
+			if streamCancel != nil {
+				streamCancel(errReaderClosed)
+			}
 			if closeErr == nil {
 				closeErr = streamCloseErr
 			}
@@ -263,8 +287,6 @@ func (r *readerReconnector) reconnectionLoop(ctx context.Context) {
 			}
 		}
 
-		onReconnectionDone := trace.TopicOnReaderReconnect(r.tracer, request.reason)
-
 		if request.reason != nil {
 			retryBackoff, stopRetryReason := r.checkErrRetryMode(
 				request.reason,
@@ -286,21 +308,25 @@ func (r *readerReconnector) reconnectionLoop(ctx context.Context) {
 				}
 			} else {
 				_ = r.CloseWithError(ctx, stopRetryReason)
-				onReconnectionDone(stopRetryReason)
+				logCtx := r.logContext
+				trace.TopicOnReaderReconnect(r.tracer, &logCtx, request.reason)(stopRetryReason)
 
 				return
 			}
 		}
 
 		err := r.reconnect(ctx, request.reason, request.oldReader)
-		onReconnectionDone(err)
+		logCtx := r.logContext
+		trace.TopicOnReaderReconnect(r.tracer, &logCtx, request.reason)(err)
 	}
 }
 
 //nolint:funlen
 func (r *readerReconnector) reconnect(ctx context.Context, reason error, oldReader batchedStreamReader) (err error) {
-	onDone := trace.TopicOnReaderReconnect(r.tracer, reason)
-	defer func() { onDone(err) }()
+	defer func() {
+		logCtx := r.logContext
+		trace.TopicOnReaderReconnect(r.tracer, &logCtx, reason)(err)
+	}()
 
 	if err = ctx.Err(); err != nil {
 		return err
@@ -339,9 +365,15 @@ func (r *readerReconnector) reconnect(ctx context.Context, reason error, oldRead
 		r.background.Start("ydb topic reader send reconnect message", func(ctx context.Context) {
 			select {
 			case r.reconnectFromBadStream <- newReconnectRequest(oldReader, sendReason):
-				trace.TopicOnReaderReconnectRequest(r.tracer, err, true)
+				{
+					logCtx := r.logContext
+					trace.TopicOnReaderReconnectRequest(r.tracer, &logCtx, err, true)
+				}
 			case <-ctx.Done():
-				trace.TopicOnReaderReconnectRequest(r.tracer, ctx.Err(), false)
+				{
+					logCtx := r.logContext
+					trace.TopicOnReaderReconnectRequest(r.tracer, &logCtx, err, false)
+				}
 			}
 		})
 	default:
@@ -415,6 +447,8 @@ func (r *readerReconnector) connectWithTimeout() (_ batchedStreamReader, _ conte
 		return res.stream, cancel, nil
 	}
 
+	cancel(res.err)
+
 	return nil, nil, res.err
 }
 
@@ -440,11 +474,17 @@ func (r *readerReconnector) fireReconnectOnRetryableError(stream batchedStreamRe
 
 	select {
 	case r.reconnectFromBadStream <- newReconnectRequest(stream, err):
-		// send signal
-		trace.TopicOnReaderReconnectRequest(r.tracer, err, true)
+		{
+			// send signal
+			logCtx := r.logContext
+			trace.TopicOnReaderReconnectRequest(r.tracer, &logCtx, err, true)
+		}
 	default:
-		// previous reconnect signal in process, no need sent signal more
-		trace.TopicOnReaderReconnectRequest(r.tracer, err, false)
+		{
+			// previous reconnect signal in process, no need sent signal more
+			logCtx := r.logContext
+			trace.TopicOnReaderReconnectRequest(r.tracer, &logCtx, err, false)
+		}
 	}
 }
 

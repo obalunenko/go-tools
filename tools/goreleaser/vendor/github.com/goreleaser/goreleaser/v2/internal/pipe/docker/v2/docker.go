@@ -25,6 +25,7 @@ import (
 	"github.com/goreleaser/goreleaser/v2/internal/ids"
 	"github.com/goreleaser/goreleaser/v2/internal/logext"
 	"github.com/goreleaser/goreleaser/v2/internal/pipe"
+	"github.com/goreleaser/goreleaser/v2/internal/redact"
 	"github.com/goreleaser/goreleaser/v2/internal/semerrgroup"
 	"github.com/goreleaser/goreleaser/v2/internal/skips"
 	"github.com/goreleaser/goreleaser/v2/internal/tmpl"
@@ -98,13 +99,29 @@ func (p Snapshot) Run(ctx *context.Context) error {
 	checkBuildxDriver(ctx)
 	log.Warn("snapshot build: will not push any images")
 
+	canLoad := isDockerDaemonAvailable(ctx)
+	if !canLoad {
+		log.Warn("no docker daemon available, build result will only remain in the build cache")
+	}
+
 	g := semerrgroup.NewSkipAware(semerrgroup.New(ctx.Parallelism))
 	for i := range ctx.Config.DockersV2 {
-		for _, plat := range ctx.Config.DockersV2[i].Platforms {
+		d := ctx.Config.DockersV2[i]
+
+		if !canLoad {
+			// not running on a docker daemon, `--load` won't work, and
+			// without it, images will have `--output=type=cacheonly`.
 			g.Go(func() error {
-				// buildx won't allow us to `--load` a manifest, so we create
-				// one image per platform, adding it to the tags.
-				d := ctx.Config.DockersV2[i]
+				return buildImage(ctx, d)
+			})
+			continue
+		}
+
+		// buildx won't allow us to `--load` a manifest, so we create
+		// one image per platform, adding it to the tags.
+		for _, plat := range d.Platforms {
+			g.Go(func() error {
+				d := d
 				d.Platforms = []string{plat}
 				return buildImage(ctx, d, "--load")
 			})
@@ -143,11 +160,15 @@ func (Publish) extraArgs(ctx *context.Context, d config.DockerV2) ([]string, err
 }
 
 func buildImage(ctx *context.Context, d config.DockerV2, extraArgs ...string) error {
+	tpl := tmpl.New(ctx)
+	if err := tpl.ApplySlice(&d.Platforms, tmpl.NonEmpty()); err != nil {
+		return err
+	}
 	if len(d.Platforms) == 0 {
 		return pipe.Skip("no platforms to build")
 	}
 
-	disable, err := tmpl.New(ctx).Bool(d.Disable)
+	disable, err := tpl.Bool(d.Disable)
 	if err != nil {
 		return err
 	}
@@ -160,9 +181,9 @@ func buildImage(ctx *context.Context, d config.DockerV2, extraArgs ...string) er
 		return err
 	}
 
-	log := log.WithField("images", strings.Join(images, "\n")).
-		WithField("id", d.ID)
-	log.Info("creating images")
+	log.WithField("id", d.ID).
+		WithField("images", strings.Join(images, "\n")).
+		Info("creating images")
 
 	wd, err := makeContext(ctx, d, contextArtifacts(ctx, d))
 	if err != nil {
@@ -175,8 +196,10 @@ func buildImage(ctx *context.Context, d config.DockerV2, extraArgs ...string) er
 		return err
 	}
 
-	log.WithField("digest", digest).
+	log.WithField("id", d.ID).
+		WithField("images", strings.Join(appendDigest(images, digest), "\n")).
 		Info("created images")
+
 	for _, img := range images {
 		ctx.Artifacts.Add(&artifact.Artifact{
 			Name: img,
@@ -192,6 +215,14 @@ func buildImage(ctx *context.Context, d config.DockerV2, extraArgs ...string) er
 	return nil
 }
 
+func appendDigest(images []string, digest string) []string {
+	result := make([]string, 0, len(images))
+	for _, img := range images {
+		result = append(result, img+"@"+digest)
+	}
+	return result
+}
+
 func doBuild(ctx *context.Context, d config.DockerV2, wd string, arg []string) (string, error) {
 	if err := retry.Do(
 		func() error {
@@ -202,23 +233,29 @@ func doBuild(ctx *context.Context, d config.DockerV2, wd string, arg []string) (
 			cmd.Env = append(ctx.Env.Strings(), cmd.Environ()...)
 			var b bytes.Buffer
 			w := gio.Safe(&b)
-			cmd.Stderr = io.MultiWriter(logext.NewWriter(), w)
-			cmd.Stdout = io.MultiWriter(logext.NewWriter(), w)
+			cmd.Stderr = redact.Writer(io.MultiWriter(logext.NewWriter(), w), cmd.Env)
+			cmd.Stdout = redact.Writer(io.MultiWriter(logext.NewWriter(), w), cmd.Env)
 			if err := cmd.Run(); err != nil {
 				if isFileNotFoundError(b.String()) {
 					return gerrors.Wrap(
 						err,
-						"could not build docker image",
-						"id", d.ID,
-						"details", fileNotFoundDetails(wd),
+						gerrors.WithMessage("could not build docker image"),
+						gerrors.WithOutput(b.String()),
+						gerrors.WithDetails(
+							"id", d.ID,
+							"details", fileNotFoundDetails(wd),
+						),
 					)
 				}
 				return gerrors.Wrap(
 					err,
-					"could not build docker image",
-					"args", strings.Join(cmd.Args, " "),
-					"id", d.ID,
-					"output", b.String(),
+					gerrors.WithMessage("could not build docker image"),
+					gerrors.WithOutput(b.String()),
+					gerrors.WithDetails(
+						"args", strings.Join(cmd.Args, " "),
+						"id", d.ID,
+					),
+					gerrors.WithOutput(b.String()),
 				)
 			}
 			return nil
@@ -236,8 +273,8 @@ func doBuild(ctx *context.Context, d config.DockerV2, wd string, arg []string) (
 	if err != nil {
 		return "", gerrors.Wrap(
 			err,
-			"could not get image digest",
-			"id", d.ID,
+			gerrors.WithMessage("could not get image digest"),
+			gerrors.WithDetails("id", d.ID),
 		)
 	}
 	return string(digest), nil
@@ -347,6 +384,10 @@ func makeContext(ctx *context.Context, d config.DockerV2, artifacts []*artifact.
 
 	if err := gio.Copy(dockerfile, filepath.Join(tmp, "Dockerfile")); err != nil {
 		return "", fmt.Errorf("failed to copy dockerfile: %w: %s", err, d.ID)
+	}
+
+	if markers := findRootProjectExtraFiles(d.ExtraFiles); len(markers) > 0 {
+		emitExtraFilesWarning(markers)
 	}
 
 	for _, file := range d.ExtraFiles {
@@ -490,7 +531,7 @@ func tplMapFlags(tpl *tmpl.Template, flag string, m map[string]string) ([]string
 	for _, k := range keys {
 		v := m[k]
 		if err := tpl.ApplyAll(&k, &v); err != nil {
-			return nil, fmt.Errorf("docker: %w", err)
+			return nil, err
 		}
 		if strings.TrimSpace(k) == "" || strings.TrimSpace(v) == "" {
 			continue
@@ -501,11 +542,10 @@ func tplMapFlags(tpl *tmpl.Template, flag string, m map[string]string) ([]string
 }
 
 func isRetriableManifestCreate(err error) bool {
-	out, ok := gerrors.DetailsOf(err)["output"]
-	if !ok {
-		return false
+	if de, ok := errors.AsType[gerrors.ErrDetailed](err); ok {
+		return strings.Contains(de.Output(), "manifest verification failed for digest")
 	}
-	return strings.Contains(out.(string), "manifest verification failed for digest")
+	return false
 }
 
 func isFileNotFoundError(out string) bool {
@@ -538,7 +578,19 @@ func checkBuildxDriver(ctx stdctx.Context) {
 }
 
 func isDriverValid(driver string) bool {
-	return driver == "docker-container"
+	return driver == "docker-container" || driver == "docker"
+}
+
+// testForceNoDaemon is a test-only flag to simulate daemon unavailability.
+var testForceNoDaemon = false
+
+// isDockerDaemonAvailable checks if the docker daemon is accessible.
+func isDockerDaemonAvailable(ctx stdctx.Context) bool {
+	if testForceNoDaemon {
+		return false
+	}
+	cmd := exec.CommandContext(ctx, "docker", "info")
+	return cmd.Run() == nil
 }
 
 // getBuildxDriver returns the current buildx driver name.

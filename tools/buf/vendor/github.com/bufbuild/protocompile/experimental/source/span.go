@@ -22,6 +22,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/bufbuild/protocompile/experimental/source/length"
+	"github.com/bufbuild/protocompile/internal/ext/iterx"
 )
 
 // Spanner is any type with a [Span].
@@ -186,14 +187,23 @@ func (s Span) String() string {
 // If there are at least two distinct files among the non-zero spans,
 // this function panics.
 func Join(spans ...Spanner) Span {
-	return JoinSeq[Spanner](slices.Values(spans))
+	return JoinSeq(slices.Values(spans))
 }
 
 // JoinSeq is like [Join], but takes a sequence of any spannable type.
 func JoinSeq[S Spanner](seq iter.Seq[S]) Span {
+	return JoinSpanSeq(iterx.Map(seq, func(s S) Span { return GetSpan(s) }))
+}
+
+// See go.dev/issue/78336.
+func JoinSpans(spans ...Span) Span {
+	return JoinSpanSeq(slices.Values(spans))
+}
+
+// See go.dev/issue/78336.
+func JoinSpanSeq(seq iter.Seq[Span]) Span {
 	joined := Span{Start: math.MaxInt}
-	for spanner := range seq {
-		span := GetSpan(spanner)
+	for span := range seq {
 		if span.IsZero() {
 			continue
 		}
@@ -225,6 +235,20 @@ func GetSpan(s Spanner) Span {
 		return Span{}
 	}
 	return s.Span()
+}
+
+// Between is a helper function that returns a [Span] for the space between spans a and b,
+// inclusive. If a and b do not have the same [File] or if the spans overlap, then this
+// returns a zero span.
+func Between(a, b Span) Span {
+	if a.File != b.File || b.Start < a.End {
+		return Span{}
+	}
+	return Span{
+		File:  a.File,
+		Start: a.Start,
+		End:   b.End,
+	}
 }
 
 // idxToByteOffset converts a byte index into s into a byte offset.

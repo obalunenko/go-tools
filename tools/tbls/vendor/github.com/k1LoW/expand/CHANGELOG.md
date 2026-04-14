@@ -1,5 +1,23 @@
 # Changelog
 
+## [v0.16.7](https://github.com/k1LoW/expand/compare/v0.16.6...v0.16.7) - 2026-01-12
+### Other Changes
+- chore(deps): bump github.com/goccy/go-yaml from 1.19.1 to 1.19.2 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/expand/pull/94
+
+## [v0.16.6](https://github.com/k1LoW/expand/compare/v0.16.5...v0.16.6) - 2025-12-22
+### Other Changes
+- chore(deps): bump github.com/goccy/go-yaml from 1.19.0 to 1.19.1 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/expand/pull/92
+
+## [v0.16.5](https://github.com/k1LoW/expand/compare/v0.16.4...v0.16.5) - 2025-12-17
+### Other Changes
+- chore(deps): bump github.com/expr-lang/expr from 1.17.6 to 1.17.7 by @dependabot[bot] in https://github.com/k1LoW/expand/pull/90
+
+## [v0.16.4](https://github.com/k1LoW/expand/compare/v0.16.3...v0.16.4) - 2025-12-01
+### Other Changes
+- chore(deps): bump k1LoW/oldstable from 1 to 2 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/expand/pull/86
+- chore(deps): bump actions/checkout from 5 to 6 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/expand/pull/88
+- chore(deps): bump github.com/goccy/go-yaml from 1.18.0 to 1.19.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/expand/pull/89
+
 ## [v0.16.3](https://github.com/k1LoW/expand/compare/v0.16.2...v0.16.3) - 2025-10-26
 ### Other Changes
 - chore(deps): bump github.com/expr-lang/expr from 1.17.2 to 1.17.3 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/expand/pull/77

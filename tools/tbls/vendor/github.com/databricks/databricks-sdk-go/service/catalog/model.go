@@ -5,6 +5,7 @@ package catalog
 import (
 	"fmt"
 
+	"github.com/databricks/databricks-sdk-go/common/types/time"
 	"github.com/databricks/databricks-sdk-go/marshal"
 )
 
@@ -13,11 +14,21 @@ type AccessRequestDestinations struct {
 	// lack of permissions. This value is true if the caller does not have
 	// permission to see all destinations.
 	AreAnyDestinationsHidden bool `json:"are_any_destinations_hidden,omitempty"`
+	// The source securable from which the destinations are inherited. Either
+	// the same value as securable (if destination is set directly on the
+	// securable) or the nearest parent securable with destinations set.
+	DestinationSourceSecurable *Securable `json:"destination_source_securable,omitempty"`
 	// The access request destinations for the securable.
-	Destinations []NotificationDestination `json:"destinations"`
+	Destinations []NotificationDestination `json:"destinations,omitempty"`
+	// The full name of the securable. Redundant with the name in the securable
+	// object, but necessary for Terraform integration
+	FullName string `json:"full_name,omitempty"`
 	// The securable for which the access request destinations are being
-	// retrieved.
+	// modified or read.
 	Securable Securable `json:"securable"`
+	// The type of the securable. Redundant with the type in the securable
+	// object, but necessary for Terraform integration
+	SecurableType string `json:"securable_type,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
 }
@@ -313,8 +324,8 @@ type AwsSqsQueue struct {
 	// resources.
 	ManagedResourceId string `json:"managed_resource_id,omitempty"`
 	// The AQS queue url in the format
-	// https://sqs.{region}.amazonaws.com/{account id}/{queue name} Required for
-	// provided_sqs.
+	// https://sqs.{region}.amazonaws.com/{account id}/{queue name}. Only
+	// required for provided_sqs.
 	QueueUrl string `json:"queue_url,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
@@ -431,11 +442,12 @@ type AzureQueueStorage struct {
 	// resources.
 	ManagedResourceId string `json:"managed_resource_id,omitempty"`
 	// The AQS queue url in the format https://{storage
-	// account}.queue.core.windows.net/{queue name} Required for provided_aqs.
+	// account}.queue.core.windows.net/{queue name} Only required for
+	// provided_aqs.
 	QueueUrl string `json:"queue_url,omitempty"`
-	// The resource group for the queue, event grid subscription, and external
-	// location storage account. Only required for locations with a service
-	// principal storage credential
+	// Optional resource group for the queue, event grid subscription, and
+	// external location storage account. Only required for locations with a
+	// service principal storage credential
 	ResourceGroup string `json:"resource_group,omitempty"`
 	// Optional subscription id for the queue, event grid subscription, and
 	// external location storage account. Required for locations with a service
@@ -709,6 +721,11 @@ func (s ColumnInfo) MarshalJSON() ([]byte, error) {
 type ColumnMask struct {
 	// The full name of the column mask SQL UDF.
 	FunctionName string `json:"function_name,omitempty"`
+	// The list of additional table columns or literals to be passed as
+	// additional arguments to a column mask function. This is the replacement
+	// of the deprecated using_column_names field and carries information about
+	// the types (alias or constant) of the arguments to the mask function.
+	UsingArguments []PolicyFunctionArgument `json:"using_arguments,omitempty"`
 	// The list of additional table columns to be passed as input to the column
 	// mask function. The first arg of the mask function should be of the type
 	// of the column being masked and the types of the rest of the args should
@@ -878,7 +895,7 @@ func (s ConnectionDependency) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
-// Next ID: 23
+// Next ID: 24
 type ConnectionInfo struct {
 	// User-provided free-form text description.
 	Comment string `json:"comment,omitempty"`
@@ -928,7 +945,7 @@ func (s ConnectionInfo) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
-// Next Id: 38
+// Next Id: 72
 type ConnectionType string
 
 const ConnectionTypeBigquery ConnectionType = `BIGQUERY`
@@ -946,8 +963,6 @@ const ConnectionTypeHttp ConnectionType = `HTTP`
 const ConnectionTypeMysql ConnectionType = `MYSQL`
 
 const ConnectionTypeOracle ConnectionType = `ORACLE`
-
-const ConnectionTypePalantir ConnectionType = `PALANTIR`
 
 const ConnectionTypePostgresql ConnectionType = `POSTGRESQL`
 
@@ -981,11 +996,11 @@ func (f *ConnectionType) String() string {
 // Set raw string value and validate it against allowed values
 func (f *ConnectionType) Set(v string) error {
 	switch v {
-	case `BIGQUERY`, `DATABRICKS`, `GA4_RAW_DATA`, `GLUE`, `HIVE_METASTORE`, `HTTP`, `MYSQL`, `ORACLE`, `PALANTIR`, `POSTGRESQL`, `POWER_BI`, `REDSHIFT`, `SALESFORCE`, `SALESFORCE_DATA_CLOUD`, `SERVICENOW`, `SNOWFLAKE`, `SQLDW`, `SQLSERVER`, `TERADATA`, `UNKNOWN_CONNECTION_TYPE`, `WORKDAY_RAAS`:
+	case `BIGQUERY`, `DATABRICKS`, `GA4_RAW_DATA`, `GLUE`, `HIVE_METASTORE`, `HTTP`, `MYSQL`, `ORACLE`, `POSTGRESQL`, `POWER_BI`, `REDSHIFT`, `SALESFORCE`, `SALESFORCE_DATA_CLOUD`, `SERVICENOW`, `SNOWFLAKE`, `SQLDW`, `SQLSERVER`, `TERADATA`, `UNKNOWN_CONNECTION_TYPE`, `WORKDAY_RAAS`:
 		*f = ConnectionType(v)
 		return nil
 	default:
-		return fmt.Errorf(`value "%s" is not one of "BIGQUERY", "DATABRICKS", "GA4_RAW_DATA", "GLUE", "HIVE_METASTORE", "HTTP", "MYSQL", "ORACLE", "PALANTIR", "POSTGRESQL", "POWER_BI", "REDSHIFT", "SALESFORCE", "SALESFORCE_DATA_CLOUD", "SERVICENOW", "SNOWFLAKE", "SQLDW", "SQLSERVER", "TERADATA", "UNKNOWN_CONNECTION_TYPE", "WORKDAY_RAAS"`, v)
+		return fmt.Errorf(`value "%s" is not one of "BIGQUERY", "DATABRICKS", "GA4_RAW_DATA", "GLUE", "HIVE_METASTORE", "HTTP", "MYSQL", "ORACLE", "POSTGRESQL", "POWER_BI", "REDSHIFT", "SALESFORCE", "SALESFORCE_DATA_CLOUD", "SERVICENOW", "SNOWFLAKE", "SQLDW", "SQLSERVER", "TERADATA", "UNKNOWN_CONNECTION_TYPE", "WORKDAY_RAAS"`, v)
 	}
 }
 
@@ -1002,7 +1017,6 @@ func (f *ConnectionType) Values() []ConnectionType {
 		ConnectionTypeHttp,
 		ConnectionTypeMysql,
 		ConnectionTypeOracle,
-		ConnectionTypePalantir,
 		ConnectionTypePostgresql,
 		ConnectionTypePowerBi,
 		ConnectionTypeRedshift,
@@ -1084,6 +1098,9 @@ type CreateAccessRequestResponse struct {
 }
 
 type CreateAccountsMetastore struct {
+	// Whether to allow non-DBR clients to directly access entities under the
+	// metastore.
+	ExternalAccessEnabled bool `json:"external_access_enabled,omitempty"`
 	// The user-specified name of the metastore.
 	Name string `json:"name"`
 	// Cloud region which the metastore serves (e.g., `us-west-2`, `westus`).
@@ -1237,7 +1254,13 @@ type CreateExternalLocation struct {
 	Comment string `json:"comment,omitempty"`
 	// Name of the storage credential used with this location.
 	CredentialName string `json:"credential_name"`
-	// Whether to enable file events on this external location.
+	// The effective value of `enable_file_events` after applying server-side
+	// defaults.
+	EffectiveEnableFileEvents bool `json:"effective_enable_file_events,omitempty"`
+	// Whether to enable file events on this external location. Default to
+	// `true`. Set to `false` to disable file events. The actual applied value
+	// may differ due to server-side defaults; check
+	// `effective_enable_file_events` for the effective state.
 	EnableFileEvents bool `json:"enable_file_events,omitempty"`
 
 	EncryptionDetails *EncryptionDetails `json:"encryption_details,omitempty"`
@@ -1245,8 +1268,8 @@ type CreateExternalLocation struct {
 	// When fallback mode is enabled, the access to the location falls back to
 	// cluster credentials if UC credentials are not sufficient.
 	Fallback bool `json:"fallback,omitempty"`
-	// File event queue settings. If `enable_file_events` is `true`, must be
-	// defined and have exactly one of the documented properties.
+	// File event queue settings. If `enable_file_events` is not `false`, must
+	// be defined and have exactly one of the documented properties.
 	FileEventQueue *FileEventQueue `json:"file_event_queue,omitempty"`
 	// Name of the external location.
 	Name string `json:"name"`
@@ -1483,6 +1506,9 @@ func (f *CreateFunctionSqlDataAccess) Type() string {
 }
 
 type CreateMetastore struct {
+	// Whether to allow non-DBR clients to directly access entities under the
+	// metastore.
+	ExternalAccessEnabled bool `json:"external_access_enabled,omitempty"`
 	// The user-specified name of the metastore.
 	Name string `json:"name"`
 	// Cloud region which the metastore serves (e.g., `us-west-2`, `westus`).
@@ -1867,16 +1893,20 @@ func (f *CredentialPurpose) Type() string {
 	return "CredentialPurpose"
 }
 
-// Next Id: 13
+// Next Id: 17
 type CredentialType string
 
 const CredentialTypeAnyStaticCredential CredentialType = `ANY_STATIC_CREDENTIAL`
 
 const CredentialTypeBearerToken CredentialType = `BEARER_TOKEN`
 
+const CredentialTypeEdgegridAkamai CredentialType = `EDGEGRID_AKAMAI`
+
 const CredentialTypeOauthAccessToken CredentialType = `OAUTH_ACCESS_TOKEN`
 
 const CredentialTypeOauthM2m CredentialType = `OAUTH_M2M`
+
+const CredentialTypeOauthMtls CredentialType = `OAUTH_MTLS`
 
 const CredentialTypeOauthRefreshToken CredentialType = `OAUTH_REFRESH_TOKEN`
 
@@ -1892,6 +1922,8 @@ const CredentialTypePemPrivateKey CredentialType = `PEM_PRIVATE_KEY`
 
 const CredentialTypeServiceCredential CredentialType = `SERVICE_CREDENTIAL`
 
+const CredentialTypeSswsToken CredentialType = `SSWS_TOKEN`
+
 const CredentialTypeUnknownCredentialType CredentialType = `UNKNOWN_CREDENTIAL_TYPE`
 
 const CredentialTypeUsernamePassword CredentialType = `USERNAME_PASSWORD`
@@ -1904,11 +1936,11 @@ func (f *CredentialType) String() string {
 // Set raw string value and validate it against allowed values
 func (f *CredentialType) Set(v string) error {
 	switch v {
-	case `ANY_STATIC_CREDENTIAL`, `BEARER_TOKEN`, `OAUTH_ACCESS_TOKEN`, `OAUTH_M2M`, `OAUTH_REFRESH_TOKEN`, `OAUTH_RESOURCE_OWNER_PASSWORD`, `OAUTH_U2M`, `OAUTH_U2M_MAPPING`, `OIDC_TOKEN`, `PEM_PRIVATE_KEY`, `SERVICE_CREDENTIAL`, `UNKNOWN_CREDENTIAL_TYPE`, `USERNAME_PASSWORD`:
+	case `ANY_STATIC_CREDENTIAL`, `BEARER_TOKEN`, `EDGEGRID_AKAMAI`, `OAUTH_ACCESS_TOKEN`, `OAUTH_M2M`, `OAUTH_MTLS`, `OAUTH_REFRESH_TOKEN`, `OAUTH_RESOURCE_OWNER_PASSWORD`, `OAUTH_U2M`, `OAUTH_U2M_MAPPING`, `OIDC_TOKEN`, `PEM_PRIVATE_KEY`, `SERVICE_CREDENTIAL`, `SSWS_TOKEN`, `UNKNOWN_CREDENTIAL_TYPE`, `USERNAME_PASSWORD`:
 		*f = CredentialType(v)
 		return nil
 	default:
-		return fmt.Errorf(`value "%s" is not one of "ANY_STATIC_CREDENTIAL", "BEARER_TOKEN", "OAUTH_ACCESS_TOKEN", "OAUTH_M2M", "OAUTH_REFRESH_TOKEN", "OAUTH_RESOURCE_OWNER_PASSWORD", "OAUTH_U2M", "OAUTH_U2M_MAPPING", "OIDC_TOKEN", "PEM_PRIVATE_KEY", "SERVICE_CREDENTIAL", "UNKNOWN_CREDENTIAL_TYPE", "USERNAME_PASSWORD"`, v)
+		return fmt.Errorf(`value "%s" is not one of "ANY_STATIC_CREDENTIAL", "BEARER_TOKEN", "EDGEGRID_AKAMAI", "OAUTH_ACCESS_TOKEN", "OAUTH_M2M", "OAUTH_MTLS", "OAUTH_REFRESH_TOKEN", "OAUTH_RESOURCE_OWNER_PASSWORD", "OAUTH_U2M", "OAUTH_U2M_MAPPING", "OIDC_TOKEN", "PEM_PRIVATE_KEY", "SERVICE_CREDENTIAL", "SSWS_TOKEN", "UNKNOWN_CREDENTIAL_TYPE", "USERNAME_PASSWORD"`, v)
 	}
 }
 
@@ -1919,8 +1951,10 @@ func (f *CredentialType) Values() []CredentialType {
 	return []CredentialType{
 		CredentialTypeAnyStaticCredential,
 		CredentialTypeBearerToken,
+		CredentialTypeEdgegridAkamai,
 		CredentialTypeOauthAccessToken,
 		CredentialTypeOauthM2m,
+		CredentialTypeOauthMtls,
 		CredentialTypeOauthRefreshToken,
 		CredentialTypeOauthResourceOwnerPassword,
 		CredentialTypeOauthU2m,
@@ -1928,6 +1962,7 @@ func (f *CredentialType) Values() []CredentialType {
 		CredentialTypeOidcToken,
 		CredentialTypePemPrivateKey,
 		CredentialTypeServiceCredential,
+		CredentialTypeSswsToken,
 		CredentialTypeUnknownCredentialType,
 		CredentialTypeUsernamePassword,
 	}
@@ -2707,10 +2742,17 @@ type EntityTagAssignment struct {
 	// The type of the entity to which the tag is assigned. Allowed values are:
 	// catalogs, schemas, tables, columns, volumes.
 	EntityType string `json:"entity_type"`
+	// The source type of the tag assignment, e.g., user-assigned or
+	// system-assigned
+	SourceType TagAssignmentSourceType `json:"source_type,omitempty"`
 	// The key of the tag
 	TagKey string `json:"tag_key"`
 	// The value of the tag
 	TagValue string `json:"tag_value,omitempty"`
+	// The timestamp when the tag assignment was last updated
+	UpdateTime *time.Time `json:"update_time,omitempty"`
+	// The user or principal who updated the tag assignment
+	UpdatedBy string `json:"updated_by,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
 }
@@ -2959,7 +3001,13 @@ type ExternalLocationInfo struct {
 	CredentialId string `json:"credential_id,omitempty"`
 	// Name of the storage credential used with this location.
 	CredentialName string `json:"credential_name,omitempty"`
-	// Whether to enable file events on this external location.
+	// The effective value of `enable_file_events` after applying server-side
+	// defaults.
+	EffectiveEnableFileEvents bool `json:"effective_enable_file_events,omitempty"`
+	// Whether to enable file events on this external location. Default to
+	// `true`. Set to `false` to disable file events. The actual applied value
+	// may differ due to server-side defaults; check
+	// `effective_enable_file_events` for the effective state.
 	EnableFileEvents bool `json:"enable_file_events,omitempty"`
 
 	EncryptionDetails *EncryptionDetails `json:"encryption_details,omitempty"`
@@ -2967,8 +3015,8 @@ type ExternalLocationInfo struct {
 	// When fallback mode is enabled, the access to the location falls back to
 	// cluster credentials if UC credentials are not sufficient.
 	Fallback bool `json:"fallback,omitempty"`
-	// File event queue settings. If `enable_file_events` is `true`, must be
-	// defined and have exactly one of the documented properties.
+	// File event queue settings. If `enable_file_events` is not `false`, must
+	// be defined and have exactly one of the documented properties.
 	FileEventQueue *FileEventQueue `json:"file_event_queue,omitempty"`
 
 	IsolationMode IsolationMode `json:"isolation_mode,omitempty"`
@@ -3483,7 +3531,7 @@ type GcpPubsub struct {
 	// resources.
 	ManagedResourceId string `json:"managed_resource_id,omitempty"`
 	// The Pub/Sub subscription name in the format
-	// projects/{project}/subscriptions/{subscription name} Required for
+	// projects/{project}/subscriptions/{subscription name}. Only required for
 	// provided_pubsub.
 	SubscriptionName string `json:"subscription_name,omitempty"`
 
@@ -6200,6 +6248,25 @@ func (s PipelineProgress) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
+// A positional argument passed to a row filter or column mask function.
+// Distinguishes between column references and literals.
+type PolicyFunctionArgument struct {
+	// A column reference.
+	Column string `json:"column,omitempty"`
+	// A constant literal.
+	Constant string `json:"constant,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *PolicyFunctionArgument) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s PolicyFunctionArgument) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
 type PolicyInfo struct {
 	// Options for column mask policies. Valid only if `policy_type` is
 	// `POLICY_TYPE_COLUMN_MASK`. Required on create and optional on update.
@@ -6229,13 +6296,12 @@ type PolicyInfo struct {
 	// the policy, set `name` to a different value on update.
 	Name string `json:"name,omitempty"`
 	// Full name of the securable on which the policy is defined. Required on
-	// create and ignored on update.
+	// create.
 	OnSecurableFullname string `json:"on_securable_fullname,omitempty"`
 	// Type of the securable on which the policy is defined. Only `CATALOG`,
-	// `SCHEMA` and `TABLE` are supported at this moment. Required on create and
-	// ignored on update.
+	// `SCHEMA` and `TABLE` are supported at this moment. Required on create.
 	OnSecurableType SecurableType `json:"on_securable_type,omitempty"`
-	// Type of the policy. Required on create and ignored on update.
+	// Type of the policy. Required on create.
 	PolicyType PolicyType `json:"policy_type"`
 	// Options for row filter policies. Valid only if `policy_type` is
 	// `POLICY_TYPE_ROW_FILTER`. Required on create and optional on update. When
@@ -6832,7 +6898,7 @@ type RunRefreshRequest struct {
 	TableName string `json:"-" url:"-"`
 }
 
-// Next ID: 40
+// Next ID: 45
 type SchemaInfo struct {
 	// Indicates whether the principal is limited to retrieving metadata for the
 	// associated object through the BROWSE privilege when include_browse is
@@ -6909,7 +6975,7 @@ func (s Securable) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
-// Latest kind: CONNECTION_REDSHIFT_IAM = 265; Next id:266
+// Latest kind: CONNECTION_GOOGLE_DRIVE_SERVICE_ACCOUNT = 301; Next id: 302
 type SecurableKind string
 
 const SecurableKindTableDbStorage SecurableKind = `TABLE_DB_STORAGE`
@@ -6919,6 +6985,8 @@ const SecurableKindTableDelta SecurableKind = `TABLE_DELTA`
 const SecurableKindTableDeltasharing SecurableKind = `TABLE_DELTASHARING`
 
 const SecurableKindTableDeltasharingMutable SecurableKind = `TABLE_DELTASHARING_MUTABLE`
+
+const SecurableKindTableDeltasharingOpenDirBased SecurableKind = `TABLE_DELTASHARING_OPEN_DIR_BASED`
 
 const SecurableKindTableDeltaExternal SecurableKind = `TABLE_DELTA_EXTERNAL`
 
@@ -6979,8 +7047,6 @@ const SecurableKindTableForeignMysql SecurableKind = `TABLE_FOREIGN_MYSQL`
 const SecurableKindTableForeignNetsuite SecurableKind = `TABLE_FOREIGN_NETSUITE`
 
 const SecurableKindTableForeignOracle SecurableKind = `TABLE_FOREIGN_ORACLE`
-
-const SecurableKindTableForeignPalantir SecurableKind = `TABLE_FOREIGN_PALANTIR`
 
 const SecurableKindTableForeignPostgresql SecurableKind = `TABLE_FOREIGN_POSTGRESQL`
 
@@ -7046,11 +7112,11 @@ func (f *SecurableKind) String() string {
 // Set raw string value and validate it against allowed values
 func (f *SecurableKind) Set(v string) error {
 	switch v {
-	case `TABLE_DB_STORAGE`, `TABLE_DELTA`, `TABLE_DELTASHARING`, `TABLE_DELTASHARING_MUTABLE`, `TABLE_DELTA_EXTERNAL`, `TABLE_DELTA_ICEBERG_DELTASHARING`, `TABLE_DELTA_ICEBERG_MANAGED`, `TABLE_DELTA_UNIFORM_HUDI_EXTERNAL`, `TABLE_DELTA_UNIFORM_ICEBERG_EXTERNAL`, `TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_DELTASHARING`, `TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_HIVE_METASTORE_EXTERNAL`, `TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_HIVE_METASTORE_MANAGED`, `TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_SNOWFLAKE`, `TABLE_EXTERNAL`, `TABLE_FEATURE_STORE`, `TABLE_FEATURE_STORE_EXTERNAL`, `TABLE_FOREIGN_BIGQUERY`, `TABLE_FOREIGN_DATABRICKS`, `TABLE_FOREIGN_DELTASHARING`, `TABLE_FOREIGN_HIVE_METASTORE`, `TABLE_FOREIGN_HIVE_METASTORE_DBFS_EXTERNAL`, `TABLE_FOREIGN_HIVE_METASTORE_DBFS_MANAGED`, `TABLE_FOREIGN_HIVE_METASTORE_DBFS_SHALLOW_CLONE_EXTERNAL`, `TABLE_FOREIGN_HIVE_METASTORE_DBFS_SHALLOW_CLONE_MANAGED`, `TABLE_FOREIGN_HIVE_METASTORE_DBFS_VIEW`, `TABLE_FOREIGN_HIVE_METASTORE_EXTERNAL`, `TABLE_FOREIGN_HIVE_METASTORE_MANAGED`, `TABLE_FOREIGN_HIVE_METASTORE_SHALLOW_CLONE_EXTERNAL`, `TABLE_FOREIGN_HIVE_METASTORE_SHALLOW_CLONE_MANAGED`, `TABLE_FOREIGN_HIVE_METASTORE_VIEW`, `TABLE_FOREIGN_MONGODB`, `TABLE_FOREIGN_MYSQL`, `TABLE_FOREIGN_NETSUITE`, `TABLE_FOREIGN_ORACLE`, `TABLE_FOREIGN_PALANTIR`, `TABLE_FOREIGN_POSTGRESQL`, `TABLE_FOREIGN_REDSHIFT`, `TABLE_FOREIGN_SALESFORCE`, `TABLE_FOREIGN_SALESFORCE_DATA_CLOUD`, `TABLE_FOREIGN_SALESFORCE_DATA_CLOUD_FILE_SHARING`, `TABLE_FOREIGN_SALESFORCE_DATA_CLOUD_FILE_SHARING_VIEW`, `TABLE_FOREIGN_SNOWFLAKE`, `TABLE_FOREIGN_SQLDW`, `TABLE_FOREIGN_SQLSERVER`, `TABLE_FOREIGN_TERADATA`, `TABLE_FOREIGN_WORKDAY_RAAS`, `TABLE_ICEBERG_UNIFORM_MANAGED`, `TABLE_INTERNAL`, `TABLE_MANAGED_POSTGRESQL`, `TABLE_MATERIALIZED_VIEW`, `TABLE_MATERIALIZED_VIEW_DELTASHARING`, `TABLE_METRIC_VIEW`, `TABLE_METRIC_VIEW_DELTASHARING`, `TABLE_ONLINE_VECTOR_INDEX_DIRECT`, `TABLE_ONLINE_VECTOR_INDEX_REPLICA`, `TABLE_ONLINE_VIEW`, `TABLE_STANDARD`, `TABLE_STREAMING_LIVE_TABLE`, `TABLE_STREAMING_LIVE_TABLE_DELTASHARING`, `TABLE_SYSTEM`, `TABLE_SYSTEM_DELTASHARING`, `TABLE_VIEW`, `TABLE_VIEW_DELTASHARING`:
+	case `TABLE_DB_STORAGE`, `TABLE_DELTA`, `TABLE_DELTASHARING`, `TABLE_DELTASHARING_MUTABLE`, `TABLE_DELTASHARING_OPEN_DIR_BASED`, `TABLE_DELTA_EXTERNAL`, `TABLE_DELTA_ICEBERG_DELTASHARING`, `TABLE_DELTA_ICEBERG_MANAGED`, `TABLE_DELTA_UNIFORM_HUDI_EXTERNAL`, `TABLE_DELTA_UNIFORM_ICEBERG_EXTERNAL`, `TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_DELTASHARING`, `TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_HIVE_METASTORE_EXTERNAL`, `TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_HIVE_METASTORE_MANAGED`, `TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_SNOWFLAKE`, `TABLE_EXTERNAL`, `TABLE_FEATURE_STORE`, `TABLE_FEATURE_STORE_EXTERNAL`, `TABLE_FOREIGN_BIGQUERY`, `TABLE_FOREIGN_DATABRICKS`, `TABLE_FOREIGN_DELTASHARING`, `TABLE_FOREIGN_HIVE_METASTORE`, `TABLE_FOREIGN_HIVE_METASTORE_DBFS_EXTERNAL`, `TABLE_FOREIGN_HIVE_METASTORE_DBFS_MANAGED`, `TABLE_FOREIGN_HIVE_METASTORE_DBFS_SHALLOW_CLONE_EXTERNAL`, `TABLE_FOREIGN_HIVE_METASTORE_DBFS_SHALLOW_CLONE_MANAGED`, `TABLE_FOREIGN_HIVE_METASTORE_DBFS_VIEW`, `TABLE_FOREIGN_HIVE_METASTORE_EXTERNAL`, `TABLE_FOREIGN_HIVE_METASTORE_MANAGED`, `TABLE_FOREIGN_HIVE_METASTORE_SHALLOW_CLONE_EXTERNAL`, `TABLE_FOREIGN_HIVE_METASTORE_SHALLOW_CLONE_MANAGED`, `TABLE_FOREIGN_HIVE_METASTORE_VIEW`, `TABLE_FOREIGN_MONGODB`, `TABLE_FOREIGN_MYSQL`, `TABLE_FOREIGN_NETSUITE`, `TABLE_FOREIGN_ORACLE`, `TABLE_FOREIGN_POSTGRESQL`, `TABLE_FOREIGN_REDSHIFT`, `TABLE_FOREIGN_SALESFORCE`, `TABLE_FOREIGN_SALESFORCE_DATA_CLOUD`, `TABLE_FOREIGN_SALESFORCE_DATA_CLOUD_FILE_SHARING`, `TABLE_FOREIGN_SALESFORCE_DATA_CLOUD_FILE_SHARING_VIEW`, `TABLE_FOREIGN_SNOWFLAKE`, `TABLE_FOREIGN_SQLDW`, `TABLE_FOREIGN_SQLSERVER`, `TABLE_FOREIGN_TERADATA`, `TABLE_FOREIGN_WORKDAY_RAAS`, `TABLE_ICEBERG_UNIFORM_MANAGED`, `TABLE_INTERNAL`, `TABLE_MANAGED_POSTGRESQL`, `TABLE_MATERIALIZED_VIEW`, `TABLE_MATERIALIZED_VIEW_DELTASHARING`, `TABLE_METRIC_VIEW`, `TABLE_METRIC_VIEW_DELTASHARING`, `TABLE_ONLINE_VECTOR_INDEX_DIRECT`, `TABLE_ONLINE_VECTOR_INDEX_REPLICA`, `TABLE_ONLINE_VIEW`, `TABLE_STANDARD`, `TABLE_STREAMING_LIVE_TABLE`, `TABLE_STREAMING_LIVE_TABLE_DELTASHARING`, `TABLE_SYSTEM`, `TABLE_SYSTEM_DELTASHARING`, `TABLE_VIEW`, `TABLE_VIEW_DELTASHARING`:
 		*f = SecurableKind(v)
 		return nil
 	default:
-		return fmt.Errorf(`value "%s" is not one of "TABLE_DB_STORAGE", "TABLE_DELTA", "TABLE_DELTASHARING", "TABLE_DELTASHARING_MUTABLE", "TABLE_DELTA_EXTERNAL", "TABLE_DELTA_ICEBERG_DELTASHARING", "TABLE_DELTA_ICEBERG_MANAGED", "TABLE_DELTA_UNIFORM_HUDI_EXTERNAL", "TABLE_DELTA_UNIFORM_ICEBERG_EXTERNAL", "TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_DELTASHARING", "TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_HIVE_METASTORE_EXTERNAL", "TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_HIVE_METASTORE_MANAGED", "TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_SNOWFLAKE", "TABLE_EXTERNAL", "TABLE_FEATURE_STORE", "TABLE_FEATURE_STORE_EXTERNAL", "TABLE_FOREIGN_BIGQUERY", "TABLE_FOREIGN_DATABRICKS", "TABLE_FOREIGN_DELTASHARING", "TABLE_FOREIGN_HIVE_METASTORE", "TABLE_FOREIGN_HIVE_METASTORE_DBFS_EXTERNAL", "TABLE_FOREIGN_HIVE_METASTORE_DBFS_MANAGED", "TABLE_FOREIGN_HIVE_METASTORE_DBFS_SHALLOW_CLONE_EXTERNAL", "TABLE_FOREIGN_HIVE_METASTORE_DBFS_SHALLOW_CLONE_MANAGED", "TABLE_FOREIGN_HIVE_METASTORE_DBFS_VIEW", "TABLE_FOREIGN_HIVE_METASTORE_EXTERNAL", "TABLE_FOREIGN_HIVE_METASTORE_MANAGED", "TABLE_FOREIGN_HIVE_METASTORE_SHALLOW_CLONE_EXTERNAL", "TABLE_FOREIGN_HIVE_METASTORE_SHALLOW_CLONE_MANAGED", "TABLE_FOREIGN_HIVE_METASTORE_VIEW", "TABLE_FOREIGN_MONGODB", "TABLE_FOREIGN_MYSQL", "TABLE_FOREIGN_NETSUITE", "TABLE_FOREIGN_ORACLE", "TABLE_FOREIGN_PALANTIR", "TABLE_FOREIGN_POSTGRESQL", "TABLE_FOREIGN_REDSHIFT", "TABLE_FOREIGN_SALESFORCE", "TABLE_FOREIGN_SALESFORCE_DATA_CLOUD", "TABLE_FOREIGN_SALESFORCE_DATA_CLOUD_FILE_SHARING", "TABLE_FOREIGN_SALESFORCE_DATA_CLOUD_FILE_SHARING_VIEW", "TABLE_FOREIGN_SNOWFLAKE", "TABLE_FOREIGN_SQLDW", "TABLE_FOREIGN_SQLSERVER", "TABLE_FOREIGN_TERADATA", "TABLE_FOREIGN_WORKDAY_RAAS", "TABLE_ICEBERG_UNIFORM_MANAGED", "TABLE_INTERNAL", "TABLE_MANAGED_POSTGRESQL", "TABLE_MATERIALIZED_VIEW", "TABLE_MATERIALIZED_VIEW_DELTASHARING", "TABLE_METRIC_VIEW", "TABLE_METRIC_VIEW_DELTASHARING", "TABLE_ONLINE_VECTOR_INDEX_DIRECT", "TABLE_ONLINE_VECTOR_INDEX_REPLICA", "TABLE_ONLINE_VIEW", "TABLE_STANDARD", "TABLE_STREAMING_LIVE_TABLE", "TABLE_STREAMING_LIVE_TABLE_DELTASHARING", "TABLE_SYSTEM", "TABLE_SYSTEM_DELTASHARING", "TABLE_VIEW", "TABLE_VIEW_DELTASHARING"`, v)
+		return fmt.Errorf(`value "%s" is not one of "TABLE_DB_STORAGE", "TABLE_DELTA", "TABLE_DELTASHARING", "TABLE_DELTASHARING_MUTABLE", "TABLE_DELTASHARING_OPEN_DIR_BASED", "TABLE_DELTA_EXTERNAL", "TABLE_DELTA_ICEBERG_DELTASHARING", "TABLE_DELTA_ICEBERG_MANAGED", "TABLE_DELTA_UNIFORM_HUDI_EXTERNAL", "TABLE_DELTA_UNIFORM_ICEBERG_EXTERNAL", "TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_DELTASHARING", "TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_HIVE_METASTORE_EXTERNAL", "TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_HIVE_METASTORE_MANAGED", "TABLE_DELTA_UNIFORM_ICEBERG_FOREIGN_SNOWFLAKE", "TABLE_EXTERNAL", "TABLE_FEATURE_STORE", "TABLE_FEATURE_STORE_EXTERNAL", "TABLE_FOREIGN_BIGQUERY", "TABLE_FOREIGN_DATABRICKS", "TABLE_FOREIGN_DELTASHARING", "TABLE_FOREIGN_HIVE_METASTORE", "TABLE_FOREIGN_HIVE_METASTORE_DBFS_EXTERNAL", "TABLE_FOREIGN_HIVE_METASTORE_DBFS_MANAGED", "TABLE_FOREIGN_HIVE_METASTORE_DBFS_SHALLOW_CLONE_EXTERNAL", "TABLE_FOREIGN_HIVE_METASTORE_DBFS_SHALLOW_CLONE_MANAGED", "TABLE_FOREIGN_HIVE_METASTORE_DBFS_VIEW", "TABLE_FOREIGN_HIVE_METASTORE_EXTERNAL", "TABLE_FOREIGN_HIVE_METASTORE_MANAGED", "TABLE_FOREIGN_HIVE_METASTORE_SHALLOW_CLONE_EXTERNAL", "TABLE_FOREIGN_HIVE_METASTORE_SHALLOW_CLONE_MANAGED", "TABLE_FOREIGN_HIVE_METASTORE_VIEW", "TABLE_FOREIGN_MONGODB", "TABLE_FOREIGN_MYSQL", "TABLE_FOREIGN_NETSUITE", "TABLE_FOREIGN_ORACLE", "TABLE_FOREIGN_POSTGRESQL", "TABLE_FOREIGN_REDSHIFT", "TABLE_FOREIGN_SALESFORCE", "TABLE_FOREIGN_SALESFORCE_DATA_CLOUD", "TABLE_FOREIGN_SALESFORCE_DATA_CLOUD_FILE_SHARING", "TABLE_FOREIGN_SALESFORCE_DATA_CLOUD_FILE_SHARING_VIEW", "TABLE_FOREIGN_SNOWFLAKE", "TABLE_FOREIGN_SQLDW", "TABLE_FOREIGN_SQLSERVER", "TABLE_FOREIGN_TERADATA", "TABLE_FOREIGN_WORKDAY_RAAS", "TABLE_ICEBERG_UNIFORM_MANAGED", "TABLE_INTERNAL", "TABLE_MANAGED_POSTGRESQL", "TABLE_MATERIALIZED_VIEW", "TABLE_MATERIALIZED_VIEW_DELTASHARING", "TABLE_METRIC_VIEW", "TABLE_METRIC_VIEW_DELTASHARING", "TABLE_ONLINE_VECTOR_INDEX_DIRECT", "TABLE_ONLINE_VECTOR_INDEX_REPLICA", "TABLE_ONLINE_VIEW", "TABLE_STANDARD", "TABLE_STREAMING_LIVE_TABLE", "TABLE_STREAMING_LIVE_TABLE_DELTASHARING", "TABLE_SYSTEM", "TABLE_SYSTEM_DELTASHARING", "TABLE_VIEW", "TABLE_VIEW_DELTASHARING"`, v)
 	}
 }
 
@@ -7063,6 +7129,7 @@ func (f *SecurableKind) Values() []SecurableKind {
 		SecurableKindTableDelta,
 		SecurableKindTableDeltasharing,
 		SecurableKindTableDeltasharingMutable,
+		SecurableKindTableDeltasharingOpenDirBased,
 		SecurableKindTableDeltaExternal,
 		SecurableKindTableDeltaIcebergDeltasharing,
 		SecurableKindTableDeltaIcebergManaged,
@@ -7093,7 +7160,6 @@ func (f *SecurableKind) Values() []SecurableKind {
 		SecurableKindTableForeignMysql,
 		SecurableKindTableForeignNetsuite,
 		SecurableKindTableForeignOracle,
-		SecurableKindTableForeignPalantir,
 		SecurableKindTableForeignPostgresql,
 		SecurableKindTableForeignRedshift,
 		SecurableKindTableForeignSalesforce,
@@ -7644,7 +7710,8 @@ type TableInfo struct {
 	// **STREAMING_TABLE**) - when DependencyList is None, the dependency is not
 	// provided; - when DependencyList is an empty list, the dependency is
 	// provided but is empty; - when DependencyList is not an empty list,
-	// dependencies are provided and recorded.
+	// dependencies are provided and recorded. Note: this field is not set in
+	// the output of the __listTables__ API.
 	ViewDependencies *DependencyList `json:"view_dependencies,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
@@ -7698,6 +7765,11 @@ func (f *TableOperation) Type() string {
 type TableRowFilter struct {
 	// The full name of the row filter SQL UDF.
 	FunctionName string `json:"function_name"`
+	// The list of additional table columns or literals to be passed as
+	// additional arguments to a row filter function. This is the replacement of
+	// the deprecated input_column_names field and carries information about the
+	// types (alias or constant) of the arguments to the filter function.
+	InputArguments []PolicyFunctionArgument `json:"input_arguments,omitempty"`
 	// The list of table columns to be passed as input to the row filter
 	// function. The column types should match the types of the filter function
 	// arguments.
@@ -7779,6 +7851,41 @@ func (f *TableType) Values() []TableType {
 // Type always returns TableType to satisfy [pflag.Value] interface
 func (f *TableType) Type() string {
 	return "TableType"
+}
+
+// Enum representing the source type of a tag assignment
+type TagAssignmentSourceType string
+
+const TagAssignmentSourceTypeTagAssignmentSourceTypeSystemDataClassification TagAssignmentSourceType = `TAG_ASSIGNMENT_SOURCE_TYPE_SYSTEM_DATA_CLASSIFICATION`
+
+// String representation for [fmt.Print]
+func (f *TagAssignmentSourceType) String() string {
+	return string(*f)
+}
+
+// Set raw string value and validate it against allowed values
+func (f *TagAssignmentSourceType) Set(v string) error {
+	switch v {
+	case `TAG_ASSIGNMENT_SOURCE_TYPE_SYSTEM_DATA_CLASSIFICATION`:
+		*f = TagAssignmentSourceType(v)
+		return nil
+	default:
+		return fmt.Errorf(`value "%s" is not one of "TAG_ASSIGNMENT_SOURCE_TYPE_SYSTEM_DATA_CLASSIFICATION"`, v)
+	}
+}
+
+// Values returns all possible values for TagAssignmentSourceType.
+//
+// There is no guarantee on the order of the values in the slice.
+func (f *TagAssignmentSourceType) Values() []TagAssignmentSourceType {
+	return []TagAssignmentSourceType{
+		TagAssignmentSourceTypeTagAssignmentSourceTypeSystemDataClassification,
+	}
+}
+
+// Type always returns TagAssignmentSourceType to satisfy [pflag.Value] interface
+func (f *TagAssignmentSourceType) Type() string {
+	return "TagAssignmentSourceType"
 }
 
 type TagKeyValue struct {
@@ -7877,6 +7984,9 @@ type UpdateAccountsMetastore struct {
 	DeltaSharingRecipientTokenLifetimeInSeconds int64 `json:"delta_sharing_recipient_token_lifetime_in_seconds,omitempty"`
 	// The scope of Delta Sharing enabled for the metastore.
 	DeltaSharingScope DeltaSharingScopeEnum `json:"delta_sharing_scope,omitempty"`
+	// Whether to allow non-DBR clients to directly access entities under the
+	// metastore.
+	ExternalAccessEnabled bool `json:"external_access_enabled,omitempty"`
 	// The owner of the metastore.
 	Owner string `json:"owner,omitempty"`
 	// Privilege model version of the metastore, of the form `major.minor`
@@ -8073,7 +8183,13 @@ type UpdateExternalLocation struct {
 	Comment string `json:"comment,omitempty"`
 	// Name of the storage credential used with this location.
 	CredentialName string `json:"credential_name,omitempty"`
-	// Whether to enable file events on this external location.
+	// The effective value of `enable_file_events` after applying server-side
+	// defaults.
+	EffectiveEnableFileEvents bool `json:"effective_enable_file_events,omitempty"`
+	// Whether to enable file events on this external location. Default to
+	// `true`. Set to `false` to disable file events. The actual applied value
+	// may differ due to server-side defaults; check
+	// `effective_enable_file_events` for the effective state.
 	EnableFileEvents bool `json:"enable_file_events,omitempty"`
 
 	EncryptionDetails *EncryptionDetails `json:"encryption_details,omitempty"`
@@ -8081,8 +8197,8 @@ type UpdateExternalLocation struct {
 	// When fallback mode is enabled, the access to the location falls back to
 	// cluster credentials if UC credentials are not sufficient.
 	Fallback bool `json:"fallback,omitempty"`
-	// File event queue settings. If `enable_file_events` is `true`, must be
-	// defined and have exactly one of the documented properties.
+	// File event queue settings. If `enable_file_events` is not `false`, must
+	// be defined and have exactly one of the documented properties.
 	FileEventQueue *FileEventQueue `json:"file_event_queue,omitempty"`
 	// Force update even if changing url invalidates dependent external tables
 	// or mounts.
@@ -8158,6 +8274,9 @@ type UpdateMetastore struct {
 	DeltaSharingRecipientTokenLifetimeInSeconds int64 `json:"delta_sharing_recipient_token_lifetime_in_seconds,omitempty"`
 	// The scope of Delta Sharing enabled for the metastore.
 	DeltaSharingScope DeltaSharingScopeEnum `json:"delta_sharing_scope,omitempty"`
+	// Whether to allow non-DBR clients to directly access entities under the
+	// metastore.
+	ExternalAccessEnabled bool `json:"external_access_enabled,omitempty"`
 	// Unique ID of the metastore.
 	Id string `json:"-" url:"-"`
 	// New name for the metastore.
@@ -8566,7 +8685,7 @@ type UpdateWorkspaceBindingsResponse struct {
 	Bindings []WorkspaceBinding `json:"bindings,omitempty"`
 }
 
-// Next ID: 17
+// Next ID: 18
 type ValidateCredentialRequest struct {
 	AwsIamRole *AwsIamRole `json:"aws_iam_role,omitempty"`
 

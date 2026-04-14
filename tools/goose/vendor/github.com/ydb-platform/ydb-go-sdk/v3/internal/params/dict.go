@@ -187,8 +187,24 @@ func (d *dictPair) JSON(v string) *dictValue {
 	}
 }
 
+func (d *dictPair) JSONFromBytes(v []byte) *dictValue {
+	d.keyValue = value.JSONValueFromBytes(v)
+
+	return &dictValue{
+		pair: d,
+	}
+}
+
 func (d *dictPair) JSONDocument(v string) *dictValue {
 	d.keyValue = value.JSONDocumentValue(v)
+
+	return &dictValue{
+		pair: d,
+	}
+}
+
+func (d *dictPair) JSONDocumentFromBytes(v []byte) *dictValue {
+	d.keyValue = value.JSONDocumentValueFromBytes(v)
 
 	return &dictValue{
 		pair: d,
@@ -215,7 +231,7 @@ func (d *dictPair) UUID(v [16]byte) *dictValue {
 	}
 }
 
-func (d *dictPair) Uuid(v uuid.UUID) *dictValue { //nolint:revive,stylecheck
+func (d *dictPair) Uuid(v uuid.UUID) *dictValue { //nolint:revive
 	d.keyValue = value.Uuid(v)
 
 	return &dictValue{
@@ -457,7 +473,7 @@ func (d *dictValue) YSON(v []byte) *dict {
 //	return d.pair.parent
 //}
 
-func (d *dictValue) Uuid(v uuid.UUID) *dict { //nolint:revive,stylecheck
+func (d *dictValue) Uuid(v uuid.UUID) *dict { //nolint:revive
 	d.pair.parent.values = append(d.pair.parent.values, value.DictValueField{
 		K: d.pair.keyValue,
 		V: value.Uuid(v),

@@ -114,24 +114,46 @@ type DatabaseInstance struct {
 	// create and update responses.
 	CustomTags []CustomTag `json:"custom_tags,omitempty"`
 	// Deprecated. The sku of the instance; this field will always match the
-	// value of capacity.
+	// value of capacity. This is an output only field that contains the value
+	// computed from the input field combined with server side defaults. Use the
+	// field without the effective_ prefix to set the value.
 	EffectiveCapacity string `json:"effective_capacity,omitempty"`
-	// The recorded custom tags associated with the instance.
+	// The recorded custom tags associated with the instance. This is an output
+	// only field that contains the value computed from the input field combined
+	// with server side defaults. Use the field without the effective_ prefix to
+	// set the value.
 	EffectiveCustomTags []CustomTag `json:"effective_custom_tags,omitempty"`
-	// Whether the instance has PG native password login enabled.
+	// Whether the instance has PG native password login enabled. This is an
+	// output only field that contains the value computed from the input field
+	// combined with server side defaults. Use the field without the effective_
+	// prefix to set the value.
 	EffectiveEnablePgNativeLogin bool `json:"effective_enable_pg_native_login,omitempty"`
 	// Whether secondaries serving read-only traffic are enabled. Defaults to
-	// false.
+	// false. This is an output only field that contains the value computed from
+	// the input field combined with server side defaults. Use the field without
+	// the effective_ prefix to set the value.
 	EffectiveEnableReadableSecondaries bool `json:"effective_enable_readable_secondaries,omitempty"`
 	// The number of nodes in the instance, composed of 1 primary and 0 or more
-	// secondaries. Defaults to 1 primary and 0 secondaries.
+	// secondaries. Defaults to 1 primary and 0 secondaries. This is an output
+	// only field that contains the value computed from the input field combined
+	// with server side defaults. Use the field without the effective_ prefix to
+	// set the value.
 	EffectiveNodeCount int `json:"effective_node_count,omitempty"`
 	// The retention window for the instance. This is the time window in days
-	// for which the historical data is retained.
+	// for which the historical data is retained. This is an output only field
+	// that contains the value computed from the input field combined with
+	// server side defaults. Use the field without the effective_ prefix to set
+	// the value.
 	EffectiveRetentionWindowInDays int `json:"effective_retention_window_in_days,omitempty"`
-	// Whether the instance is stopped.
+	// Whether the instance is stopped. This is an output only field that
+	// contains the value computed from the input field combined with server
+	// side defaults. Use the field without the effective_ prefix to set the
+	// value.
 	EffectiveStopped bool `json:"effective_stopped,omitempty"`
-	// The policy that is applied to the instance.
+	// The policy that is applied to the instance. This is an output only field
+	// that contains the value computed from the input field combined with
+	// server side defaults. Use the field without the effective_ prefix to set
+	// the value.
 	EffectiveUsagePolicyId string `json:"effective_usage_policy_id,omitempty"`
 	// Whether to enable PG native password login on the instance. Defaults to
 	// false.
@@ -199,7 +221,10 @@ type DatabaseInstanceRef struct {
 	BranchTime string `json:"branch_time,omitempty"`
 	// For a parent ref instance, this is the LSN on the parent instance from
 	// which the instance was created. For a child ref instance, this is the LSN
-	// on the instance from which the child instance was created.
+	// on the instance from which the child instance was created. This is an
+	// output only field that contains the value computed from the input field
+	// combined with server side defaults. Use the field without the effective_
+	// prefix to set the value.
 	EffectiveLsn string `json:"effective_lsn,omitempty"`
 	// User-specified WAL LSN of the ref database instance.
 	//
@@ -227,7 +252,10 @@ type DatabaseInstanceRole struct {
 	// The desired API-exposed Postgres role attribute to associate with the
 	// role. Optional.
 	Attributes *DatabaseInstanceRoleAttributes `json:"attributes,omitempty"`
-	// The attributes that are applied to the role.
+	// The attributes that are applied to the role. This is an output only field
+	// that contains the value computed from the input field combined with
+	// server side defaults. Use the field without the effective_ prefix to set
+	// the value.
 	EffectiveAttributes *DatabaseInstanceRoleAttributes `json:"effective_attributes,omitempty"`
 	// The type of the role.
 	IdentityType DatabaseInstanceRoleIdentityType `json:"identity_type,omitempty"`
@@ -402,7 +430,6 @@ func (f *DatabaseInstanceState) Type() string {
 	return "DatabaseInstanceState"
 }
 
-// Next field marker: 13
 type DatabaseTable struct {
 	// Name of the target database instance. This is required when creating
 	// database tables in standard catalogs. This is optional when creating
@@ -413,15 +440,12 @@ type DatabaseTable struct {
 	DatabaseInstanceName string `json:"database_instance_name,omitempty"`
 	// Target Postgres database object (logical database) name for this table.
 	//
-	// When creating a table in a registered Postgres catalog, the target
-	// Postgres database name is inferred to be that of the registered catalog.
-	// If this field is specified in this scenario, the Postgres database name
-	// MUST match that of the registered catalog (or the request will be
-	// rejected).
-	//
 	// When creating a table in a standard catalog, this field is required. In
 	// this scenario, specifying this field will allow targeting an arbitrary
 	// postgres database.
+	//
+	// Registration of database tables via /database/tables is currently only
+	// supported in standard catalogs.
 	LogicalDatabaseName string `json:"logical_database_name,omitempty"`
 	// Full three-part (catalog, schema, table) name of the table.
 	Name string `json:"name"`
@@ -492,6 +516,19 @@ type DeleteDatabaseTableRequest struct {
 
 type DeleteSyncedDatabaseTableRequest struct {
 	Name string `json:"-" url:"-"`
+	// Optional. When set to true, the actual PostgreSQL table will be dropped
+	// from the database.
+	PurgeData bool `json:"-" url:"purge_data,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *DeleteSyncedDatabaseTableRequest) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s DeleteSyncedDatabaseTableRequest) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
 }
 
 type DeltaTableSyncInfo struct {
@@ -530,11 +567,15 @@ func (s FindDatabaseInstanceByUidRequest) MarshalJSON() ([]byte, error) {
 
 // Generates a credential that can be used to access database instances
 type GenerateDatabaseCredentialRequest struct {
-	// The returned token will be scoped to the union of instance_names and
-	// instances containing the specified UC tables, so instance_names is
-	// allowed to be empty.
+	// A set of UC permissions to add to the credential. We verify that the
+	// caller has the necessary permissions in UC and include a reference in the
+	// token. Postgres uses that token to give the connecting user additional
+	// grants to the Postgres resources that correspond to the UC resources. The
+	// UC resources need to be something that have a Postgres counterpart. For
+	// example, a synced table or a table in a UC database catalog.
 	Claims []RequestedClaims `json:"claims,omitempty"`
-	// Instances to which the token will be scoped.
+	// Instances to request a credential for. At least one of instance_names or
+	// claims must be specified.
 	InstanceNames []string `json:"instance_names,omitempty"`
 
 	RequestId string `json:"request_id,omitempty"`
@@ -646,7 +687,7 @@ func (s ListDatabaseInstanceRolesResponse) MarshalJSON() ([]byte, error) {
 }
 
 type ListDatabaseInstancesRequest struct {
-	// Upper bound for items returned.
+	// Upper bound for items returned. The maximum value is 100.
 	PageSize int `json:"-" url:"page_size,omitempty"`
 	// Pagination token to go to the next page of Database Instances. Requests
 	// first page if absent.
@@ -721,6 +762,8 @@ func (s ListSyncedDatabaseTablesResponse) MarshalJSON() ([]byte, error) {
 // SyncedDatabaseTable. Note that other fields of pipeline are still inferred by
 // table def internally
 type NewPipelineSpec struct {
+	// Budget policy to set on the newly created pipeline.
+	BudgetPolicyId string `json:"budget_policy_id,omitempty"`
 	// This field needs to be specified if the destination catalog is a managed
 	// postgres catalog.
 	//
@@ -893,7 +936,6 @@ func (s RequestedResource) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
-// Next field marker: 18
 type SyncedDatabaseTable struct {
 	// Synced Table data synchronization status
 	DataSynchronizationStatus *SyncedTableStatus `json:"data_synchronization_status,omitempty"`
@@ -906,9 +948,15 @@ type SyncedDatabaseTable struct {
 	DatabaseInstanceName string `json:"database_instance_name,omitempty"`
 	// The name of the database instance that this table is registered to. This
 	// field is always returned, and for tables inside database catalogs is
-	// inferred database instance associated with the catalog.
+	// inferred database instance associated with the catalog. This is an output
+	// only field that contains the value computed from the input field combined
+	// with server side defaults. Use the field without the effective_ prefix to
+	// set the value.
 	EffectiveDatabaseInstanceName string `json:"effective_database_instance_name,omitempty"`
-	// The name of the logical database that this table is registered to.
+	// The name of the logical database that this table is registered to. This
+	// is an output only field that contains the value computed from the input
+	// field combined with server side defaults. Use the field without the
+	// effective_ prefix to set the value.
 	EffectiveLogicalDatabaseName string `json:"effective_logical_database_name,omitempty"`
 	// Target Postgres database object (logical database) name for this table.
 	//

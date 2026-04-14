@@ -1,9 +1,13 @@
 package query
 
 import (
+	"context"
+	"io"
+
 	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb"
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/query/scanner"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/value"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors"
 	"github.com/ydb-platform/ydb-go-sdk/v3/query"
 )
@@ -11,6 +15,8 @@ import (
 var _ query.Row = (*Row)(nil)
 
 type Row struct {
+	data *scanner.Data
+
 	indexedScanner interface {
 		Scan(dst ...interface{}) error
 	}
@@ -22,10 +28,15 @@ type Row struct {
 	}
 }
 
+func (r Row) Values() []value.Value {
+	return r.data.Values()
+}
+
 func NewRow(columns []*Ydb.Column, v *Ydb.Value) *Row {
-	data := scanner.Data(columns, v.GetItems())
+	data := scanner.NewData(columns, v.GetItems())
 
 	return &Row{
+		data:           data,
 		indexedScanner: scanner.Indexed(data),
 		namedScanner:   scanner.Named(data),
 		structScanner:  scanner.Struct(data),
@@ -66,4 +77,42 @@ func (r Row) ScanStruct(dst interface{}, opts ...scanner.ScanStructOption) error
 	}
 
 	return nil
+}
+
+func readRow(ctx context.Context, r *streamResult) (_ *Row, finalErr error) {
+	defer func() {
+		_ = r.Close(ctx)
+	}()
+
+	rs, err := r.nextResultSet(ctx)
+	if err != nil {
+		return nil, xerrors.WithStackTrace(err)
+	}
+
+	row, err := rs.nextRow(ctx)
+	if err != nil {
+		if xerrors.Is(err, io.EOF) {
+			return nil, xerrors.WithStackTrace(ErrNoRows)
+		}
+
+		return nil, xerrors.WithStackTrace(err)
+	}
+
+	_, err = rs.nextRow(ctx)
+	if err == nil {
+		return nil, xerrors.WithStackTrace(ErrMoreThanOneRow)
+	}
+	if !xerrors.Is(err, io.EOF) {
+		return nil, xerrors.WithStackTrace(err)
+	}
+
+	_, err = r.NextResultSet(ctx)
+	if err == nil {
+		return nil, xerrors.WithStackTrace(ErrMoreThanOneResultSet)
+	}
+	if !xerrors.Is(err, io.EOF) {
+		return nil, xerrors.WithStackTrace(err)
+	}
+
+	return row, nil
 }

@@ -257,20 +257,63 @@ type ExperimentsService interface {
 // Deprecated: Do not use this interface, it will be removed in a future version of the SDK.
 type FeatureEngineeringService interface {
 
+	// Batch create materialized features.
+	BatchCreateMaterializedFeatures(ctx context.Context, request BatchCreateMaterializedFeaturesRequest) (*BatchCreateMaterializedFeaturesResponse, error)
+
 	// Create a Feature.
 	CreateFeature(ctx context.Context, request CreateFeatureRequest) (*Feature, error)
+
+	// Create a Kafka config. During PrPr, Kafka configs can be read and used
+	// when creating features under the entire metastore. Only the creator of
+	// the Kafka config can delete it.
+	CreateKafkaConfig(ctx context.Context, request CreateKafkaConfigRequest) (*KafkaConfig, error)
+
+	// Create a materialized feature.
+	CreateMaterializedFeature(ctx context.Context, request CreateMaterializedFeatureRequest) (*MaterializedFeature, error)
 
 	// Delete a Feature.
 	DeleteFeature(ctx context.Context, request DeleteFeatureRequest) error
 
+	// Delete a Kafka config. During PrPr, Kafka configs can be read and used
+	// when creating features under the entire metastore. Only the creator of
+	// the Kafka config can delete it.
+	DeleteKafkaConfig(ctx context.Context, request DeleteKafkaConfigRequest) error
+
+	// Delete a materialized feature.
+	DeleteMaterializedFeature(ctx context.Context, request DeleteMaterializedFeatureRequest) error
+
 	// Get a Feature.
 	GetFeature(ctx context.Context, request GetFeatureRequest) (*Feature, error)
+
+	// Get a Kafka config. During PrPr, Kafka configs can be read and used when
+	// creating features under the entire metastore. Only the creator of the
+	// Kafka config can delete it.
+	GetKafkaConfig(ctx context.Context, request GetKafkaConfigRequest) (*KafkaConfig, error)
+
+	// Get a materialized feature.
+	GetMaterializedFeature(ctx context.Context, request GetMaterializedFeatureRequest) (*MaterializedFeature, error)
 
 	// List Features.
 	ListFeatures(ctx context.Context, request ListFeaturesRequest) (*ListFeaturesResponse, error)
 
+	// List Kafka configs. During PrPr, Kafka configs can be read and used when
+	// creating features under the entire metastore. Only the creator of the
+	// Kafka config can delete it.
+	ListKafkaConfigs(ctx context.Context, request ListKafkaConfigsRequest) (*ListKafkaConfigsResponse, error)
+
+	// List materialized features.
+	ListMaterializedFeatures(ctx context.Context, request ListMaterializedFeaturesRequest) (*ListMaterializedFeaturesResponse, error)
+
 	// Update a Feature.
 	UpdateFeature(ctx context.Context, request UpdateFeatureRequest) (*Feature, error)
+
+	// Update a Kafka config. During PrPr, Kafka configs can be read and used
+	// when creating features under the entire metastore. Only the creator of
+	// the Kafka config can delete it.
+	UpdateKafkaConfig(ctx context.Context, request UpdateKafkaConfigRequest) (*KafkaConfig, error)
+
+	// Update a materialized feature (pause/resume).
+	UpdateMaterializedFeature(ctx context.Context, request UpdateMaterializedFeatureRequest) (*MaterializedFeature, error)
 }
 
 // A feature store is a centralized repository that enables data scientists to
@@ -289,6 +332,9 @@ type FeatureStoreService interface {
 
 	// Delete an Online Feature Store.
 	DeleteOnlineStore(ctx context.Context, request DeleteOnlineStoreRequest) error
+
+	// Delete online table.
+	DeleteOnlineTable(ctx context.Context, request DeleteOnlineTableRequest) error
 
 	// Get an Online Feature Store.
 	GetOnlineStore(ctx context.Context, request GetOnlineStoreRequest) (*OnlineStore, error)

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
+// SPDX-License-Identifier: Apache-2.0
+
 package diff
 
 import (
@@ -73,7 +76,7 @@ func getSchemaType(item interface{}) (typeName string, isArray bool) {
 		typeName = "unknown"
 	}
 
-	return
+	return typeName, isArray
 }
 
 func formatTypeString(typ string, isarray bool) string {

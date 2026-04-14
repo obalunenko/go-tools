@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,11 +35,11 @@ const (
 )
 
 var (
-	// ErrImageFilterTypeNotFound is returned from ImageFilteredByTypes when
+	// ErrImageFilterTypeNotFound is returned from FilterImage when
 	// a specified type cannot be found in an image.
 	ErrImageFilterTypeNotFound = errors.New("not found")
 
-	// ErrImageFilterTypeIsImport is returned from ImageFilteredByTypes when
+	// ErrImageFilterTypeIsImport is returned from FilterImage when
 	// a specified type name is declared in a module dependency.
 	ErrImageFilterTypeIsImport = errors.New("type declared in imported module")
 )
@@ -69,11 +69,11 @@ func FreeMessageRangeStrings(
 	return s, nil
 }
 
-// ImageFilterOption is an option that can be passed to ImageFilteredByTypesWithOptions.
+// ImageFilterOption is an option that can be passed to FilterImage.
 type ImageFilterOption func(*imageFilterOptions)
 
 // WithExcludeCustomOptions returns an option that will cause an image filtered via
-// ImageFilteredByTypesWithOptions to *not* include custom options unless they are
+// FilterImage to *not* include custom options unless they are
 // explicitly named in the list of filter types.
 func WithExcludeCustomOptions() ImageFilterOption {
 	return func(opts *imageFilterOptions) {
@@ -82,7 +82,7 @@ func WithExcludeCustomOptions() ImageFilterOption {
 }
 
 // WithExcludeKnownExtensions returns an option that will cause an image filtered via
-// ImageFilteredByTypesWithOptions to *not* include the known extensions for included
+// FilterImage to *not* include the known extensions for included
 // extendable messages unless they are explicitly named in the list of filter types.
 func WithExcludeKnownExtensions() ImageFilterOption {
 	return func(opts *imageFilterOptions) {
@@ -90,7 +90,7 @@ func WithExcludeKnownExtensions() ImageFilterOption {
 	}
 }
 
-// WithAllowIncludeOfImportedType returns an option for ImageFilteredByTypesWithOptions
+// WithAllowIncludeOfImportedType returns an option for FilterImage
 // that allows a named included type to be in an imported file or module. Without this
 // option, only types defined directly in the image to be filtered are allowed.
 // Excluded types are always allowed to be in imported files or modules.
@@ -100,14 +100,14 @@ func WithAllowIncludeOfImportedType() ImageFilterOption {
 	}
 }
 
-// WithIncludeTypes returns an option for ImageFilteredByTypesWithOptions that specifies
+// WithIncludeTypes returns an option for FilterImage that specifies
 // the set of types that should be included in the filtered image.
 //
 // May be provided multiple times. The type names should be fully qualified.
 // For example, "google.protobuf.Any" or "buf.validate". Types may be nested,
 // and can be any package, message, enum, extension, service or method name.
 //
-// If the  type does not exist in the image, an error wrapping
+// If the type does not exist in the image, an error wrapping
 // [ErrImageFilterTypeNotFound] will be returned.
 func WithIncludeTypes(typeNames ...string) ImageFilterOption {
 	return func(opts *imageFilterOptions) {
@@ -120,7 +120,7 @@ func WithIncludeTypes(typeNames ...string) ImageFilterOption {
 	}
 }
 
-// WithExcludeTypes returns an option for ImageFilteredByTypesWithOptions that
+// WithExcludeTypes returns an option for FilterImage that
 // specifies the set of types that should be excluded from the filtered image.
 //
 // May be provided multiple times. The type names should be fully qualified.
@@ -140,7 +140,7 @@ func WithExcludeTypes(typeNames ...string) ImageFilterOption {
 	}
 }
 
-// WithMutateInPlace returns an option for ImageFilteredByTypesWithOptions that specifies
+// WithMutateInPlace returns an option for FilterImage that specifies
 // that the filtered image should be mutated in place. This option is useful when the
 // unfiltered image is no longer needed and the caller wants to avoid the overhead of
 // copying the image.
@@ -828,6 +828,54 @@ func (t *transitiveClosure) addExtensions(
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+// traverseRetainedImportFiles walks import files that are present in
+// closure.imports but were added only as namespace containers
+// (inclusionModeEnclosing) for extension fields. Such files have not had
+// their own types walked, so their field-type imports are absent from
+// closure.imports. Calling addElement for each such file fills in the missing
+// entries. After processing one file, the function recurses because that
+// traversal may add further enclosing import files.
+//
+// Only used in exclude-only mode (includeTypes == nil).
+func (t *transitiveClosure) traverseRetainedImportFiles(
+	image bufimage.Image,
+	imageIndex *imageIndex,
+	opts *imageFilterOptions,
+) error {
+	for _, file := range image.Files() {
+		if !file.IsImport() {
+			continue
+		}
+		fileDescriptorProto := file.FileDescriptorProto()
+		// Only act on files retained as namespace containers; files already
+		// fully traversed (Explicit/Implicit/Excluded) are skipped.
+		if mode, ok := t.elements[fileDescriptorProto]; !ok || mode != inclusionModeEnclosing {
+			continue
+		}
+		// Check whether any of this file's declared dependencies are absent
+		// from the tracked import set. If all are accounted for, the closure
+		// is already complete and there is nothing to do.
+		importsRequired := t.imports[file.Path()]
+		needsTraversal := false
+		for _, dep := range fileDescriptorProto.GetDependency() {
+			if _, ok := importsRequired[dep]; !ok {
+				needsTraversal = true
+				break
+			}
+		}
+		if !needsTraversal {
+			continue
+		}
+		if err := t.addElement(fileDescriptorProto, "", false, imageIndex, opts); err != nil {
+			return err
+		}
+		// Recurse from the top: addElement may have introduced additional
+		// enclosing import files that also need traversal.
+		return t.traverseRetainedImportFiles(image, imageIndex, opts)
 	}
 	return nil
 }

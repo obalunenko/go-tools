@@ -117,7 +117,8 @@ func (w *walker) recurse(decl ast.DeclAny, parent any) {
 			ty := w.newType(def, parent)
 
 			if kind == ast.DefKindGroup {
-				w.newField(def, parent, true)
+				member := w.newField(def, parent, true)
+				ty.Raw().syntheticTypeOf = member.ID()
 			}
 
 			w.recurse(def.Body().AsAny(), ty)
@@ -166,13 +167,25 @@ func (w *walker) newType(def ast.DeclDef, parent any) Type {
 	name := def.Name().AsIdent().Name()
 	fqn := w.fullname(parentTy, name)
 
+	var visibility token.ID
+	for prefix := range def.Type().Prefixes() {
+		switch prefix.Prefix() {
+		case keyword.Local, keyword.Export:
+			visibility = prefix.PrefixToken().ID()
+		default:
+			continue
+		}
+		break
+	}
+
 	ty := id.Wrap(w.File, id.ID[Type](w.arenas.types.NewCompressed(rawType{
 		def:    def.ID(),
 		name:   w.session.intern.Intern(name),
 		fqn:    w.session.intern.Intern(fqn),
 		parent: parentTy.ID(),
 
-		isEnum: def.Keyword() == keyword.Enum,
+		isEnum:     def.Keyword() == keyword.Enum,
+		visibility: visibility,
 	})))
 	ty.Raw().memberByName = sync.OnceValue(ty.makeMembersByName)
 
@@ -194,6 +207,7 @@ func (w *walker) newType(def ast.DeclDef, parent any) Type {
 				ty.Raw().reservedNames = append(ty.Raw().reservedNames, rawReservedName{
 					ast:  v,
 					name: ty.Context().session.intern.Intern(name),
+					decl: rangeDecl.ID(),
 				})
 				continue
 			}
@@ -224,7 +238,6 @@ func (w *walker) newType(def ast.DeclDef, parent any) Type {
 	return ty
 }
 
-//nolint:unparam // Complains about the return value for some reason.
 func (w *walker) newField(def ast.DeclDef, parent any, group bool) Member {
 	parentTy := extractParentType(parent)
 	name := def.Name().AsIdent().Name()

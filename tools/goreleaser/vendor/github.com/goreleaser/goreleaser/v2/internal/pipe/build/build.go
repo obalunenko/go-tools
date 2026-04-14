@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/caarlos0/go-shellwords"
 	"github.com/caarlos0/log"
+	"github.com/goreleaser/go-shellwords"
 	"github.com/goreleaser/goreleaser/v2/internal/deprecate"
 	"github.com/goreleaser/goreleaser/v2/internal/gerrors"
 	"github.com/goreleaser/goreleaser/v2/internal/ids"
@@ -131,7 +131,7 @@ func runPipeOnBuild(ctx *context.Context, g semerrgroup.Group, build config.Buil
 	for _, target := range filter(ctx, build) {
 		g.Go(func() error {
 			if err := buildTarget(ctx, build, target); err != nil {
-				return gerrors.Wrap(err, "", "target", target)
+				return gerrors.Wrap(err, gerrors.WithDetails("target", target))
 			}
 			return nil
 		})
@@ -248,7 +248,6 @@ func buildOptionsForTarget(ctx *context.Context, build config.Build, target stri
 	buildOpts.Path = path
 	buildOpts.Name = name
 
-	log.WithField("binary", relpath).Info("building")
 	return &buildOpts, nil
 }
 

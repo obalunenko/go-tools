@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,65 +18,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"runtime/debug"
+	"regexp"
 	"strings"
 	"unicode/utf16"
 
+	celpv "buf.build/go/protovalidate/cel"
 	"buf.build/go/standard/xslices"
 	"github.com/bufbuild/buf/private/buf/bufformat"
-	"github.com/bufbuild/protocompile/experimental/ir"
 	"github.com/bufbuild/protocompile/parser"
 	"github.com/bufbuild/protocompile/reporter"
+	"github.com/google/cel-go/cel"
 	"go.lsp.dev/protocol"
+	"mvdan.cc/xurls/v2"
 )
 
 const (
 	serverName = "buf-lsp"
 
 	maxSymbolResults = 1000
-)
-
-// The subset of SemanticTokenTypes that we support.
-// Must match the order of [semanticTypeLegend].
-// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/#textDocument_semanticTokens
-const (
-	semanticTypeType = iota
-	semanticTypeStruct
-	semanticTypeVariable
-	semanticTypeEnum
-	semanticTypeEnumMember
-	semanticTypeInterface
-	semanticTypeMethod
-	semanticTypeDecorator
-	semanticTypeNamespace
-)
-
-// The subset of SemanticTokenModifiers that we support.
-// Must match the order of [semanticModifierLegend].
-// Semantic modifiers are encoded as a bitset, hence the shifted iota.
-// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/#textDocument_semanticTokens
-const (
-	semanticModifierDeprecated = 1 << iota
-	semanticModifierDefaultLibrary
-)
-
-var (
-	// These slices must match the order of the indices in the above const blocks.
-	semanticTypeLegend = []string{
-		"type",
-		"struct",
-		"variable",
-		"enum",
-		"enumMember",
-		"interface",
-		"method",
-		"decorator",
-		"namespace",
-	}
-	semanticModifierLegend = []string{
-		"deprecated",
-		"defaultLibrary", // maps to builtin values
-	}
 )
 
 // server is an implementation of [protocol.Server].
@@ -92,11 +51,31 @@ type server struct {
 
 	// We embed the LSP pointer as well, since it only has private members.
 	*lsp
+
+	// httpsURLRegex is used to find https:// URLs in comments for document links.
+	httpsURLRegex *regexp.Regexp
+	// celEnv is the CEL environment used for parsing protovalidate expressions.
+	celEnv *cel.Env
 }
 
 // newServer creates a protocol.Server implementation out of an lsp.
-func newServer(lsp *lsp) protocol.Server {
-	return &server{lsp: lsp}
+func newServer(lsp *lsp) (protocol.Server, error) {
+	httpsURLRegex, err := xurls.StrictMatchingScheme("https://")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTPS URL regex: %w", err)
+	}
+	celEnv, err := cel.NewEnv(
+		cel.Lib(celpv.NewLibrary()),
+		cel.EnableMacroCallTracking(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
+	}
+	return &server{
+		lsp:           lsp,
+		httpsURLRegex: httpsURLRegex,
+		celEnv:        celEnv,
+	}, nil
 }
 
 // Methods for server are grouped according to the groups in the LSP protocol specification.
@@ -113,9 +92,22 @@ func (s *server) Initialize(
 		return nil, err
 	}
 
-	info := &protocol.ServerInfo{Name: serverName}
-	if buildInfo, ok := debug.ReadBuildInfo(); ok {
-		info.Version = buildInfo.Main.Version
+	if params.ClientInfo != nil {
+		s.logger.Info(
+			"client attached",
+			"client_name", params.ClientInfo.Name,
+			"client_version", params.ClientInfo.Version,
+		)
+	}
+
+	// Set initial trace value, if provided.
+	if params.Trace != "" {
+		s.lsp.traceValue.Store(&params.Trace)
+	}
+
+	info := &protocol.ServerInfo{
+		Name:    serverName,
+		Version: s.lsp.bufVersion,
 	}
 
 	// The LSP protocol library doesn't actually provide SemanticTokensOptions
@@ -143,6 +135,13 @@ func (s *server) Initialize(
 					IncludeText: false,
 				},
 			},
+			CodeActionProvider: &protocol.CodeActionOptions{
+				CodeActionKinds: []protocol.CodeActionKind{
+					protocol.SourceOrganizeImports,
+					protocol.RefactorRewrite,
+					protocol.QuickFix,
+				},
+			},
 			CompletionProvider: &protocol.CompletionOptions{
 				ResolveProvider:   true,
 				TriggerCharacters: []string{".", "\"", "/"},
@@ -150,8 +149,12 @@ func (s *server) Initialize(
 			DefinitionProvider:         &protocol.DefinitionOptions{},
 			TypeDefinitionProvider:     &protocol.TypeDefinitionOptions{},
 			DocumentFormattingProvider: true,
+			DocumentHighlightProvider:  true,
 			HoverProvider:              true,
 			ReferencesProvider:         &protocol.ReferenceOptions{},
+			RenameProvider: &protocol.RenameOptions{
+				PrepareProvider: true,
+			},
 			SemanticTokensProvider: &SemanticTokensOptions{
 				Legend: SemanticTokensLegend{
 					TokenTypes:     semanticTypeLegend,
@@ -161,6 +164,12 @@ func (s *server) Initialize(
 			},
 			WorkspaceSymbolProvider: true,
 			DocumentSymbolProvider:  true,
+			FoldingRangeProvider:    true,
+			DocumentLinkProvider:    &protocol.DocumentLinkOptions{},
+			CodeLensProvider:        &protocol.CodeLensOptions{},
+			ExecuteCommandProvider: &protocol.ExecuteCommandOptions{
+				Commands: []string{commandUpdateAllDeps, commandCheckUpdates},
+			},
 		},
 		ServerInfo: info,
 	}, nil
@@ -188,6 +197,12 @@ func (s *server) SetTrace(
 // The client will wait until Shutdown returns, and then call Exit.
 func (s *server) Shutdown(ctx context.Context) error {
 	s.lsp.shutdown = true
+	// Cancel any in-progress checks for all tracked files, then cancel the
+	// connection context to stop any remaining background goroutines.
+	for _, file := range s.lsp.fileManager.uriToFile.Range {
+		file.CancelChecks(ctx)
+	}
+	s.lsp.connCancel()
 	return nil
 }
 
@@ -211,6 +226,22 @@ func (s *server) DidOpen(
 	ctx context.Context,
 	params *protocol.DidOpenTextDocumentParams,
 ) error {
+	if isBufYAMLURI(params.TextDocument.URI) {
+		s.bufYAMLManager.Track(params.TextDocument.URI, params.TextDocument.Text)
+		return nil
+	}
+	if isBufGenYAMLURI(params.TextDocument.URI) {
+		s.bufGenYAMLManager.Track(params.TextDocument.URI, params.TextDocument.Text)
+		return nil
+	}
+	if isBufPolicyYAMLURI(params.TextDocument.URI) {
+		s.bufPolicyYAMLManager.Track(params.TextDocument.URI, params.TextDocument.Text)
+		return nil
+	}
+	if isBufLockURI(params.TextDocument.URI) {
+		s.bufLockManager.Track(params.TextDocument.URI, params.TextDocument.Text)
+		return nil
+	}
 	file := s.fileManager.Track(params.TextDocument.URI)
 	file.RefreshWorkspace(ctx)
 	file.Update(ctx, params.TextDocument.Version, params.TextDocument.Text)
@@ -223,6 +254,22 @@ func (s *server) DidChange(
 	ctx context.Context,
 	params *protocol.DidChangeTextDocumentParams,
 ) error {
+	if isBufYAMLURI(params.TextDocument.URI) {
+		s.bufYAMLManager.Track(params.TextDocument.URI, params.ContentChanges[0].Text)
+		return nil
+	}
+	if isBufGenYAMLURI(params.TextDocument.URI) {
+		s.bufGenYAMLManager.Track(params.TextDocument.URI, params.ContentChanges[0].Text)
+		return nil
+	}
+	if isBufPolicyYAMLURI(params.TextDocument.URI) {
+		s.bufPolicyYAMLManager.Track(params.TextDocument.URI, params.ContentChanges[0].Text)
+		return nil
+	}
+	if isBufLockURI(params.TextDocument.URI) {
+		s.bufLockManager.Track(params.TextDocument.URI, params.ContentChanges[0].Text)
+		return nil
+	}
 	file := s.fileManager.Get(params.TextDocument.URI)
 	if file == nil {
 		// Update for a file we don't know about? Seems bad!
@@ -238,6 +285,10 @@ func (s *server) DidSave(
 	ctx context.Context,
 	params *protocol.DidSaveTextDocumentParams,
 ) error {
+	if isBufYAMLURI(params.TextDocument.URI) || isBufGenYAMLURI(params.TextDocument.URI) ||
+		isBufPolicyYAMLURI(params.TextDocument.URI) || isBufLockURI(params.TextDocument.URI) {
+		return nil
+	}
 	// We use this as an opportunity to do a refresh; some lints, such as
 	// breaking-against-last-saved, rely on this.
 	file := s.fileManager.Get(params.TextDocument.URI)
@@ -258,6 +309,10 @@ func (s *server) Formatting(
 	ctx context.Context,
 	params *protocol.DocumentFormattingParams,
 ) ([]protocol.TextEdit, error) {
+	if isBufYAMLURI(params.TextDocument.URI) || isBufGenYAMLURI(params.TextDocument.URI) ||
+		isBufPolicyYAMLURI(params.TextDocument.URI) || isBufLockURI(params.TextDocument.URI) {
+		return nil, nil
+	}
 	file := s.fileManager.Get(params.TextDocument.URI)
 	if file == nil {
 		// Format for a file we don't know about? Seems bad!
@@ -323,6 +378,22 @@ func (s *server) DidClose(
 	ctx context.Context,
 	params *protocol.DidCloseTextDocumentParams,
 ) error {
+	if isBufYAMLURI(params.TextDocument.URI) {
+		s.bufYAMLManager.Close(ctx, params.TextDocument.URI)
+		return nil
+	}
+	if isBufGenYAMLURI(params.TextDocument.URI) {
+		s.bufGenYAMLManager.Close(params.TextDocument.URI)
+		return nil
+	}
+	if isBufPolicyYAMLURI(params.TextDocument.URI) {
+		s.bufPolicyYAMLManager.Close(params.TextDocument.URI)
+		return nil
+	}
+	if isBufLockURI(params.TextDocument.URI) {
+		s.bufLockManager.Close(params.TextDocument.URI)
+		return nil
+	}
 	if file := s.fileManager.Get(params.TextDocument.URI); file != nil {
 		file.Close(ctx)
 	}
@@ -336,7 +407,31 @@ func (s *server) Hover(
 	ctx context.Context,
 	params *protocol.HoverParams,
 ) (*protocol.Hover, error) {
-	symbol := s.getSymbol(ctx, params.TextDocument.URI, params.Position)
+	if isBufYAMLURI(params.TextDocument.URI) {
+		return s.bufYAMLManager.GetHover(params.TextDocument.URI, params.Position), nil
+	}
+	if isBufGenYAMLURI(params.TextDocument.URI) {
+		return s.bufGenYAMLManager.GetHover(params.TextDocument.URI, params.Position), nil
+	}
+	if isBufPolicyYAMLURI(params.TextDocument.URI) {
+		return s.bufPolicyYAMLManager.GetHover(params.TextDocument.URI, params.Position), nil
+	}
+	if isBufLockURI(params.TextDocument.URI) {
+		return s.bufLockManager.GetHover(params.TextDocument.URI, params.Position), nil
+	}
+	file := s.fileManager.Get(params.TextDocument.URI)
+	if file == nil {
+		return nil, nil
+	}
+
+	// First, try to get CEL hover documentation
+	celHover := getCELHover(file, params.Position, s.celEnv)
+	if celHover != nil {
+		return celHover, nil
+	}
+
+	// Fall back to regular symbol hover
+	symbol := file.SymbolAt(ctx, params.Position)
 	if symbol == nil {
 		return nil, nil
 	}
@@ -365,6 +460,12 @@ func (s *server) Definition(
 	ctx context.Context,
 	params *protocol.DefinitionParams,
 ) ([]protocol.Location, error) {
+	// First, try to resolve a CEL definition (e.g. `this` → field or message).
+	if file := s.fileManager.Get(params.TextDocument.URI); file != nil {
+		if loc := getCELDefinition(file, params.Position, s.celEnv); loc != nil {
+			return []protocol.Location{*loc}, nil
+		}
+	}
 	symbol := s.getSymbol(ctx, params.TextDocument.URI, params.Position)
 	if symbol == nil {
 		return nil, nil
@@ -416,6 +517,13 @@ func (s *server) Completion(
 	if file == nil {
 		return nil, nil
 	}
+
+	// First, try CEL completion when the cursor is inside a protovalidate expression.
+	if celItems := getCELCompletionItems(file, params.Position, s.celEnv); celItems != nil {
+		return &protocol.CompletionList{Items: celItems}, nil
+	}
+
+	// Fall back to proto-level completions.
 	items := getCompletionItems(ctx, file, params.Position)
 	if len(items) == 0 {
 		return nil, nil
@@ -436,90 +544,7 @@ func (s *server) SemanticTokensFull(
 	ctx context.Context,
 	params *protocol.SemanticTokensParams,
 ) (*protocol.SemanticTokens, error) {
-	file := s.fileManager.Get(params.TextDocument.URI)
-	if file == nil {
-		return nil, nil
-	}
-	// In the case where there are no symbols for the file, we return nil for SemanticTokensFull.
-	// This is based on the specification for the method textDocument/semanticTokens/full,
-	// the expected response is the union type `SemanticTokens | null`.
-	// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_semanticTokens
-	if len(file.symbols) == 0 {
-		return nil, nil
-	}
-	// This fairly painful encoding is described in detail here:
-	// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_semanticTokens
-	var (
-		encoded           []uint32
-		prevLine, prevCol uint32
-	)
-	for _, symbol := range file.symbols {
-		var semanticType uint32
-		var semanticModifier uint32
-		_, ok := symbol.kind.(*option)
-		if ok {
-			semanticType = semanticTypeDecorator
-		} else {
-			switch symbol.ir.Kind() {
-			case ir.SymbolKindPackage:
-				semanticType = semanticTypeNamespace
-			case ir.SymbolKindMessage:
-				semanticType = semanticTypeStruct
-			case ir.SymbolKindEnum:
-				semanticType = semanticTypeEnum
-			case ir.SymbolKindField:
-				// For predeclared types, we set semanticType to semanticTypeType
-				if symbol.IsBuiltIn() {
-					semanticType = semanticTypeType
-					semanticModifier += semanticModifierDefaultLibrary
-				} else {
-					semanticType = semanticTypeVariable
-				}
-			case ir.SymbolKindEnumValue:
-				semanticType = semanticTypeEnumMember
-			case ir.SymbolKindExtension:
-				semanticType = semanticTypeVariable
-			case ir.SymbolKindService:
-				semanticType = semanticTypeInterface
-			case ir.SymbolKindMethod:
-				semanticType = semanticTypeMethod
-			default:
-				continue
-			}
-		}
-		if _, ok := symbol.ir.Deprecated().AsBool(); ok {
-			semanticModifier += semanticModifierDeprecated
-		}
-
-		startLocation := symbol.span.Location(symbol.span.Start, positionalEncoding)
-		endLocation := symbol.span.Location(symbol.span.End, positionalEncoding)
-
-		for i := startLocation.Line; i <= endLocation.Line; i++ {
-			newLine := uint32(i - 1)
-			var newCol uint32
-			if i == startLocation.Line {
-				newCol = uint32(startLocation.Column - 1)
-				if prevLine == newLine {
-					newCol -= prevCol
-				}
-			}
-			symbolLen := uint32(endLocation.Column - 1)
-			if i == startLocation.Line {
-				symbolLen -= uint32(startLocation.Column - 1)
-			}
-			encoded = append(encoded, newLine-prevLine, newCol, symbolLen, semanticType, semanticModifier)
-			prevLine = newLine
-			if i == startLocation.Line {
-				prevCol = uint32(startLocation.Column - 1)
-			} else {
-				prevCol = 0
-			}
-		}
-	}
-	if len(encoded) == 0 {
-		return nil, nil
-	}
-	return &protocol.SemanticTokens{Data: encoded}, nil
+	return semanticTokensFull(s.fileManager.Get(params.TextDocument.URI), s.celEnv)
 }
 
 // Symbols is the entry point for workspace-wide symbol search.
@@ -557,6 +582,175 @@ func (s *server) DocumentSymbol(ctx context.Context, params *protocol.DocumentSy
 		}
 	}
 	return anyResults, nil
+}
+
+// DocumentHighlight is the entry point for highlighting occurrences of a symbol within a file.
+//
+// Supported symbol types for highlighting are [referenceable] and [reference] (messages, enums,
+// extensions, and their references). All highlights use Text kind.
+// Services, RPC methods, enum values, and field names are not highlighted.
+func (s *server) DocumentHighlight(ctx context.Context, params *protocol.DocumentHighlightParams) ([]protocol.DocumentHighlight, error) {
+	symbol := s.getSymbol(ctx, params.TextDocument.URI, params.Position)
+	if symbol == nil {
+		return nil, nil
+	}
+	return symbol.DocumentHighlights(), nil
+}
+
+// CodeAction is called when the client requests code actions for a given range.
+func (s *server) CodeAction(ctx context.Context, params *protocol.CodeActionParams) ([]protocol.CodeAction, error) {
+	file := s.fileManager.Get(params.TextDocument.URI)
+	if file == nil {
+		return nil, nil
+	}
+	codeActionSet := xslices.ToStructMap(params.Context.Only)
+
+	var actions []protocol.CodeAction
+	if _, ok := codeActionSet[protocol.SourceOrganizeImports]; len(codeActionSet) == 0 || ok {
+		if organizeImportsAction := s.getOrganizeImportsCodeAction(ctx, file); organizeImportsAction != nil {
+			actions = append(actions, *organizeImportsAction)
+		}
+	}
+	if _, ok := codeActionSet[protocol.RefactorRewrite]; len(codeActionSet) == 0 || ok {
+		if deprecateAction := s.getDeprecateCodeAction(ctx, file, params); deprecateAction != nil {
+			actions = append(actions, *deprecateAction)
+		}
+	}
+	if _, ok := codeActionSet[protocol.QuickFix]; len(codeActionSet) == 0 || ok {
+		lintIgnoreActions := s.getLintIgnoreCodeActions(ctx, file, params)
+		actions = append(actions, lintIgnoreActions...)
+	}
+	return actions, nil
+}
+
+// CodeLens is called when the client requests code lenses for a document.
+//
+// For buf.yaml files, this returns whole-file lenses on the deps: key line to
+// trigger dependency updates via the buf.dep.updateAll and buf.dep.checkUpdates
+// workspace commands.
+func (s *server) CodeLens(ctx context.Context, params *protocol.CodeLensParams) ([]protocol.CodeLens, error) {
+	if !isBufYAMLURI(params.TextDocument.URI) {
+		return nil, nil
+	}
+	return s.bufYAMLManager.GetCodeLenses(params.TextDocument.URI), nil
+}
+
+// ExecuteCommand is called when the client invokes a workspace command registered
+// by this server.
+//
+// Supported commands:
+//   - buf.dep.updateAll: update all dependencies in the buf.yaml at the given URI.
+//   - buf.dep.checkUpdates: check for newer versions of dependencies and publish
+//     informational diagnostics for any that are outdated.
+func (s *server) ExecuteCommand(ctx context.Context, params *protocol.ExecuteCommandParams) (any, error) {
+	if len(params.Arguments) < 1 {
+		return nil, fmt.Errorf("%s: expected at least 1 argument (buf.yaml URI), got %d", params.Command, len(params.Arguments))
+	}
+	uriStr, ok := params.Arguments[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("%s: argument 0 must be a string URI, got %T", params.Command, params.Arguments[0])
+	}
+	uri := protocol.URI(uriStr)
+	switch params.Command {
+	case commandUpdateAllDeps:
+		if err := s.bufYAMLManager.ExecuteUpdateAll(ctx, uri); err != nil {
+			return nil, fmt.Errorf("%s: %w", params.Command, err)
+		}
+		return nil, nil
+	case commandCheckUpdates:
+		if err := s.bufYAMLManager.ExecuteCheckUpdates(ctx, uri); err != nil {
+			return nil, fmt.Errorf("%s: %w", params.Command, err)
+		}
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("unknown command: %q", params.Command)
+	}
+}
+
+// PrepareRename is the entry point for checking workspace wide renaming of a symbol.
+//
+// If a symbol can be renamed, PrepareRename will return the range for the rename. Returning
+// an empty range indicates that the requested position cannot be renamed and the client
+// will handle providing feedback to the user.
+//
+// Supported symbol types for renaming are [referenceable], [static], and [reference].
+func (s *server) PrepareRename(ctx context.Context, params *protocol.PrepareRenameParams) (*protocol.Range, error) {
+	symbol := s.getSymbol(ctx, params.TextDocument.URI, params.Position)
+	if symbol == nil {
+		return nil, nil
+	}
+	switch symbol.kind.(type) {
+	case *referenceable, *static, *reference:
+		// Don't allow renaming symbols defined in non-local files (e.g., WKTs from ~/.cache)
+		// Check the definition if available, otherwise check the symbol's own file
+		defFile := symbol.file
+		if symbol.def != nil && symbol.def.file != nil {
+			defFile = symbol.def.file
+		}
+		if defFile != nil && !defFile.IsLocal() {
+			return nil, fmt.Errorf("cannot rename a symbol in a non-local file")
+		}
+		rnge := reportSpanToProtocolRange(symbol.span)
+		return &rnge, nil
+	}
+	return nil, nil
+}
+
+// Rename is the entry point for workspace wide renaming of a symbol.
+func (s *server) Rename(
+	ctx context.Context,
+	params *protocol.RenameParams,
+) (*protocol.WorkspaceEdit, error) {
+	symbol := s.getSymbol(ctx, params.TextDocument.URI, params.Position)
+	if symbol == nil {
+		return nil, nil
+	}
+	// Don't allow renaming symbols defined in non-local files (e.g., WKTs from ~/.cache)
+	// Check the definition if available, otherwise check the symbol's own file
+	defFile := symbol.file
+	if symbol.def != nil && symbol.def.file != nil {
+		defFile = symbol.def.file
+	}
+	if defFile != nil && !defFile.IsLocal() {
+		return nil, fmt.Errorf("cannot rename a symbol in a non-local file")
+	}
+	return symbol.Rename(params.NewName)
+}
+
+// FoldingRanges is the entry point for folding ranges, which allows collapsing/expanding blocks of code.
+func (s *server) FoldingRanges(
+	ctx context.Context,
+	params *protocol.FoldingRangeParams,
+) ([]protocol.FoldingRange, error) {
+	file := s.fileManager.Get(params.TextDocument.URI)
+	if file == nil {
+		return nil, nil
+	}
+	return s.foldingRange(file), nil
+}
+
+// DocumentLink is the entry point for document links, which makes imports and URLs clickable.
+func (s *server) DocumentLink(
+	ctx context.Context,
+	params *protocol.DocumentLinkParams,
+) ([]protocol.DocumentLink, error) {
+	if isBufYAMLURI(params.TextDocument.URI) {
+		return s.bufYAMLManager.GetDocumentLinks(params.TextDocument.URI), nil
+	}
+	if isBufGenYAMLURI(params.TextDocument.URI) {
+		return s.bufGenYAMLManager.GetDocumentLinks(params.TextDocument.URI), nil
+	}
+	if isBufPolicyYAMLURI(params.TextDocument.URI) {
+		return s.bufPolicyYAMLManager.GetDocumentLinks(params.TextDocument.URI), nil
+	}
+	if isBufLockURI(params.TextDocument.URI) {
+		return s.bufLockManager.GetDocumentLinks(params.TextDocument.URI), nil
+	}
+	file := s.fileManager.Get(params.TextDocument.URI)
+	if file == nil {
+		return nil, nil
+	}
+	return s.documentLink(file), nil
 }
 
 // getSymbol is a helper function that gets the *[symbol] for the given [protocol.URI] and

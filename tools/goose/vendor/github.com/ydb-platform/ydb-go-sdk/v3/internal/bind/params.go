@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,7 +18,7 @@ import (
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/types"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/value"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xstring"
+	"github.com/ydb-platform/ydb-go-sdk/v3/pkg/xstring"
 )
 
 var (
@@ -47,8 +48,123 @@ func asUUID(v any) (value.Value, bool) {
 	return nil, false
 }
 
-func toType(v any) (_ types.Type, err error) { //nolint:funlen
+func asSQLNull(v any) (value.Value, bool) {
 	switch x := v.(type) {
+	case sql.NullBool:
+		return wrapWithNulls(x.Valid, value.BoolValue(x.Bool), types.Bool), true
+	case sql.NullFloat64:
+		return wrapWithNulls(x.Valid, value.DoubleValue(x.Float64), types.Double), true
+	case sql.NullInt16:
+		return wrapWithNulls(x.Valid, value.Int16Value(x.Int16), types.Int16), true
+	case sql.NullInt32:
+		return wrapWithNulls(x.Valid, value.Int32Value(x.Int32), types.Int32), true
+	case sql.NullInt64:
+		return wrapWithNulls(x.Valid, value.Int64Value(x.Int64), types.Int64), true
+	case sql.NullString:
+		return wrapWithNulls(x.Valid, value.TextValue(x.String), types.Text), true
+	case sql.NullTime:
+		return wrapWithNulls(x.Valid, value.TimestampValueFromTime(x.Time), types.Timestamp), true
+	}
+
+	return asSQLNullGeneric(v)
+}
+
+func wrapWithNulls(valid bool, val value.Value, t types.Type) value.Value {
+	if valid {
+		return value.OptionalValue(val)
+	}
+
+	return value.NullValue(t)
+}
+
+func asSQLNullGeneric(v any) (value.Value, bool) {
+	if v == nil {
+		return nil, false
+	}
+
+	rv := reflect.ValueOf(v)
+	rt := rv.Type()
+
+	if rv.Kind() != reflect.Struct {
+		return nil, false
+	}
+
+	vField := rv.FieldByName("V")
+	validField := rv.FieldByName("Valid")
+
+	if !vField.IsValid() || !validField.IsValid() {
+		return nil, false
+	}
+
+	if validField.Kind() != reflect.Bool {
+		return nil, false
+	}
+
+	if !strings.HasPrefix(rt.String(), "sql.Null[") {
+		return nil, false
+	}
+
+	valid := validField.Bool()
+	if !valid {
+		nullType, err := toType(vField.Interface())
+		if err != nil {
+			return value.NullValue(types.Text), true
+		}
+
+		return value.NullValue(nullType), true
+	}
+
+	return asSQLNullValue(vField.Interface())
+}
+
+func asSQLNullValue(v any) (value.Value, bool) {
+	val, err := toValue(v)
+	if err != nil {
+		return nil, false
+	}
+
+	return value.OptionalValue(val), true
+}
+
+var reflectBaseTypes = map[reflect.Kind]reflect.Type{
+	reflect.String:  reflect.TypeFor[string](),
+	reflect.Int:     reflect.TypeFor[int](),
+	reflect.Int8:    reflect.TypeFor[int8](),
+	reflect.Int16:   reflect.TypeFor[int16](),
+	reflect.Int32:   reflect.TypeFor[int32](),
+	reflect.Int64:   reflect.TypeFor[int64](),
+	reflect.Uint:    reflect.TypeFor[uint](),
+	reflect.Uint8:   reflect.TypeFor[uint8](),
+	reflect.Uint16:  reflect.TypeFor[uint16](),
+	reflect.Uint32:  reflect.TypeFor[uint32](),
+	reflect.Uint64:  reflect.TypeFor[uint64](),
+	reflect.Float32: reflect.TypeFor[float32](),
+	reflect.Float64: reflect.TypeFor[float64](),
+	reflect.Bool:    reflect.TypeFor[bool](),
+}
+
+// tryConvertToBaseType attempts to convert a value to a base type and returns the converted value if successful.
+// Returns nil if conversion is not possible or not needed.
+func tryConvertToBaseType(rv reflect.Value) any {
+	rt := rv.Type()
+	kind := rt.Kind()
+
+	baseType, ok := reflectBaseTypes[kind]
+	if !ok {
+		return nil
+	}
+
+	if !rv.CanConvert(baseType) {
+		return nil
+	}
+
+	return rv.Convert(baseType).Interface()
+}
+
+func toType(v any) (_ types.Type, err error) { //nolint:funlen,gocyclo
+	switch x := v.(type) {
+	case reflect.Value:
+		return toType(x.Interface())
 	case bool:
 		return types.Bool, nil
 	case int:
@@ -86,10 +202,19 @@ func toType(v any) (_ types.Type, err error) { //nolint:funlen
 	case time.Duration:
 		return types.Interval, nil
 	default:
+		rv := reflect.ValueOf(x)
+		if converted := tryConvertToBaseType(rv); converted != nil {
+			return toType(converted)
+		}
+
 		kind := reflect.TypeOf(x).Kind()
 		switch kind {
 		case reflect.Slice, reflect.Array:
 			v := reflect.ValueOf(x)
+			// Special handling for byte slices ([]byte and type aliases)
+			if v.Type().Elem().Kind() == reflect.Uint8 {
+				return types.Bytes, nil
+			}
 			t, err := toType(reflect.New(v.Type().Elem()).Elem().Interface())
 			if err != nil {
 				return nil, xerrors.WithStackTrace(
@@ -163,6 +288,10 @@ func toValue(v any) (_ value.Value, err error) {
 		return x, nil
 	}
 
+	if nullValue, ok := asSQLNull(v); ok {
+		return nullValue, nil
+	}
+
 	if valuer, ok := v.(driver.Valuer); ok {
 		v, err = valuer.Value()
 		if err != nil {
@@ -177,6 +306,8 @@ func toValue(v any) (_ value.Value, err error) {
 	switch x := v.(type) {
 	case nil:
 		return value.VoidValue(), nil
+	case reflect.Value:
+		return toValue(x.Interface())
 	case value.Value:
 		return x, nil
 	}
@@ -208,8 +339,8 @@ func toValue(v any) (_ value.Value, err error) {
 	}
 
 	switch x := v.(type) {
-	case nil:
-		return value.VoidValue(), nil
+	case reflect.Value:
+		return toValue(x.Interface())
 	case value.Value:
 		return x, nil
 	case bool:
@@ -265,10 +396,19 @@ func toValue(v any) (_ value.Value, err error) {
 
 		return value.JSONValue(xstring.FromBytes(bytes)), nil
 	default:
+		rv := reflect.ValueOf(x)
+		if converted := tryConvertToBaseType(rv); converted != nil {
+			return toValue(converted)
+		}
+
 		kind := reflect.TypeOf(x).Kind()
 		switch kind {
 		case reflect.Slice, reflect.Array:
 			v := reflect.ValueOf(x)
+			// Special handling for byte slices ([]byte and type aliases)
+			if v.Type().Elem().Kind() == reflect.Uint8 {
+				return value.BytesValue(v.Bytes()), nil
+			}
 			list := make([]value.Value, v.Len())
 
 			for i := range list {
@@ -386,9 +526,11 @@ func toYdbParam(name string, value any) (*params.Parameter, error) {
 func Params(args ...any) ([]*params.Parameter, error) {
 	parameters := make([]*params.Parameter, 0, len(args))
 	for i, arg := range args {
-		var newParam *params.Parameter
-		var newParams []*params.Parameter
-		var err error
+		var (
+			newParam  *params.Parameter
+			newParams []*params.Parameter
+			err       error
+		)
 		switch x := arg.(type) {
 		case driver.NamedValue:
 			newParams, err = paramHandleNamedValue(x, i, len(args))

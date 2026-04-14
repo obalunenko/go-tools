@@ -8,7 +8,12 @@ import (
 	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb"
 	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Issue"
 
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xstring"
+	"github.com/ydb-platform/ydb-go-sdk/v3/pkg/xstring"
+)
+
+const (
+	IssueCodeTransactionLocksInvalidated       = 2001
+	IssueCodeDatashardProgramSizeLimitExceeded = 200509
 )
 
 type issues []*Ydb_Issue.IssueMessage
@@ -146,19 +151,37 @@ func (it IssueIterator) Get(i int) (issue Issue, nested IssueIterator) {
 }
 
 func IterateByIssues(err error, it func(message string, code Ydb.StatusIds_StatusCode, severity uint32)) {
+	_ = iterateByIssues(err, func(message string, code Ydb.StatusIds_StatusCode, severity uint32) (stop bool) {
+		it(message, code, severity)
+
+		return false
+	})
+}
+
+func iterateByIssues(err error,
+	it func(message string, code Ydb.StatusIds_StatusCode, severity uint32) (stop bool),
+) (stopped bool) {
 	var o *operationError
 	if !errors.As(err, &o) {
 		return
 	}
-	iterate(o.Issues(), it)
+
+	return iterate(o.Issues(), it)
 }
 
 func iterate(
 	issues []*Ydb_Issue.IssueMessage,
-	it func(message string, code Ydb.StatusIds_StatusCode, severity uint32),
-) {
+	it func(message string, code Ydb.StatusIds_StatusCode, severity uint32) (stop bool),
+) (stopped bool) {
 	for _, issue := range issues {
-		it(issue.GetMessage(), Ydb.StatusIds_StatusCode(issue.GetIssueCode()), issue.GetSeverity())
-		iterate(issue.GetIssues(), it)
+		if it(issue.GetMessage(), Ydb.StatusIds_StatusCode(issue.GetIssueCode()), issue.GetSeverity()) {
+			return true
+		}
+
+		if iterate(issue.GetIssues(), it) {
+			return true
+		}
 	}
+
+	return false
 }

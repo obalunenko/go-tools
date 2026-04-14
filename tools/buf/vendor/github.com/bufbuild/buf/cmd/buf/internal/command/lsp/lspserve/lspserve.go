@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -118,14 +118,27 @@ func run(
 		retErr = errors.Join(retErr, wasmRuntime.Close(ctx))
 	}()
 
+	moduleKeyProvider, err := bufcli.NewModuleKeyProvider(container)
+	if err != nil {
+		return err
+	}
+
+	graphProvider, err := bufcli.NewGraphProvider(container)
+	if err != nil {
+		return err
+	}
+
 	conn, err := buflsp.Serve(
 		ctx,
+		bufcli.Version,
 		wktBucket,
 		container,
 		controller,
 		wasmRuntime,
 		jsonrpc2.NewStream(transport),
 		incremental.New(),
+		moduleKeyProvider,
+		graphProvider,
 	)
 	if err != nil {
 		return err

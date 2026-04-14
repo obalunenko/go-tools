@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"google.golang.org/grpc"
 	grpcCodes "google.golang.org/grpc/codes"
 
@@ -22,10 +23,20 @@ import (
 
 type Pool struct {
 	usages      int64
+	clock       clockwork.Clock
 	config      Config
 	dialOptions []grpc.DialOption
-	conns       xsync.Map[string, *conn]
+	conns       xsync.Map[endpoint.Key, *conn]
 	done        chan struct{}
+}
+
+func EndpointsToConnections(p *Pool, endpoints []endpoint.Endpoint) []Conn {
+	conns := make([]Conn, 0, len(endpoints))
+	for _, e := range endpoints {
+		conns = append(conns, p.Get(e))
+	}
+
+	return conns
 }
 
 func (p *Pool) DialTimeout() time.Duration {
@@ -42,12 +53,11 @@ func (p *Pool) GrpcDialOptions() []grpc.DialOption {
 
 func (p *Pool) Get(endpoint endpoint.Endpoint) Conn {
 	var (
-		address = endpoint.Address()
-		cc      *conn
-		has     bool
+		cc  *conn
+		has bool
 	)
 
-	if cc, has = p.conns.Get(address); has {
+	if cc, has = p.conns.Get(endpoint.Key()); has {
 		return cc
 	}
 
@@ -56,13 +66,13 @@ func (p *Pool) Get(endpoint endpoint.Endpoint) Conn {
 		withOnTransportError(p.Ban),
 	)
 
-	p.conns.Set(address, cc)
+	p.conns.Set(endpoint.Key(), cc)
 
 	return cc
 }
 
 func (p *Pool) remove(c *conn) {
-	p.conns.Delete(c.Address())
+	p.conns.Delete(c.endpoint.Key())
 }
 
 func (p *Pool) isClosed() bool {
@@ -103,7 +113,7 @@ func (p *Pool) Ban(ctx context.Context, cc Conn, cause error) {
 
 	e := cc.Endpoint().Copy()
 
-	cc, ok := p.conns.Get(e.Address())
+	cc, ok := p.conns.Get(e.Key())
 	if !ok {
 		return
 	}
@@ -122,7 +132,7 @@ func (p *Pool) Allow(ctx context.Context, cc Conn) {
 
 	e := cc.Endpoint().Copy()
 
-	cc, ok := p.conns.Get(e.Address())
+	cc, ok := p.conns.Get(e.Key())
 	if !ok {
 		return
 	}
@@ -160,7 +170,7 @@ func (p *Pool) Release(ctx context.Context) (finalErr error) {
 	)
 
 	wg.Add(cap(errCh))
-	p.conns.Range(func(_ string, c *conn) bool {
+	p.conns.Range(func(_ endpoint.Key, c *conn) bool {
 		go func(c closer.Closer) {
 			defer wg.Done()
 			if err := c.Close(ctx); err != nil {
@@ -186,14 +196,14 @@ func (p *Pool) Release(ctx context.Context) (finalErr error) {
 }
 
 func (p *Pool) connParker(ctx context.Context, ttl, interval time.Duration) {
-	ticker := time.NewTicker(interval)
+	ticker := p.clock.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-p.done:
 			return
-		case <-ticker.C:
-			p.conns.Range(func(_ string, c *conn) bool {
+		case <-ticker.Chan():
+			p.conns.Range(func(_ endpoint.Key, c *conn) bool {
 				if time.Since(c.LastUsage()) > ttl {
 					switch c.GetState() {
 					case Online, Banned:
@@ -209,7 +219,9 @@ func (p *Pool) connParker(ctx context.Context, ttl, interval time.Duration) {
 	}
 }
 
-func NewPool(ctx context.Context, config Config) *Pool {
+type poolOption func(p *Pool)
+
+func NewPool(ctx context.Context, config Config, opts ...poolOption) *Pool {
 	onDone := trace.DriverOnPoolNew(config.Trace(), &ctx,
 		stack.FunctionID("github.com/ydb-platform/ydb-go-sdk/v3/internal/conn.NewPool"),
 	)
@@ -217,9 +229,14 @@ func NewPool(ctx context.Context, config Config) *Pool {
 
 	p := &Pool{
 		usages:      1,
+		clock:       clockwork.NewRealClock(),
 		config:      config,
 		dialOptions: config.GrpcDialOptions(),
 		done:        make(chan struct{}),
+	}
+
+	for _, opt := range opts {
+		opt(p)
 	}
 
 	p.dialOptions = append(p.dialOptions,
@@ -231,10 +248,10 @@ func NewPool(ctx context.Context, config Config) *Pool {
 
 					return func(info trace.DriverResolveDoneInfo) {
 						if info.Error != nil || len(resolved) == 0 {
-							p.conns.Range(func(address string, cc *conn) bool {
-								if u, err := url.Parse(address); err == nil && u.Host == target && cc.grpcConn != nil {
+							p.conns.Range(func(key endpoint.Key, cc *conn) bool {
+								if u, err := url.Parse(key.Address); err == nil && u.Host == target && cc.grpcConn != nil {
 									_ = cc.grpcConn.Close()
-									_ = p.conns.Delete(address)
+									_ = p.conns.Delete(key)
 								}
 
 								return true
@@ -247,7 +264,7 @@ func NewPool(ctx context.Context, config Config) *Pool {
 	)
 
 	if ttl := config.ConnectionTTL(); ttl > 0 {
-		go p.connParker(xcontext.ValueOnly(ctx), ttl, ttl/2) //nolint:gomnd
+		go p.connParker(xcontext.ValueOnly(ctx), ttl, ttl/2) //nolint:mnd
 	}
 
 	return p

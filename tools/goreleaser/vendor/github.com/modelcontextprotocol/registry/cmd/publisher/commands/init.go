@@ -58,7 +58,7 @@ func InitCommand() error {
 
 	// Create the server structure
 	server := createServerJSON(
-		name, description, version, repoURL, repoSource, subfolder,
+		model.CurrentSchemaURL, name, description, version, repoURL, repoSource, subfolder,
 		packageType, packageIdentifier, version, envVars,
 	)
 
@@ -213,6 +213,10 @@ func detectDescription() string {
 }
 
 func detectRepoURL() string {
+	sanitizeURL := func(url string) string {
+		return strings.TrimPrefix(url, "git+")
+	}
+
 	// Try git remote
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -233,11 +237,11 @@ func detectRepoURL() string {
 		if json.Unmarshal(data, &pkg) == nil {
 			if repo, ok := pkg["repository"].(map[string]any); ok {
 				if url, ok := repo["url"].(string); ok {
-					return strings.TrimSuffix(url, ".git")
+					return sanitizeURL(strings.TrimSuffix(url, ".git"))
 				}
 			}
 			if repo, ok := pkg["repository"].(string); ok {
-				return strings.TrimSuffix(repo, ".git")
+				return sanitizeURL(strings.TrimSuffix(repo, ".git"))
 			}
 		}
 	}
@@ -323,7 +327,7 @@ func detectPackageIdentifier(serverName string, packageType string) string {
 }
 
 func createServerJSON(
-	name, description, version, repoURL, repoSource, subfolder,
+	currentSchema, name, description, version, repoURL, repoSource, subfolder,
 	packageType, packageIdentifier, packageVersion string,
 	envVars []model.KeyValueInput,
 ) apiv0.ServerJSON {
@@ -402,7 +406,7 @@ func createServerJSON(
 
 	// Create server structure
 	return apiv0.ServerJSON{
-		Schema:      model.CurrentSchemaURL,
+		Schema:      currentSchema,
 		Name:        name,
 		Description: description,
 		Repository:  repo,

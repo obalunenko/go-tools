@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,18 +19,22 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/bufbuild/protocompile/experimental/report"
 )
 
 type fileAnnotationSet struct {
 	fileAnnotations []FileAnnotation
+	report          *report.Report
 }
 
-func newFileAnnotationSet(fileAnnotations []FileAnnotation) *fileAnnotationSet {
+func newFileAnnotationSet(diagnosticReport *report.Report, fileAnnotations []FileAnnotation) *fileAnnotationSet {
 	if len(fileAnnotations) == 0 {
 		return nil
 	}
 	return &fileAnnotationSet{
 		fileAnnotations: deduplicateAndSortFileAnnotations(fileAnnotations),
+		report:          diagnosticReport,
 	}
 }
 
@@ -47,6 +51,10 @@ func (f *fileAnnotationSet) String() string {
 		}
 	}
 	return sb.String()
+}
+
+func (f *fileAnnotationSet) diagnosticReport() *report.Report {
+	return f.report
 }
 
 func (f *fileAnnotationSet) Error() string {

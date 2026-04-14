@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,6 +47,7 @@ import (
 	pkgv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
@@ -83,6 +84,12 @@ func NewCommand(
 			},
 		),
 		BindFlags: flags.Bind,
+		ModifyCobra: func(cmd *cobra.Command) error {
+			return errors.Join(
+				bufcli.RegisterFlagCompletionOutputFormat(cmd, formatFlagName),
+				bufcli.RegisterFlagCompletionVisibility(cmd, visibilityFlagName),
+			)
+		},
 	}
 }
 
@@ -495,19 +502,14 @@ func getImageIDAndDigestFromReference(
 				break
 			}
 		}
-		refNameWithoutDigest, _, ok := strings.Cut(ref.Name(), "@")
-		if !ok {
-			return "", "", fmt.Errorf("failed to parse reference name %q", ref)
-		}
-		repository, err := name.NewRepository(refNameWithoutDigest)
-		if err != nil {
-			return "", "", fmt.Errorf("failed to construct repository %q: %w", refNameWithoutDigest, err)
+		if manifest.Digest.String() == "" {
+			return "", "", fmt.Errorf("no valid platform manifest found in image index for %q", ref)
 		}
 		// We resolved the image index to an image manifest digest, we can now call this function
 		// again to resolve the image manifest digest to an image config digest.
 		return getImageIDAndDigestFromReference(
 			ctx,
-			repository.Digest(manifest.Digest.String()),
+			ref.Context().Digest(manifest.Digest.String()),
 			options...,
 		)
 	case desc.MediaType.IsImage():

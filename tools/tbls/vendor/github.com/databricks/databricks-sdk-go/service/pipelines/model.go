@@ -9,6 +9,228 @@ import (
 	"github.com/databricks/databricks-sdk-go/service/compute"
 )
 
+// Policy for auto full refresh.
+type AutoFullRefreshPolicy struct {
+	// (Required, Mutable) Whether to enable auto full refresh or not.
+	Enabled bool `json:"enabled"`
+	// (Optional, Mutable) Specify the minimum interval in hours between the
+	// timestamp at which a table was last full refreshed and the current
+	// timestamp for triggering auto full If unspecified and autoFullRefresh is
+	// enabled then by default min_interval_hours is 24 hours.
+	MinIntervalHours int `json:"min_interval_hours,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *AutoFullRefreshPolicy) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s AutoFullRefreshPolicy) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+// Enum to specify which mode of clone to execute
+type CloneMode string
+
+const CloneModeMigrateToUc CloneMode = `MIGRATE_TO_UC`
+
+// String representation for [fmt.Print]
+func (f *CloneMode) String() string {
+	return string(*f)
+}
+
+// Set raw string value and validate it against allowed values
+func (f *CloneMode) Set(v string) error {
+	switch v {
+	case `MIGRATE_TO_UC`:
+		*f = CloneMode(v)
+		return nil
+	default:
+		return fmt.Errorf(`value "%s" is not one of "MIGRATE_TO_UC"`, v)
+	}
+}
+
+// Values returns all possible values for CloneMode.
+//
+// There is no guarantee on the order of the values in the slice.
+func (f *CloneMode) Values() []CloneMode {
+	return []CloneMode{
+		CloneModeMigrateToUc,
+	}
+}
+
+// Type always returns CloneMode to satisfy [pflag.Value] interface
+func (f *CloneMode) Type() string {
+	return "CloneMode"
+}
+
+type ClonePipelineRequest struct {
+	// If false, deployment will fail if name conflicts with that of another
+	// pipeline.
+	AllowDuplicateNames bool `json:"allow_duplicate_names,omitempty"`
+	// Budget policy of this pipeline.
+	BudgetPolicyId string `json:"budget_policy_id,omitempty"`
+	// A catalog in Unity Catalog to publish data from this pipeline to. If
+	// `target` is specified, tables in this pipeline are published to a
+	// `target` schema inside `catalog` (for example,
+	// `catalog`.`target`.`table`). If `target` is not specified, no data is
+	// published to Unity Catalog.
+	Catalog string `json:"catalog,omitempty"`
+	// DLT Release Channel that specifies which version to use.
+	Channel string `json:"channel,omitempty"`
+	// The type of clone to perform. Currently, only deep copies are supported
+	CloneMode CloneMode `json:"clone_mode,omitempty"`
+	// Cluster settings for this pipeline deployment.
+	Clusters []PipelineCluster `json:"clusters,omitempty"`
+	// String-String configuration for this pipeline execution.
+	Configuration map[string]string `json:"configuration,omitempty"`
+	// Whether the pipeline is continuous or triggered. This replaces `trigger`.
+	Continuous bool `json:"continuous,omitempty"`
+	// Deployment type of this pipeline.
+	Deployment *PipelineDeployment `json:"deployment,omitempty"`
+	// Whether the pipeline is in Development mode. Defaults to false.
+	Development bool `json:"development,omitempty"`
+	// Pipeline product edition.
+	Edition string `json:"edition,omitempty"`
+	// Environment specification for this pipeline used to install dependencies.
+	Environment *PipelinesEnvironment `json:"environment,omitempty"`
+	// Event log configuration for this pipeline
+	EventLog *EventLogSpec `json:"event_log,omitempty"`
+	// If present, the last-modified time of the pipeline settings before the
+	// clone. If the settings were modified after that time, then the request
+	// will fail with a conflict.
+	ExpectedLastModified int64 `json:"expected_last_modified,omitempty"`
+	// Filters on which Pipeline packages to include in the deployed graph.
+	Filters *Filters `json:"filters,omitempty"`
+	// The definition of a gateway pipeline to support change data capture.
+	GatewayDefinition *IngestionGatewayPipelineDefinition `json:"gateway_definition,omitempty"`
+	// Unique identifier for this pipeline.
+	Id string `json:"id,omitempty"`
+	// The configuration for a managed ingestion pipeline. These settings cannot
+	// be used with the 'libraries', 'schema', 'target', or 'catalog' settings.
+	IngestionDefinition *IngestionPipelineDefinition `json:"ingestion_definition,omitempty"`
+	// Libraries or code needed by this deployment.
+	Libraries []PipelineLibrary `json:"libraries,omitempty"`
+	// Friendly identifier for this pipeline.
+	Name string `json:"name,omitempty"`
+	// List of notification settings for this pipeline.
+	Notifications []Notifications `json:"notifications,omitempty"`
+	// Whether Photon is enabled for this pipeline.
+	Photon bool `json:"photon,omitempty"`
+	// Source pipeline to clone from
+	PipelineId string `json:"-" url:"-"`
+	// Restart window of this pipeline.
+	RestartWindow *RestartWindow `json:"restart_window,omitempty"`
+	// Root path for this pipeline. This is used as the root directory when
+	// editing the pipeline in the Databricks user interface and it is added to
+	// sys.path when executing Python sources during pipeline execution.
+	RootPath string `json:"root_path,omitempty"`
+	// The default schema (database) where tables are read from or published to.
+	Schema string `json:"schema,omitempty"`
+	// Whether serverless compute is enabled for this pipeline.
+	Serverless bool `json:"serverless,omitempty"`
+	// DBFS root directory for storing checkpoints and tables.
+	Storage string `json:"storage,omitempty"`
+	// A map of tags associated with the pipeline. These are forwarded to the
+	// cluster as cluster tags, and are therefore subject to the same
+	// limitations. A maximum of 25 tags can be added to the pipeline.
+	Tags map[string]string `json:"tags,omitempty"`
+	// Target schema (database) to add tables in this pipeline to. Exactly one
+	// of `schema` or `target` must be specified. To publish to Unity Catalog,
+	// also specify `catalog`. This legacy field is deprecated for pipeline
+	// creation in favor of the `schema` field.
+	Target string `json:"target,omitempty"`
+	// Which pipeline trigger to use. Deprecated: Use `continuous` instead.
+	Trigger *PipelineTrigger `json:"trigger,omitempty"`
+	// Usage policy of this pipeline.
+	UsagePolicyId string `json:"usage_policy_id,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *ClonePipelineRequest) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s ClonePipelineRequest) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+type ClonePipelineResponse struct {
+	// The pipeline id of the cloned pipeline
+	PipelineId string `json:"pipeline_id,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *ClonePipelineResponse) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s ClonePipelineResponse) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+type ConnectionParameters struct {
+	// Source catalog for initial connection. This is necessary for schema
+	// exploration in some database systems like Oracle, and optional but
+	// nice-to-have in some other database systems like Postgres. For Oracle
+	// databases, this maps to a service name.
+	SourceCatalog string `json:"source_catalog,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *ConnectionParameters) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s ConnectionParameters) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+// For certain database sources LakeFlow Connect offers both query based and cdc
+// ingestion, ConnectorType can bse used to convey the type of ingestion. If
+// connection_name is provided for database sources, we default to Query Based
+// ingestion
+type ConnectorType string
+
+const ConnectorTypeCdc ConnectorType = `CDC`
+
+const ConnectorTypeQueryBased ConnectorType = `QUERY_BASED`
+
+// String representation for [fmt.Print]
+func (f *ConnectorType) String() string {
+	return string(*f)
+}
+
+// Set raw string value and validate it against allowed values
+func (f *ConnectorType) Set(v string) error {
+	switch v {
+	case `CDC`, `QUERY_BASED`:
+		*f = ConnectorType(v)
+		return nil
+	default:
+		return fmt.Errorf(`value "%s" is not one of "CDC", "QUERY_BASED"`, v)
+	}
+}
+
+// Values returns all possible values for ConnectorType.
+//
+// There is no guarantee on the order of the values in the slice.
+func (f *ConnectorType) Values() []ConnectorType {
+	return []ConnectorType{
+		ConnectorTypeCdc,
+		ConnectorTypeQueryBased,
+	}
+}
+
+// Type always returns ConnectorType to satisfy [pflag.Value] interface
+func (f *ConnectorType) Type() string {
+	return "ConnectorType"
+}
+
 type CreatePipeline struct {
 	// If false, deployment will fail if name conflicts with that of another
 	// pipeline.
@@ -83,6 +305,8 @@ type CreatePipeline struct {
 	Target string `json:"target,omitempty"`
 	// Which pipeline trigger to use. Deprecated: Use `continuous` instead.
 	Trigger *PipelineTrigger `json:"trigger,omitempty"`
+	// Usage policy of this pipeline.
+	UsagePolicyId string `json:"usage_policy_id,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
 }
@@ -146,9 +370,35 @@ func (s DataPlaneId) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
-// Days of week in which the restart is allowed to happen (within a five-hour
-// window starting at start_hour). If not specified all days of the week will be
-// used.
+// Location of staged data storage
+type DataStagingOptions struct {
+	// (Required, Immutable) The name of the catalog for the connector's staging
+	// storage location.
+	CatalogName string `json:"catalog_name"`
+	// (Required, Immutable) The name of the schema for the connector's staging
+	// storage location.
+	SchemaName string `json:"schema_name"`
+	// (Optional) The Unity Catalog-compatible name for the storage location.
+	// This is the volume to use for the data that is extracted by the
+	// connector. Spark Declarative Pipelines system will automatically create
+	// the volume under the catalog and schema. For Combined Cdc Managed
+	// Ingestion pipelines default name for the volume would be :
+	// __databricks_ingestion_gateway_staging_data-$pipelineId
+	VolumeName string `json:"volume_name,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *DataStagingOptions) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s DataStagingOptions) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+// Days of week in which the window is allowed to happen. If not specified all
+// days of the week will be used.
 type DayOfWeek string
 
 const DayOfWeekFriday DayOfWeek = `FRIDAY`
@@ -202,7 +452,21 @@ func (f *DayOfWeek) Type() string {
 }
 
 type DeletePipelineRequest struct {
+	// If true, deletion will proceed even if resource cleanup fails. By
+	// default, deletion will fail if resources cleanup is required but fails.
+	Force bool `json:"-" url:"force,omitempty"`
+
 	PipelineId string `json:"-" url:"-"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *DeletePipelineRequest) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s DeletePipelineRequest) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
 }
 
 // The deployment method that manages the pipeline: - BUNDLE: The pipeline is
@@ -319,6 +583,8 @@ type EditPipeline struct {
 	Target string `json:"target,omitempty"`
 	// Which pipeline trigger to use. Deprecated: Use `continuous` instead.
 	Trigger *PipelineTrigger `json:"trigger,omitempty"`
+	// Usage policy of this pipeline.
+	UsagePolicyId string `json:"usage_policy_id,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
 }
@@ -462,6 +728,8 @@ type GetPipelineResponse struct {
 	CreatorUserName string `json:"creator_user_name,omitempty"`
 	// Serverless budget policy ID of this pipeline.
 	EffectiveBudgetPolicyId string `json:"effective_budget_policy_id,omitempty"`
+	// Publishing mode of the pipeline
+	EffectivePublishingMode PublishingMode `json:"effective_publishing_mode,omitempty"`
 	// The health of a pipeline.
 	Health GetPipelineResponseHealth `json:"health,omitempty"`
 	// The last time the pipeline settings were modified or created.
@@ -564,13 +832,16 @@ type IngestionGatewayPipelineDefinition struct {
 	// Immutable. The Unity Catalog connection that this gateway pipeline uses
 	// to communicate with the source.
 	ConnectionName string `json:"connection_name"`
+	// Optional, Internal. Parameters required to establish an initial
+	// connection with the source.
+	ConnectionParameters *ConnectionParameters `json:"connection_parameters,omitempty"`
 	// Required, Immutable. The name of the catalog for the gateway pipeline's
 	// storage location.
 	GatewayStorageCatalog string `json:"gateway_storage_catalog"`
 	// Optional. The Unity Catalog-compatible name for the gateway storage
 	// location. This is the destination to use for the data that is extracted
-	// by the gateway. Delta Live Tables system will automatically create the
-	// storage location under the catalog and schema.
+	// by the gateway. Spark Declarative Pipelines system will automatically
+	// create the storage location under the catalog and schema.
 	GatewayStorageName string `json:"gateway_storage_name,omitempty"`
 	// Required, Immutable. The name of the schema for the gateway pipelines's
 	// storage location.
@@ -588,13 +859,39 @@ func (s IngestionGatewayPipelineDefinition) MarshalJSON() ([]byte, error) {
 }
 
 type IngestionPipelineDefinition struct {
-	// Immutable. The Unity Catalog connection that this ingestion pipeline uses
-	// to communicate with the source. This is used with connectors for
-	// applications like Salesforce, Workday, and so on.
+	// The Unity Catalog connection that this ingestion pipeline uses to
+	// communicate with the source. This is used with both connectors for
+	// applications like Salesforce, Workday, and so on, and also database
+	// connectors like Oracle, (connector_type = QUERY_BASED OR connector_type =
+	// CDC). If connection name corresponds to database connectors like Oracle,
+	// and connector_type is not provided then connector_type defaults to
+	// QUERY_BASED. If connector_type is passed as CDC we use Combined Cdc
+	// Managed Ingestion pipeline. Under certain conditions, this can be
+	// replaced with ingestion_gateway_id to change the connector to Cdc Managed
+	// Ingestion Pipeline with Gateway pipeline.
 	ConnectionName string `json:"connection_name,omitempty"`
-	// Immutable. Identifier for the gateway that is used by this ingestion
-	// pipeline to communicate with the source database. This is used with
-	// connectors to databases like SQL Server.
+	// (Optional) Connector Type for sources. Ex: CDC, Query Based.
+	ConnectorType ConnectorType `json:"connector_type,omitempty"`
+	// (Optional) Location of staged data storage. This is required for
+	// migration from Cdc Managed Ingestion Pipeline with Gateway pipeline to
+	// Combined Cdc Managed Ingestion Pipeline. If not specified, the volume for
+	// staged data will be created in catalog and schema/target specified in the
+	// top level pipeline definition.
+	DataStagingOptions *DataStagingOptions `json:"data_staging_options,omitempty"`
+	// (Optional) A window that specifies a set of time ranges for snapshot
+	// queries in CDC.
+	FullRefreshWindow *OperationTimeWindow `json:"full_refresh_window,omitempty"`
+	// Immutable. If set to true, the pipeline will ingest tables from the UC
+	// foreign catalogs directly without the need to specify a UC connection or
+	// ingestion gateway. The `source_catalog` fields in objects of
+	// IngestionConfig are interpreted as the UC foreign catalogs to ingest
+	// from.
+	IngestFromUcForeignCatalog bool `json:"ingest_from_uc_foreign_catalog,omitempty"`
+	// Identifier for the gateway that is used by this ingestion pipeline to
+	// communicate with the source database. This is used with CDC connectors to
+	// databases like SQL Server using a gateway pipeline (connector_type =
+	// CDC). Under certain conditions, this can be replaced with connection_name
+	// to change the connector to Combined Cdc Managed Ingestion Pipeline.
 	IngestionGatewayId string `json:"ingestion_gateway_id,omitempty"`
 	// Netsuite only configuration. When the field is set for a netsuite
 	// connector, the jar stored in the field will be validated and added to the
@@ -715,8 +1012,6 @@ type IngestionSourceType string
 
 const IngestionSourceTypeBigquery IngestionSourceType = `BIGQUERY`
 
-const IngestionSourceTypeConfluence IngestionSourceType = `CONFLUENCE`
-
 const IngestionSourceTypeDynamics365 IngestionSourceType = `DYNAMICS365`
 
 const IngestionSourceTypeForeignCatalog IngestionSourceType = `FOREIGN_CATALOG`
@@ -724,8 +1019,6 @@ const IngestionSourceTypeForeignCatalog IngestionSourceType = `FOREIGN_CATALOG`
 const IngestionSourceTypeGa4RawData IngestionSourceType = `GA4_RAW_DATA`
 
 const IngestionSourceTypeManagedPostgresql IngestionSourceType = `MANAGED_POSTGRESQL`
-
-const IngestionSourceTypeMetaMarketing IngestionSourceType = `META_MARKETING`
 
 const IngestionSourceTypeMysql IngestionSourceType = `MYSQL`
 
@@ -735,15 +1028,11 @@ const IngestionSourceTypeOracle IngestionSourceType = `ORACLE`
 
 const IngestionSourceTypePostgresql IngestionSourceType = `POSTGRESQL`
 
-const IngestionSourceTypeRedshift IngestionSourceType = `REDSHIFT`
-
 const IngestionSourceTypeSalesforce IngestionSourceType = `SALESFORCE`
 
 const IngestionSourceTypeServicenow IngestionSourceType = `SERVICENOW`
 
 const IngestionSourceTypeSharepoint IngestionSourceType = `SHAREPOINT`
-
-const IngestionSourceTypeSqldw IngestionSourceType = `SQLDW`
 
 const IngestionSourceTypeSqlserver IngestionSourceType = `SQLSERVER`
 
@@ -759,11 +1048,11 @@ func (f *IngestionSourceType) String() string {
 // Set raw string value and validate it against allowed values
 func (f *IngestionSourceType) Set(v string) error {
 	switch v {
-	case `BIGQUERY`, `CONFLUENCE`, `DYNAMICS365`, `FOREIGN_CATALOG`, `GA4_RAW_DATA`, `MANAGED_POSTGRESQL`, `META_MARKETING`, `MYSQL`, `NETSUITE`, `ORACLE`, `POSTGRESQL`, `REDSHIFT`, `SALESFORCE`, `SERVICENOW`, `SHAREPOINT`, `SQLDW`, `SQLSERVER`, `TERADATA`, `WORKDAY_RAAS`:
+	case `BIGQUERY`, `DYNAMICS365`, `FOREIGN_CATALOG`, `GA4_RAW_DATA`, `MANAGED_POSTGRESQL`, `MYSQL`, `NETSUITE`, `ORACLE`, `POSTGRESQL`, `SALESFORCE`, `SERVICENOW`, `SHAREPOINT`, `SQLSERVER`, `TERADATA`, `WORKDAY_RAAS`:
 		*f = IngestionSourceType(v)
 		return nil
 	default:
-		return fmt.Errorf(`value "%s" is not one of "BIGQUERY", "CONFLUENCE", "DYNAMICS365", "FOREIGN_CATALOG", "GA4_RAW_DATA", "MANAGED_POSTGRESQL", "META_MARKETING", "MYSQL", "NETSUITE", "ORACLE", "POSTGRESQL", "REDSHIFT", "SALESFORCE", "SERVICENOW", "SHAREPOINT", "SQLDW", "SQLSERVER", "TERADATA", "WORKDAY_RAAS"`, v)
+		return fmt.Errorf(`value "%s" is not one of "BIGQUERY", "DYNAMICS365", "FOREIGN_CATALOG", "GA4_RAW_DATA", "MANAGED_POSTGRESQL", "MYSQL", "NETSUITE", "ORACLE", "POSTGRESQL", "SALESFORCE", "SERVICENOW", "SHAREPOINT", "SQLSERVER", "TERADATA", "WORKDAY_RAAS"`, v)
 	}
 }
 
@@ -773,21 +1062,17 @@ func (f *IngestionSourceType) Set(v string) error {
 func (f *IngestionSourceType) Values() []IngestionSourceType {
 	return []IngestionSourceType{
 		IngestionSourceTypeBigquery,
-		IngestionSourceTypeConfluence,
 		IngestionSourceTypeDynamics365,
 		IngestionSourceTypeForeignCatalog,
 		IngestionSourceTypeGa4RawData,
 		IngestionSourceTypeManagedPostgresql,
-		IngestionSourceTypeMetaMarketing,
 		IngestionSourceTypeMysql,
 		IngestionSourceTypeNetsuite,
 		IngestionSourceTypeOracle,
 		IngestionSourceTypePostgresql,
-		IngestionSourceTypeRedshift,
 		IngestionSourceTypeSalesforce,
 		IngestionSourceTypeServicenow,
 		IngestionSourceTypeSharepoint,
-		IngestionSourceTypeSqldw,
 		IngestionSourceTypeSqlserver,
 		IngestionSourceTypeTeradata,
 		IngestionSourceTypeWorkdayRaas,
@@ -1019,6 +1304,30 @@ type Notifications struct {
 	EmailRecipients []string `json:"email_recipients,omitempty"`
 }
 
+// Proto representing a window
+type OperationTimeWindow struct {
+	// Days of week in which the window is allowed to happen If not specified
+	// all days of the week will be used.
+	DaysOfWeek []DayOfWeek `json:"days_of_week,omitempty"`
+	// An integer between 0 and 23 denoting the start hour for the window in the
+	// 24-hour day.
+	StartHour int `json:"start_hour"`
+	// Time zone id of window. See
+	// https://docs.databricks.com/sql/language-manual/sql-ref-syntax-aux-conf-mgmt-set-timezone.html
+	// for details. If not specified, UTC will be used.
+	TimeZoneId string `json:"time_zone_id,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *OperationTimeWindow) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s OperationTimeWindow) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
 type Origin struct {
 	// The id of a batch. Unique within a flow.
 	BatchId int64 `json:"batch_id,omitempty"`
@@ -1035,6 +1344,21 @@ type Origin struct {
 	FlowName string `json:"flow_name,omitempty"`
 	// The optional host name where the event was triggered
 	Host string `json:"host,omitempty"`
+	// The name of the source catalog name (if known) from whose data ingestion
+	// is described by this event.
+	IngestionSourceCatalogName string `json:"ingestion_source_catalog_name,omitempty"`
+	// The name of the source UC connection (if known) from whose data ingestion
+	// is described by this event.
+	IngestionSourceConnectionName string `json:"ingestion_source_connection_name,omitempty"`
+	// The name of the source schema name (if known) from whose data ingestion
+	// is described by this event.
+	IngestionSourceSchemaName string `json:"ingestion_source_schema_name,omitempty"`
+	// The name of the source table name (if known) from whose data ingestion is
+	// described by this event.
+	IngestionSourceTableName string `json:"ingestion_source_table_name,omitempty"`
+	// An optional implementation-defined source table version of a dataset
+	// being (re)ingested.
+	IngestionSourceTableVersion string `json:"ingestion_source_table_version,omitempty"`
 	// The id of a maintenance run. Globally unique.
 	MaintenanceId string `json:"maintenance_id,omitempty"`
 	// Materialization name.
@@ -1327,6 +1651,11 @@ type PipelineEvent struct {
 	Sequence *Sequencing `json:"sequence,omitempty"`
 	// The time of the event.
 	Timestamp string `json:"timestamp,omitempty"`
+	// Information about which fields were truncated from this event due to size
+	// constraints. If empty or absent, no truncation occurred. See
+	// https://docs.databricks.com/en/ldp/monitor-event-logs for information on
+	// retrieving complete event data.
+	Truncation *Truncation `json:"truncation,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
 }
@@ -1537,6 +1866,8 @@ type PipelineSpec struct {
 	Target string `json:"target,omitempty"`
 	// Which pipeline trigger to use. Deprecated: Use `continuous` instead.
 	Trigger *PipelineTrigger `json:"trigger,omitempty"`
+	// Usage policy of this pipeline.
+	UsagePolicyId string `json:"usage_policy_id,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
 }
@@ -1694,6 +2025,29 @@ type PipelinesEnvironment struct {
 	// dependency could be <requirement specifier>, <archive url/path>, <local
 	// project path>(WSFS or Volumes in Databricks), <vcs project url>
 	Dependencies []string `json:"dependencies,omitempty"`
+	// The environment version of the serverless Python environment used to
+	// execute customer Python code. Each environment version includes a
+	// specific Python version and a curated set of pre-installed libraries with
+	// defined versions, providing a stable and reproducible execution
+	// environment.
+	//
+	// Databricks supports a three-year lifecycle for each environment version.
+	// For available versions and their included packages, see
+	// https://docs.databricks.com/aws/en/release-notes/serverless/environment-version/
+	//
+	// The value should be a string representing the environment version number,
+	// for example: `"4"`.
+	EnvironmentVersion string `json:"environment_version,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *PipelinesEnvironment) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s PipelinesEnvironment) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
 }
 
 // PG-specific catalog-level configuration parameters
@@ -1718,6 +2072,63 @@ func (s *PostgresSlotConfig) UnmarshalJSON(b []byte) error {
 }
 
 func (s PostgresSlotConfig) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+// Enum representing the publishing mode of a pipeline.
+type PublishingMode string
+
+const PublishingModeDefaultPublishingMode PublishingMode = `DEFAULT_PUBLISHING_MODE`
+
+const PublishingModeLegacyPublishingMode PublishingMode = `LEGACY_PUBLISHING_MODE`
+
+// String representation for [fmt.Print]
+func (f *PublishingMode) String() string {
+	return string(*f)
+}
+
+// Set raw string value and validate it against allowed values
+func (f *PublishingMode) Set(v string) error {
+	switch v {
+	case `DEFAULT_PUBLISHING_MODE`, `LEGACY_PUBLISHING_MODE`:
+		*f = PublishingMode(v)
+		return nil
+	default:
+		return fmt.Errorf(`value "%s" is not one of "DEFAULT_PUBLISHING_MODE", "LEGACY_PUBLISHING_MODE"`, v)
+	}
+}
+
+// Values returns all possible values for PublishingMode.
+//
+// There is no guarantee on the order of the values in the slice.
+func (f *PublishingMode) Values() []PublishingMode {
+	return []PublishingMode{
+		PublishingModeDefaultPublishingMode,
+		PublishingModeLegacyPublishingMode,
+	}
+}
+
+// Type always returns PublishingMode to satisfy [pflag.Value] interface
+func (f *PublishingMode) Type() string {
+	return "PublishingMode"
+}
+
+// Specifies a replace_where predicate override for a replace where flow.
+type ReplaceWhereOverride struct {
+	// Name of the flow to apply this override to.
+	FlowName string `json:"flow_name,omitempty"`
+	// SQL predicate string to use as replace_where condition. Example: `date =
+	// '2024-10-10' AND city = 'xyz'`
+	PredicateOverride string `json:"predicate_override,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *ReplaceWhereOverride) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s ReplaceWhereOverride) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
@@ -1769,6 +2180,50 @@ func (s *RestartWindow) UnmarshalJSON(b []byte) error {
 }
 
 func (s RestartWindow) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+// Configuration for rewinding a specific dataset.
+type RewindDatasetSpec struct {
+	// Whether to cascade the rewind to dependent datasets. Must be specified.
+	Cascade bool `json:"cascade,omitempty"`
+	// The identifier of the dataset (e.g., "main.foo.tbl1").
+	Identifier string `json:"identifier,omitempty"`
+	// Whether to reset checkpoints for this dataset.
+	ResetCheckpoints bool `json:"reset_checkpoints,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *RewindDatasetSpec) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s RewindDatasetSpec) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+// Information about a rewind being requested for this pipeline or some of the
+// datasets in it.
+type RewindSpec struct {
+	// List of datasets to rewind with specific configuration for each. When not
+	// specified, all datasets will be rewound with cascade = true and
+	// reset_checkpoints = true.
+	Datasets []RewindDatasetSpec `json:"datasets,omitempty"`
+	// If true, this is a dry run and we should emit the RewindSummary but not
+	// perform the rewind.
+	DryRun bool `json:"dry_run,omitempty"`
+	// The base timestamp to rewind to. Must be specified.
+	RewindTimestamp string `json:"rewind_timestamp,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *RewindSpec) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s RewindSpec) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
@@ -1915,6 +2370,8 @@ type StartUpdate struct {
 	// Refresh on a table means that the states of the table will be reset
 	// before the refresh.
 	FullRefreshSelection []string `json:"full_refresh_selection,omitempty"`
+	// Key/value map of parameters to pass to the pipeline execution
+	Parameters map[string]string `json:"parameters,omitempty"`
 
 	PipelineId string `json:"-" url:"-"`
 	// A list of tables to update without fullRefresh. If both refresh_selection
@@ -1922,6 +2379,18 @@ type StartUpdate struct {
 	// Refresh on a table means that the states of the table will be reset
 	// before the refresh.
 	RefreshSelection []string `json:"refresh_selection,omitempty"`
+	// A list of predicate overrides for replace_where flows in this update.
+	// Only replace_where flows may be specified. Flows not listed use their
+	// original predicate.
+	ReplaceWhereOverrides []ReplaceWhereOverride `json:"replace_where_overrides,omitempty"`
+	// A list of flows for which this update should reset the streaming
+	// checkpoint. This selection will not clear the data in the flow's target
+	// table. Flows in this list may also appear in refresh_selection and
+	// full_refresh_selection.
+	ResetCheckpointSelection []string `json:"reset_checkpoint_selection,omitempty"`
+	// The information about the requested rewind operation. If specified this
+	// is a rewind mode update.
+	RewindSpec *RewindSpec `json:"rewind_spec,omitempty"`
 	// If true, this update only validates the correctness of pipeline source
 	// code but does not materialize or publish any datasets.
 	ValidateOnly bool `json:"validate_only,omitempty"`
@@ -2040,6 +2509,13 @@ func (s TableSpec) MarshalJSON() ([]byte, error) {
 }
 
 type TableSpecificConfig struct {
+	// (Optional, Mutable) Policy for auto full refresh, if enabled pipeline
+	// will automatically try to fix issues by doing a full refresh on the table
+	// in the retry run. auto_full_refresh_policy in table configuration will
+	// override the above level auto_full_refresh_policy. For example, {
+	// "auto_full_refresh_policy": { "enabled": true, "min_interval_hours": 23,
+	// } } If unspecified, auto full refresh is disabled.
+	AutoFullRefreshPolicy *AutoFullRefreshPolicy `json:"auto_full_refresh_policy,omitempty"`
 	// A list of column names to be excluded for the ingestion. When not
 	// specified, include_columns fully controls what columns to be ingested.
 	// When specified, all other columns including future ones will be
@@ -2056,14 +2532,18 @@ type TableSpecificConfig struct {
 	PrimaryKeys []string `json:"primary_keys,omitempty"`
 
 	QueryBasedConnectorConfig *IngestionPipelineDefinitionTableSpecificConfigQueryBasedConnectorConfig `json:"query_based_connector_config,omitempty"`
+	// (Optional, Immutable) The row filter condition to be applied to the
+	// table. It must not contain the WHERE keyword, only the actual filter
+	// condition. It must be in DBSQL format.
+	RowFilter string `json:"row_filter,omitempty"`
 	// If true, formula fields defined in the table are included in the
 	// ingestion. This setting is only valid for the Salesforce connector
 	SalesforceIncludeFormulaFields bool `json:"salesforce_include_formula_fields,omitempty"`
 	// The SCD type to use to ingest the table.
 	ScdType TableSpecificConfigScdType `json:"scd_type,omitempty"`
 	// The column names specifying the logical order of events in the source
-	// data. Delta Live Tables uses this sequencing to handle change events that
-	// arrive out of order.
+	// data. Spark Declarative Pipelines uses this sequencing to handle change
+	// events that arrive out of order.
 	SequenceBy []string `json:"sequence_by,omitempty"`
 	// (Optional) Additional custom parameters for Workday Report
 	WorkdayReportParameters *IngestionPipelineDefinitionWorkdayReportParameters `json:"workday_report_parameters,omitempty"`
@@ -2120,6 +2600,30 @@ func (f *TableSpecificConfigScdType) Type() string {
 	return "TableSpecificConfigScdType"
 }
 
+// Information about truncations applied to this event.
+type Truncation struct {
+	// List of fields that were truncated from this event. If empty or absent,
+	// no truncation occurred.
+	TruncatedFields []TruncationTruncationDetail `json:"truncated_fields,omitempty"`
+}
+
+// Details about a specific field that was truncated.
+type TruncationTruncationDetail struct {
+	// The name of the truncated field (e.g., "error"). Corresponds to field
+	// names in PipelineEvent.
+	FieldName string `json:"field_name,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *TruncationTruncationDetail) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s TruncationTruncationDetail) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
 type UpdateInfo struct {
 	// What triggered this update.
 	Cause UpdateInfoCause `json:"cause,omitempty"`
@@ -2137,6 +2641,8 @@ type UpdateInfo struct {
 	// Refresh on a table means that the states of the table will be reset
 	// before the refresh.
 	FullRefreshSelection []string `json:"full_refresh_selection,omitempty"`
+	// Key/value map of parameters used to initiate the update
+	Parameters map[string]string `json:"parameters,omitempty"`
 	// The ID of the pipeline.
 	PipelineId string `json:"pipeline_id,omitempty"`
 	// A list of tables to update without fullRefresh. If both refresh_selection

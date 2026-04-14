@@ -180,6 +180,10 @@ func (p Pipe) doRun(ctx *context.Context, nix config.Nix, cl client.ReleaseURLTe
 		return fmt.Errorf("failed to write nixpkg: %w", err)
 	}
 
+	if fmt := nix.Formatter; fmt != "" {
+		format(ctx, fmt, path)
+	}
+
 	ctx.Artifacts.Add(&artifact.Artifact{
 		Name: filepath.Base(path),
 		Path: path,
@@ -190,6 +194,27 @@ func (p Pipe) doRun(ctx *context.Context, nix config.Nix, cl client.ReleaseURLTe
 	})
 
 	return nil
+}
+
+func format(ctx *context.Context, fmt, path string) bool {
+	switch fmt {
+	case "alejandra", "nixfmt":
+		out, err := exec.CommandContext(ctx, fmt, path).CombinedOutput()
+		if err != nil {
+			log.WithField("output", string(out)).
+				WithField("formatter", fmt).
+				WithField("path", path).
+				Warn("could not format")
+			return false
+		}
+		log.WithField("formatter", fmt).
+			WithField("path", path).
+			Info("formatted")
+		return true
+	default:
+		log.Warn("invalid nix formatter: " + fmt)
+		return false
+	}
 }
 
 func preparePkg(
@@ -258,26 +283,34 @@ func preparePkg(
 		inputs = append(inputs, "makeWrapper")
 		dependencies = append(dependencies, "makeWrapper")
 	}
+
+	var dynamicallyLinked bool
 	for _, arch := range archives {
 		if arch.Format() == "zip" {
 			inputs = append(inputs, "unzip")
 			dependencies = append(dependencies, "unzip")
-			break
+		}
+		if !dynamicallyLinked && artifact.ExtraOr(*arch, artifact.ExtranDynLink, false) {
+			dynamicallyLinked = true
 		}
 	}
 
+	inputs = slices.Compact(slices.Sorted(slices.Values(inputs)))
+	dependencies = slices.Compact(slices.Sorted(slices.Values(dependencies)))
+
 	data := templateData{
-		Name:         nix.Name,
-		Version:      ctx.Version,
-		Install:      installs,
-		PostInstall:  postInstall,
-		Archives:     map[string]Archive{},
-		SourceRoots:  map[string]string{},
-		Description:  nix.Description,
-		Homepage:     nix.Homepage,
-		License:      nix.License,
-		Inputs:       inputs,
-		Dependencies: dependencies,
+		Name:              nix.Name,
+		Version:           ctx.Version,
+		Install:           installs,
+		PostInstall:       postInstall,
+		Archives:          map[string]Archive{},
+		SourceRoots:       map[string]string{},
+		Description:       nix.Description,
+		Homepage:          nix.Homepage,
+		License:           nix.License,
+		Inputs:            inputs,
+		Dependencies:      dependencies,
+		DynamicallyLinked: dynamicallyLinked,
 	}
 
 	platforms := map[string]bool{}
@@ -475,7 +508,8 @@ func installs(ctx *context.Context, nix config.Nix, art *artifact.Artifact) ([]s
 		}
 	}
 
-	log.WithField("install", result).Info("guessing install")
+	log.WithField("install", strings.Join(result, " ")).
+		Info("guessing install")
 
 	return append(result, split(extraInstall)...), nil
 }

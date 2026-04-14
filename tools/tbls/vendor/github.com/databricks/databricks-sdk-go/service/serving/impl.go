@@ -27,6 +27,10 @@ func (a *servingEndpointsImpl) BuildLogs(ctx context.Context, request BuildLogsR
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &buildLogsResponse)
 	return &buildLogsResponse, err
 }
@@ -38,6 +42,10 @@ func (a *servingEndpointsImpl) Create(ctx context.Context, request CreateServing
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &servingEndpointDetailed)
 	return &servingEndpointDetailed, err
 }
@@ -49,6 +57,10 @@ func (a *servingEndpointsImpl) CreateProvisionedThroughputEndpoint(ctx context.C
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &servingEndpointDetailed)
 	return &servingEndpointDetailed, err
 }
@@ -57,6 +69,10 @@ func (a *servingEndpointsImpl) Delete(ctx context.Context, request DeleteServing
 	path := fmt.Sprintf("/api/2.0/serving-endpoints/%v", request.Name)
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodDelete, path, headers, queryParams, request, nil)
 	return err
 }
@@ -67,6 +83,10 @@ func (a *servingEndpointsImpl) ExportMetrics(ctx context.Context, request Export
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "text/plain"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &exportMetricsResponse)
 	return &exportMetricsResponse, err
 }
@@ -77,6 +97,10 @@ func (a *servingEndpointsImpl) Get(ctx context.Context, request GetServingEndpoi
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &servingEndpointDetailed)
 	return &servingEndpointDetailed, err
 }
@@ -87,6 +111,10 @@ func (a *servingEndpointsImpl) GetOpenApi(ctx context.Context, request GetOpenAp
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "text/plain"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &getOpenApiResponse)
 	return &getOpenApiResponse, err
 }
@@ -97,6 +125,10 @@ func (a *servingEndpointsImpl) GetPermissionLevels(ctx context.Context, request 
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &getServingEndpointPermissionLevelsResponse)
 	return &getServingEndpointPermissionLevelsResponse, err
 }
@@ -107,6 +139,10 @@ func (a *servingEndpointsImpl) GetPermissions(ctx context.Context, request GetSe
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &servingEndpointPermissions)
 	return &servingEndpointPermissions, err
 }
@@ -118,6 +154,10 @@ func (a *servingEndpointsImpl) HttpRequest(ctx context.Context, request External
 	headers := make(map[string]string)
 	headers["Accept"] = "text/plain"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &httpRequestResponse)
 	return &httpRequestResponse, err
 }
@@ -154,6 +194,10 @@ func (a *servingEndpointsImpl) internalList(ctx context.Context) (*ListEndpoints
 
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, nil, nil, &listEndpointsResponse)
 	return &listEndpointsResponse, err
 }
@@ -164,6 +208,10 @@ func (a *servingEndpointsImpl) Logs(ctx context.Context, request LogsRequest) (*
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &serverLogsResponse)
 	return &serverLogsResponse, err
 }
@@ -175,6 +223,10 @@ func (a *servingEndpointsImpl) Patch(ctx context.Context, request PatchServingEn
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPatch, path, headers, queryParams, request, &endpointTags)
 	return &endpointTags, err
 }
@@ -186,6 +238,10 @@ func (a *servingEndpointsImpl) Put(ctx context.Context, request PutRequest) (*Pu
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPut, path, headers, queryParams, request, &putResponse)
 	return &putResponse, err
 }
@@ -197,6 +253,10 @@ func (a *servingEndpointsImpl) PutAiGateway(ctx context.Context, request PutAiGa
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPut, path, headers, queryParams, request, &putAiGatewayResponse)
 	return &putAiGatewayResponse, err
 }
@@ -208,6 +268,10 @@ func (a *servingEndpointsImpl) Query(ctx context.Context, request QueryEndpointI
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &queryEndpointResponse)
 	return &queryEndpointResponse, err
 }
@@ -219,6 +283,10 @@ func (a *servingEndpointsImpl) SetPermissions(ctx context.Context, request Servi
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPut, path, headers, queryParams, request, &servingEndpointPermissions)
 	return &servingEndpointPermissions, err
 }
@@ -230,6 +298,10 @@ func (a *servingEndpointsImpl) UpdateConfig(ctx context.Context, request Endpoin
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPut, path, headers, queryParams, request, &servingEndpointDetailed)
 	return &servingEndpointDetailed, err
 }
@@ -241,6 +313,10 @@ func (a *servingEndpointsImpl) UpdateNotifications(ctx context.Context, request 
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPatch, path, headers, queryParams, request, &updateInferenceEndpointNotificationsResponse)
 	return &updateInferenceEndpointNotificationsResponse, err
 }
@@ -252,6 +328,10 @@ func (a *servingEndpointsImpl) UpdatePermissions(ctx context.Context, request Se
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPatch, path, headers, queryParams, request, &servingEndpointPermissions)
 	return &servingEndpointPermissions, err
 }
@@ -263,6 +343,10 @@ func (a *servingEndpointsImpl) UpdateProvisionedThroughputEndpointConfig(ctx con
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPut, path, headers, queryParams, request, &servingEndpointDetailed)
 	return &servingEndpointDetailed, err
 }
@@ -303,10 +387,13 @@ func (a *servingEndpointsDataPlaneImpl) Query(ctx context.Context, request Query
 	if err != nil {
 		return nil, err
 	}
-
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	opts := []httpclient.DoOption{}
 	opts = append(opts, httpclient.WithRequestHeaders(headers))
 	queryParams := make(map[string]any)

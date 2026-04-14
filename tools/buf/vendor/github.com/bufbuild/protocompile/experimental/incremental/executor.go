@@ -21,10 +21,13 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
+	"time"
+	"weak"
 
 	"golang.org/x/sync/semaphore"
 
 	"github.com/bufbuild/protocompile/experimental/report"
+	"github.com/bufbuild/protocompile/internal"
 )
 
 // Executor is a caching executor for incremental queries.
@@ -41,6 +44,10 @@ type Executor struct {
 	tasks sync.Map // [any, *task]
 
 	sema *semaphore.Weighted
+
+	// The [time.Duration] to wait before running the GC when debug mode is on. See docs for
+	// [WithDebugEvict].
+	evictGCDeadline time.Duration
 
 	counter atomic.Uint64 // Used for generating sequence IDs for Result.Unchanged.
 }
@@ -73,6 +80,17 @@ func WithReportOptions(options report.Options) ExecutorOption {
 	return func(e *Executor) { e.reportOptions = options }
 }
 
+// WithDebugEvict takes a [time.Duration] and configures debug mode for evictions in the
+// executor.
+//
+// If set and the compiler is built with the debug tag, when [Executor.EvictWithCleanup]
+// is called, all evicted keys will be tracked. Then after eviction, a goroutine will be
+// kicked off to sleep for the configured duration, force a GC run, and then print out all
+// pointers that should be evicted but have not been GC'd.
+func WithDebugEvict(wait time.Duration) ExecutorOption {
+	return func(e *Executor) { e.evictGCDeadline = wait }
+}
+
 // Keys returns a snapshot of the keys of which queries are present (and
 // memoized) in an Executor.
 //
@@ -92,7 +110,7 @@ func (e *Executor) Keys() (keys []string) {
 	return
 }
 
-var runExecutorKey byte
+var runExecutorKey, timingsKey byte
 
 // Run executes a set of queries on this executor in parallel.
 //
@@ -180,6 +198,16 @@ func Run[T any](ctx context.Context, e *Executor, queries ...Query[T]) ([]Result
 	return results, report, nil
 }
 
+// WithTimings enhances a Context to pass into [Run] which it will record timing
+// information for each query.
+//
+// Each referenced query's Key() will be included in timings, mapped to how long
+// it took to calculate. If that query was a cache hit, the duration will be
+// zero.
+func WithTimings(ctx context.Context, timings map[any]time.Duration) context.Context {
+	return context.WithValue(ctx, &timingsKey, timings)
+}
+
 // Evict marks query keys as invalid, requiring those queries, and their
 // dependencies, to be recomputed. keys that are not cached are ignored.
 //
@@ -208,17 +236,46 @@ func (e *Executor) EvictWithCleanup(keys []any, cleanup func()) {
 
 	e.dirty.Lock()
 	defer e.dirty.Unlock()
+
+	var evicted []weak.Pointer[task]
+	logEvictionDebug := internal.Debug && e.evictGCDeadline > 0
 	for n := len(tasks); n > 0; n = len(tasks) {
 		next := tasks[n-1]
 		tasks = tasks[:n-1]
 
-		next.parents.Range(func(k, _ any) bool {
+		for k := range next.callers.Range {
 			tasks = append(tasks, k.(*task)) //nolint:errcheck
-			return true
-		})
+		}
 
 		// Remove the task from the map. Syncronized by the dirty lock.
-		e.tasks.Delete(next.query.Key())
+		t, _ := e.tasks.LoadAndDelete(next.query.Key())
+		if logEvictionDebug {
+			evicted = append(evicted, weak.Make(t.(*task))) //nolint:errcheck
+		}
+
+		// Remove the task from the callers of its deps.
+		for k := range next.deps.Range {
+			k.(*task).callers.Delete(next) //nolint:errcheck
+		}
+	}
+
+	if evicted != nil {
+		go func() {
+			time.Sleep(e.evictGCDeadline)
+			runtime.GC()
+			evicted = slices.DeleteFunc(evicted, func(e weak.Pointer[task]) bool {
+				return e.Value() == nil
+			})
+			for _, e := range evicted {
+				internal.DebugLog(
+					[]any{"exec %p", e},
+					"EvictWithCleanup",
+					"failed to GC evicted task %p: %v",
+					e.Value(),
+					e.Value().query.Key(),
+				)
+			}
+		}()
 	}
 
 	if cleanup != nil {

@@ -17,6 +17,8 @@ package ir
 import (
 	"iter"
 
+	"google.golang.org/protobuf/types/descriptorpb"
+
 	"github.com/bufbuild/protocompile/experimental/ast"
 	"github.com/bufbuild/protocompile/experimental/ast/predeclared"
 	"github.com/bufbuild/protocompile/experimental/id"
@@ -25,6 +27,7 @@ import (
 	"github.com/bufbuild/protocompile/experimental/seq"
 	"github.com/bufbuild/protocompile/internal/arena"
 	"github.com/bufbuild/protocompile/internal/intern"
+	"github.com/bufbuild/protocompile/internal/tags"
 )
 
 //go:generate go run github.com/bufbuild/protocompile/internal/enum option_target.yaml
@@ -46,21 +49,22 @@ import (
 type Member id.Node[Member, *File, *rawMember]
 
 type rawMember struct {
-	featureInfo   *rawFeatureInfo
-	elem          Ref[Type]
-	number        int32
-	extendee      id.ID[Extend]
-	fqn           intern.ID
-	name          intern.ID
-	def           id.ID[ast.DeclDef]
-	parent        id.ID[Type]
-	features      id.ID[FeatureSet]
-	options       id.ID[Value]
-	oneof         int32
-	optionTargets uint32
-	jsonName      intern.ID
-	isGroup       bool
-	numberOk      bool
+	featureInfo        *rawFeatureInfo
+	elem               Ref[Type]
+	number             int32
+	extendee           id.ID[Extend]
+	fqn                intern.ID
+	name               intern.ID
+	syntheticOneofName intern.ID
+	def                id.ID[ast.DeclDef]
+	parent             id.ID[Type]
+	features           id.ID[FeatureSet]
+	options            id.ID[Value]
+	oneof              int32
+	optionTargets      uint32
+	jsonName           intern.ID
+	isGroup            bool
+	numberOk           bool
 }
 
 // IsMessageField returns whether this is a non-extension message field.
@@ -103,7 +107,7 @@ func (m Member) IsRepeated() bool {
 
 // IsMap returns whether this is a map field.
 func (m Member) IsMap() bool {
-	return !m.IsZero() && m == m.Element().MapField()
+	return !m.IsZero() && !m.IsGroup() && m == m.Element().MapField()
 }
 
 // IsPacked returns whether this is a packed message field.
@@ -120,7 +124,7 @@ func (m Member) IsPacked() bool {
 
 	feature := m.FeatureSet().Lookup(builtins.FeaturePacked).Value()
 	value, _ := feature.AsInt()
-	return value == 1 // google.protobuf.FeatureSet.PACKED
+	return value == tags.FeatureSet_RepeatedFieldEncoding_Packed
 }
 
 // IsUnicode returns whether this is a string-typed message field that must
@@ -132,7 +136,7 @@ func (m Member) IsUnicode() bool {
 
 	builtins := m.Context().builtins()
 	utf8Feature, _ := m.FeatureSet().Lookup(builtins.FeatureUTF8).Value().AsInt()
-	return utf8Feature == 2 // FeatureSet.VERIFY
+	return utf8Feature == tags.FeatureSet_Utf8Validation_Verify
 }
 
 // AsTagRange wraps this member in a TagRange.
@@ -171,9 +175,9 @@ func (m Member) TypeAST() ast.TypeAny {
 	if !ty.MapField().IsZero() {
 		k, v := ty.AST().Type().RemovePrefixes().AsGeneric().AsMap()
 		switch m.Number() {
-		case 1:
+		case tags.MapEntry_Key:
 			return k
-		case 2:
+		case tags.MapEntry_Value:
 			return v
 		}
 	}
@@ -300,6 +304,22 @@ func (m Member) Element() Type {
 	return GetRef(m.Context(), m.Raw().elem)
 }
 
+// FDPType returns the descriptor type that would be used for this field.
+func (m Member) FDPType() descriptorpb.FieldDescriptorProto_Type {
+	switch {
+	case m.IsZero() || m.IsEnumValue():
+		return 0
+	case m.IsGroup():
+		return descriptorpb.FieldDescriptorProto_TYPE_GROUP
+	case m.Element().IsMessage():
+		return descriptorpb.FieldDescriptorProto_TYPE_MESSAGE
+	case m.Element().IsEnum():
+		return descriptorpb.FieldDescriptorProto_TYPE_ENUM
+	default:
+		return m.Element().Predeclared().FDPType()
+	}
+}
+
 // Container returns the type which contains this member: this is either
 // [Member.Parent], or the extendee if this is an extension. This is the
 // type it is declared to be *part of*.
@@ -336,6 +356,10 @@ func (m Member) Oneof() Oneof {
 
 // Options returns the options applied to this member.
 func (m Member) Options() MessageValue {
+	if m.IsZero() {
+		return MessageValue{}
+	}
+
 	return id.Wrap(m.Context(), m.Raw().options).AsMessage()
 }
 
@@ -384,6 +408,19 @@ func (m Member) Deprecated() Value {
 		return d
 	}
 	return Value{}
+}
+
+// SyntheticOneofName returns the name of the corresponding synthetic oneof for this
+// member, if there should be one.
+//
+// For proto3 sources, a oneof is synthesized to track explicit optional presence of a
+// field. For details on generating the synthesized name, see the docs for [syntheticNames]
+// and/or refer to https://protobuf.com/docs/descriptors#synthetic-oneofs.
+func (m Member) SyntheticOneofName() string {
+	if m.IsZero() {
+		return ""
+	}
+	return m.Context().session.intern.Value(m.Raw().syntheticOneofName)
 }
 
 // CanTarget returns whether this message field can be set as an option for the
@@ -438,6 +475,14 @@ func (m Member) noun() taxa.Noun {
 	default:
 		return taxa.Field
 	}
+}
+
+// numberOk returns true if the member number did not have errors during evaluation.
+func (m Member) numberOK() bool {
+	if m.IsZero() {
+		return false
+	}
+	return m.Raw().numberOk
 }
 
 // toRef returns a ref to this member relative to the given context.
@@ -587,12 +632,13 @@ func (o Oneof) Index() int {
 
 // Members returns this oneof's member fields.
 func (o Oneof) Members() seq.Indexer[Member] {
-	return seq.NewFixedSlice(
-		o.Raw().members,
-		func(_ int, p id.ID[Member]) Member {
-			return id.Wrap(o.Context(), p)
-		},
-	)
+	var members []id.ID[Member]
+	if !o.IsZero() {
+		members = o.Raw().members
+	}
+	return seq.NewFixedSlice(members, func(_ int, p id.ID[Member]) Member {
+		return id.Wrap(o.Context(), p)
+	})
 }
 
 // Parent returns the type that this oneof is declared within,.
@@ -711,11 +757,25 @@ type ReservedName struct {
 type rawReservedName struct {
 	ast  ast.ExprAny
 	name intern.ID
+	decl id.ID[ast.DeclRange]
 }
 
 // AST returns the expression that this name was evaluated from, if known.
 func (r ReservedName) AST() ast.ExprAny {
+	if r.IsZero() {
+		return ast.ExprAny{}
+	}
 	return r.raw.ast
+}
+
+// DeclAST returns the declaration this name came from. Multiple names may
+// have the same declaration.
+func (r ReservedName) DeclAST() ast.DeclRange {
+	if r.IsZero() {
+		return ast.DeclRange{}
+	}
+
+	return id.Wrap(r.Context().AST(), r.raw.decl)
 }
 
 // Name returns the name (i.e., an identifier) that was reserved.

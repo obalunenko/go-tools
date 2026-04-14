@@ -121,11 +121,11 @@ func (s WindowSizeEvent) Bounds() Rectangle {
 	return Size(s).Bounds()
 }
 
-// WindowPixelSizeEvent represents the window size in pixels.
-type WindowPixelSizeEvent Size
+// PixelSizeEvent represents the window size in pixels.
+type PixelSizeEvent Size
 
 // Bounds returns the bounds corresponding to the size.
-func (s WindowPixelSizeEvent) Bounds() Rectangle {
+func (s PixelSizeEvent) Bounds() Rectangle {
 	return Size(s).Bounds()
 }
 
@@ -140,21 +140,13 @@ func (s CellSizeEvent) Bounds() Rectangle {
 // KeyPressEvent represents a key press event.
 type KeyPressEvent Key
 
-// MatchString returns true if the [Key] matches the given string. The string
-// can be a key name like "enter", "tab", "a", or a printable character like
-// "1" or " ". It can also have combinations of modifiers like "ctrl+a",
-// "shift+enter", "alt+tab", "ctrl+shift+enter", etc.
-func (k KeyPressEvent) MatchString(s string) bool {
-	return Key(k).MatchString(s)
-}
-
-// MatchStrings returns true if the [Key] matches any of the given strings. The
-// strings can be key names like "enter", "tab", "a", or a printable character
-// like "1" or " ". It can also have combinations of modifiers like "ctrl+a",
-// "shift+enter", "alt+tab", "ctrl+shift+enter", etc.
-// See [Key.MatchString] for more details.
-func (k KeyPressEvent) MatchStrings(ss ...string) bool {
-	return Key(k).MatchStrings(ss...)
+// MatchString returns true if the [Key] matches one of the given strings.
+//
+// A string can be a key name like "enter", "tab", "a", or a printable
+// character like "1" or " ". It can also have combinations of modifiers like
+// "ctrl+a", "shift+enter", "alt+tab", "ctrl+shift+enter", etc.
+func (k KeyPressEvent) MatchString(s ...string) bool {
+	return Key(k).MatchString(s...)
 }
 
 // String implements [fmt.Stringer] and is quite useful for matching key
@@ -190,21 +182,13 @@ func (k KeyPressEvent) Key() Key {
 // KeyReleaseEvent represents a key release event.
 type KeyReleaseEvent Key
 
-// MatchString returns true if the [Key] matches the given string. The string
-// can be a key name like "enter", "tab", "a", or a printable character like
-// "1" or " ". It can also have combinations of modifiers like "ctrl+a",
-// "shift+enter", "alt+tab", "ctrl+shift+enter", etc.
-func (k KeyReleaseEvent) MatchString(s string) bool {
-	return Key(k).MatchString(s)
-}
-
-// MatchStrings returns true if the [Key] matches any of the given strings. The
-// strings can be key names like "enter", "tab", "a", or a printable character
-// like "1" or " ". It can also have combinations of modifiers like "ctrl+a",
-// "shift+enter", "alt+tab", "ctrl+shift+enter", etc.
-// See [Key.MatchString] for more details.
-func (k KeyReleaseEvent) MatchStrings(ss ...string) bool {
-	return Key(k).MatchStrings(ss...)
+// MatchString returns true if the [Key] matches one of the given strings.
+//
+// A string can be a key name like "enter", "tab", "a", or a printable
+// character like "1" or " ". It can also have combinations of modifiers like
+// "ctrl+a", "shift+enter", "alt+tab", "ctrl+shift+enter", etc.
+func (k KeyReleaseEvent) MatchString(s ...string) bool {
+	return Key(k).MatchString(s...)
 }
 
 // String implements [fmt.Stringer] and is quite useful for matching key
@@ -242,11 +226,6 @@ func (k KeyReleaseEvent) Key() Key {
 // release event.
 type KeyEvent interface {
 	fmt.Stringer
-
-	// Text returns the text representation of the key event. This is useful
-	// for matching key events along with [Key.String].
-	// TODO: Use this instead of storing Text in the [Key] struct.
-	// Text() string
 
 	// Key returns the underlying key event.
 	Key() Key
@@ -327,7 +306,9 @@ func (e MouseMotionEvent) Mouse() Mouse {
 
 // CursorPositionEvent represents a cursor position event. Where X is the
 // zero-based column and Y is the zero-based row.
-type CursorPositionEvent image.Point
+type CursorPositionEvent struct {
+	X, Y int
+}
 
 // FocusEvent represents a terminal focus event.
 // This occurs when the terminal gains focus.
@@ -349,7 +330,15 @@ type LightColorSchemeEvent struct{}
 
 // PasteEvent is an message that is emitted when a terminal receives pasted text
 // using bracketed-paste.
-type PasteEvent string
+type PasteEvent struct {
+	// Content is the pasted text content.
+	Content string
+}
+
+// String returns the pasted content as a string.
+func (e PasteEvent) String() string {
+	return e.Content
+}
 
 // PasteStartEvent is an message that is emitted when the terminal starts the
 // bracketed-paste text.
@@ -360,7 +349,14 @@ type PasteStartEvent struct{}
 type PasteEndEvent struct{}
 
 // TerminalVersionEvent is a message that represents the terminal version.
-type TerminalVersionEvent string
+type TerminalVersionEvent struct {
+	Name string
+}
+
+// String returns the terminal version as a string.
+func (e TerminalVersionEvent) String() string {
+	return e.Name
+}
 
 // ModifyOtherKeysEvent represents a modifyOtherKeys event.
 //
@@ -370,7 +366,9 @@ type TerminalVersionEvent string
 //
 // See: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-Functions-using-CSI-_-ordered-by-the-final-character_s_
 // See: https://invisible-island.net/xterm/manpage/xterm.html#VT100-Widget-Resources:modifyOtherKeys
-type ModifyOtherKeysEvent uint8
+type ModifyOtherKeysEvent struct {
+	Mode int
+}
 
 // KittyGraphicsEvent represents a Kitty Graphics response event.
 //
@@ -380,12 +378,45 @@ type KittyGraphicsEvent struct {
 	Payload []byte
 }
 
-// KittyEnhancementsEvent represents a Kitty enhancements event.
-type KittyEnhancementsEvent int
+// KeyboardEnhancementsEvent represents a keyboard enhancements report event.
+type KeyboardEnhancementsEvent struct {
+	// Flags are the Kitty Keyboard Enhancement flags.
+	//
+	// Bit values:
+	//
+	//	00000001:  Disambiguate escape codes
+	//	00000010:  Report event types
+	//	00000100:  Report alternate keys
+	//	00001000:  Report all keys as escape codes
+	//	00010000:  Report associated text
+	//
+	// See: https://sw.kovidgoyal.net/kitty/keyboard-protocol/#keyboard-enhancements
+	Flags int
+}
 
 // Contains reports whether m contains the given enhancements.
-func (e KittyEnhancementsEvent) Contains(enhancements int) bool {
-	return int(e)&enhancements == enhancements
+func (e KeyboardEnhancementsEvent) Contains(enhancements int) bool {
+	return e.Flags&enhancements == enhancements
+}
+
+// SupportsKeyDisambiguation returns whether the terminal supports reporting
+// disambiguous keys as escape codes.
+func (e KeyboardEnhancementsEvent) SupportsKeyDisambiguation() bool {
+	return e.Flags&ansi.KittyDisambiguateEscapeCodes != 0
+}
+
+// SupportsKeyReleases returns whether the terminal supports key release
+// events.
+func (e KeyboardEnhancementsEvent) SupportsKeyReleases() bool {
+	return e.Flags&ansi.KittyReportEventTypes != 0
+}
+
+// SupportsUniformKeyLayout returns whether the terminal supports reporting key
+// events as though they were on a PC-101 layout.
+func (e KeyboardEnhancementsEvent) SupportsUniformKeyLayout() bool {
+	return e.SupportsKeyDisambiguation() &&
+		e.Flags&ansi.KittyReportAlternateKeys != 0 &&
+		e.Flags&ansi.KittyReportAllKeysAsEscapeCodes != 0
 }
 
 // PrimaryDeviceAttributesEvent is an event that represents the terminal
@@ -494,7 +525,14 @@ type WindowOpEvent struct {
 // (XTGETTCAP) requests.
 //
 // See: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-Operating-System-Commands
-type CapabilityEvent string
+type CapabilityEvent struct {
+	Content string
+}
+
+// String returns the capability content.
+func (e CapabilityEvent) String() string {
+	return e.Content
+}
 
 // ClipboardSelection represents a clipboard selection. The most common
 // clipboard selections are "system" and "primary" and selections.
@@ -516,6 +554,12 @@ type ClipboardEvent struct {
 // String returns the string representation of the clipboard message.
 func (e ClipboardEvent) String() string {
 	return e.Content
+}
+
+// Clipboard returns the clipboard selection. This can be either
+// [SystemClipboard] 'c' or [PrimaryClipboard] 'p'.
+func (e ClipboardEvent) Clipboard() ClipboardSelection {
+	return e.Selection
 }
 
 // ignoredEvent represents a sequence event that is ignored by the terminal

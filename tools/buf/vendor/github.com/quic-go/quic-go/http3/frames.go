@@ -16,11 +16,11 @@ import (
 // FrameType is the frame type of a HTTP/3 frame
 type FrameType uint64
 
-type unknownFrameHandlerFunc func(FrameType, error) (processed bool, err error)
-
 type frame any
 
-var errHijacked = errors.New("hijacked")
+// The maximum length of an encoded HTTP/3 frame header is 16:
+// The frame has a type and length field, both QUIC varints (maximum 8 bytes in length)
+const frameHeaderLen = 16
 
 type countingByteReader struct {
 	quicvarint.Reader
@@ -46,10 +46,9 @@ func (r *countingByteReader) Reset() {
 }
 
 type frameParser struct {
-	r                   io.Reader
-	streamID            quic.StreamID
-	closeConn           func(quic.ApplicationErrorCode, string) error
-	unknownFrameHandler unknownFrameHandlerFunc
+	r         io.Reader
+	streamID  quic.StreamID
+	closeConn func(quic.ApplicationErrorCode, string) error
 }
 
 func (p *frameParser) ParseNext(qlogger qlogwriter.Recorder) (frame, error) {
@@ -57,27 +56,7 @@ func (p *frameParser) ParseNext(qlogger qlogwriter.Recorder) (frame, error) {
 	for {
 		t, err := quicvarint.Read(r)
 		if err != nil {
-			if p.unknownFrameHandler != nil {
-				hijacked, err := p.unknownFrameHandler(0, err)
-				if err != nil {
-					return nil, err
-				}
-				if hijacked {
-					return nil, errHijacked
-				}
-			}
 			return nil, err
-		}
-		// Call the unknownFrameHandler for frames not defined in the HTTP/3 spec
-		if t > 0xd && p.unknownFrameHandler != nil {
-			hijacked, err := p.unknownFrameHandler(FrameType(t), nil)
-			if err != nil {
-				return nil, err
-			}
-			if hijacked {
-				return nil, errHijacked
-			}
-			// If the unknownFrameHandler didn't process the frame, it is our responsibility to skip it.
 		}
 		l, err := quicvarint.Read(r)
 		if err != nil {
@@ -179,6 +158,8 @@ func (f *headersFrame) Append(b []byte) []byte {
 }
 
 const (
+	// SETTINGS_MAX_FIELD_SECTION_SIZE
+	settingMaxFieldSectionSize = 0x6
 	// Extended CONNECT, RFC 9220
 	settingExtendedConnect = 0x8
 	// HTTP Datagrams, RFC 9297
@@ -186,10 +167,11 @@ const (
 )
 
 type settingsFrame struct {
-	Datagram        bool // HTTP Datagrams, RFC 9297
-	ExtendedConnect bool // Extended CONNECT, RFC 9220
+	MaxFieldSectionSize int64 // SETTINGS_MAX_FIELD_SECTION_SIZE, -1 if not set
 
-	Other map[uint64]uint64 // all settings that we don't explicitly recognize
+	Datagram        bool              // HTTP Datagrams, RFC 9297
+	ExtendedConnect bool              // Extended CONNECT, RFC 9220
+	Other           map[uint64]uint64 // all settings that we don't explicitly recognize
 }
 
 func pointer[T any](v T) *T {
@@ -207,10 +189,10 @@ func parseSettingsFrame(r *countingByteReader, l uint64, streamID quic.StreamID,
 		}
 		return nil, err
 	}
-	frame := &settingsFrame{}
+	frame := &settingsFrame{MaxFieldSectionSize: -1}
 	b := bytes.NewReader(buf)
-	var settingsFrame qlog.SettingsFrame
-	var readDatagram, readExtendedConnect bool
+	settingsFrame := qlog.SettingsFrame{MaxFieldSectionSize: -1}
+	var readMaxFieldSectionSize, readDatagram, readExtendedConnect bool
 	for b.Len() > 0 {
 		id, err := quicvarint.Read(b)
 		if err != nil { // should not happen. We allocated the whole frame already.
@@ -222,6 +204,13 @@ func parseSettingsFrame(r *countingByteReader, l uint64, streamID quic.StreamID,
 		}
 
 		switch id {
+		case settingMaxFieldSectionSize:
+			if readMaxFieldSectionSize {
+				return nil, fmt.Errorf("duplicate setting: %d", id)
+			}
+			readMaxFieldSectionSize = true
+			frame.MaxFieldSectionSize = int64(val)
+			settingsFrame.MaxFieldSectionSize = int64(val)
 		case settingExtendedConnect:
 			if readExtendedConnect {
 				return nil, fmt.Errorf("duplicate setting: %d", id)
@@ -274,6 +263,9 @@ func parseSettingsFrame(r *countingByteReader, l uint64, streamID quic.StreamID,
 func (f *settingsFrame) Append(b []byte) []byte {
 	b = quicvarint.Append(b, 0x4)
 	var l int
+	if f.MaxFieldSectionSize >= 0 {
+		l += quicvarint.Len(settingMaxFieldSectionSize) + quicvarint.Len(uint64(f.MaxFieldSectionSize))
+	}
 	for id, val := range f.Other {
 		l += quicvarint.Len(id) + quicvarint.Len(val)
 	}
@@ -284,6 +276,10 @@ func (f *settingsFrame) Append(b []byte) []byte {
 		l += quicvarint.Len(settingExtendedConnect) + quicvarint.Len(1)
 	}
 	b = quicvarint.Append(b, uint64(l))
+	if f.MaxFieldSectionSize >= 0 {
+		b = quicvarint.Append(b, settingMaxFieldSectionSize)
+		b = quicvarint.Append(b, uint64(f.MaxFieldSectionSize))
+	}
 	if f.Datagram {
 		b = quicvarint.Append(b, settingDatagram)
 		b = quicvarint.Append(b, 1)

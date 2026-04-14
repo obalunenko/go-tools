@@ -14,6 +14,7 @@ import (
 	"text/template"
 
 	"github.com/caarlos0/log"
+	"github.com/gobwas/glob"
 	"github.com/goreleaser/goreleaser/v2/internal/artifact"
 	"github.com/goreleaser/goreleaser/v2/internal/client"
 	"github.com/goreleaser/goreleaser/v2/internal/commitauthor"
@@ -73,6 +74,9 @@ func (Pipe) Default(ctx *context.Context) error {
 		}
 		if len(brew.Binaries) == 0 || brew.Binaries[0] == "" {
 			brew.Binaries = []string{brew.Name}
+		}
+		if isGenerateCompletionsConfigured(brew.GenerateCompletionsFromExecutable) && brew.GenerateCompletionsFromExecutable.Executable == "" {
+			brew.GenerateCompletionsFromExecutable.Executable = brew.Binaries[0]
 		}
 		if brew.Manpage != "" {
 			deprecate.Notice(ctx, "homebrew_casks.manpage")
@@ -252,6 +256,12 @@ func doRun(ctx *context.Context, brew config.HomebrewCask, cl client.ReleaseURLT
 		return err
 	}
 
+	manpages, err := compileManpages(brew, archives)
+	if err != nil {
+		return err
+	}
+	brew.Manpages = manpages
+
 	if err := tmpl.New(ctx).ApplyAll(
 		&brew.Hooks.Pre.Install,
 		&brew.Hooks.Pre.Uninstall,
@@ -323,10 +333,11 @@ func doBuildCask(ctx *context.Context, data templateData) (string, error) {
 			pad := strings.Repeat(" ", spaces)
 			return pad + strings.ReplaceAll(v, "\n", "\n"+pad)
 		},
-		"uninstall": uninstallString,
-		"zap":       zapString,
-		"conflicts": conflictsString,
-		"depends":   dependsString,
+		"uninstall":           uninstallString,
+		"zap":                 zapString,
+		"conflicts":           conflictsString,
+		"depends":             dependsString,
+		"generateCompletions": generateCompletionsString,
 	}).ParseFS(templates, "templates/*.rb")
 	if err != nil {
 		return "", err
@@ -420,6 +431,9 @@ func dataFor(ctx *context.Context, cfg config.HomebrewCask, cl client.ReleaseURL
 		if art.Type == artifact.UploadableBinary {
 			pkg.Binary = artifact.MustExtra[string](*art, artifact.ExtraBinary)
 			pkg.Name = art.Name
+		} else {
+			pkg.Binaries = artifact.ExtraOr(*art, string(artifact.ExtraBinaries), []string{})
+			pkg.WrappedIn = artifact.ExtraOr(*art, string(artifact.ExtraWrappedIn), "")
 		}
 
 		formatCounts[art.Type]++
@@ -453,4 +467,35 @@ func compareByArch(a, b releasePackage) int {
 
 func caskNameFor(name string) string {
 	return strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+}
+
+func compileManpages(brew config.HomebrewCask, archives []*artifact.Artifact) ([]string, error) {
+	allManpages := []string{}
+	extraFiles := artifact.ExtraOr(*archives[0], artifact.ExtraFiles, []string{})
+	for _, archive := range archives {
+		if !slices.Equal(extraFiles, artifact.ExtraOr(*archive, artifact.ExtraFiles, []string{})) {
+			log.Warn("archives have different extra_files, manpage matching will not work")
+			return brew.Manpages, nil
+		}
+	}
+
+	for _, man := range brew.Manpages {
+		g, err := glob.Compile(man, '/')
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range extraFiles {
+			if g.Match(f) {
+				allManpages = append(allManpages, f)
+			}
+		}
+	}
+
+	slices.Sort(allManpages)
+	allManpages = slices.Compact(allManpages)
+
+	if len(allManpages) == 0 && len(brew.Manpages) > 0 {
+		log.Warnf("no manpages matched the configured globs; configured manpages: %v", brew.Manpages)
+	}
+	return allManpages, nil
 }

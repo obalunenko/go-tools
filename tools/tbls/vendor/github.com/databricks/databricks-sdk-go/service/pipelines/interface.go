@@ -6,31 +6,39 @@ import (
 	"context"
 )
 
-// The Delta Live Tables API allows you to create, edit, delete, start, and view
-// details about pipelines.
+// The Lakeflow Spark Declarative Pipelines API allows you to create, edit,
+// delete, start, and view details about pipelines.
 //
-// Delta Live Tables is a framework for building reliable, maintainable, and
-// testable data processing pipelines. You define the transformations to perform
-// on your data, and Delta Live Tables manages task orchestration, cluster
-// management, monitoring, data quality, and error handling.
+// Spark Declarative Pipelines is a framework for building reliable,
+// maintainable, and testable data processing pipelines. You define the
+// transformations to perform on your data, and Spark Declarative Pipelines
+// manages task orchestration, cluster management, monitoring, data quality, and
+// error handling.
 //
 // Instead of defining your data pipelines using a series of separate Apache
-// Spark tasks, Delta Live Tables manages how your data is transformed based on
-// a target schema you define for each processing step. You can also enforce
-// data quality with Delta Live Tables expectations. Expectations allow you to
-// define expected data quality and specify how to handle records that fail
-// those expectations.
+// Spark tasks, Spark Declarative Pipelines manages how your data is transformed
+// based on a target schema you define for each processing step. You can also
+// enforce data quality with Spark Declarative Pipelines expectations.
+// Expectations allow you to define expected data quality and specify how to
+// handle records that fail those expectations.
 //
 // Deprecated: Do not use this interface, it will be removed in a future version of the SDK.
 type PipelinesService interface {
+
+	// Creates a new pipeline using Unity Catalog from a pipeline using Hive
+	// Metastore. This method returns the ID of the newly created clone.
+	// Additionally, this method starts an update for the newly created
+	// pipeline.
+	Clone(ctx context.Context, request ClonePipelineRequest) (*ClonePipelineResponse, error)
 
 	// Creates a new data processing pipeline based on the requested
 	// configuration. If successful, this method returns the ID of the new
 	// pipeline.
 	Create(ctx context.Context, request CreatePipeline) (*CreatePipelineResponse, error)
 
-	// Deletes a pipeline. Deleting a pipeline is a permanent action that stops
-	// and removes the pipeline and its tables. You cannot undo this action.
+	// Deletes a pipeline. If the pipeline publishes to Unity Catalog, pipeline
+	// deletion will cascade to all pipeline tables. Please reach out to
+	// Databricks support for assistance to undo this action.
 	Delete(ctx context.Context, request DeletePipelineRequest) error
 
 	// Get a pipeline.
@@ -49,7 +57,7 @@ type PipelinesService interface {
 	// Retrieves events for a pipeline.
 	ListPipelineEvents(ctx context.Context, request ListPipelineEventsRequest) (*ListPipelineEventsResponse, error)
 
-	// Lists pipelines defined in the Delta Live Tables system.
+	// Lists pipelines defined in the Spark Declarative Pipelines system.
 	ListPipelines(ctx context.Context, request ListPipelinesRequest) (*ListPipelinesResponse, error)
 
 	// List updates for an active pipeline.

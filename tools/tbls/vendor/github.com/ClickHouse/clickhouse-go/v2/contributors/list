@@ -16,10 +16,12 @@ Andžej Maciusovič <andzej.maciusovic@protonmail.com>
 Antoine Toulme <antoine@toulme.name>
 Anton Kozlov <anton@cloudflare.com>
 Aram Peres <6775216+aramperes@users.noreply.github.com>
+Artem Seleznev <seleznyov.artyom@gmail.com>
 Ashish Gaurav <ashishgaurav.iitd@gmail.com>
 Ather Shu <shushenghong@gmail.com>
 Barkhayot <157342287+hayotbisonai@users.noreply.github.com>
 Beck Xu <beck917@gmail.com>
+Ben Blackmore <ben.blackmore@dash0.com>
 Benjamin Rupp <brupp@ciena.com>
 Cem Sancak <cem.sancak.90@gmail.com>
 Chao Wang <chaowang@uber.com>
@@ -48,6 +50,9 @@ Dmitry Ponomarev <demdxx@trafficstars.com>
 Earwin <earwin@gmail.com>
 Egor Samotoev <38672780+egsam98@users.noreply.github.com>
 Egor.Gorlin <Egor.Gorlin@forextime.com>
+Ehsan <ehsansouri23@gmail.com>
+Ehsan Souri <ehsansouri23@gmail.com>
+Erez Rokah <erezrokah@users.noreply.github.com>
 Eric Thomas <et@users.noreply.github.com>
 Eugene Formanenko <mo4islona@gmail.com>
 Evan Au <au.liangjun@gmail.com>
@@ -59,12 +64,18 @@ Fredz <513317651@qq.com>
 Félix Mattrat <felix@messagebird.com>
 Geoff Genz <geoff@clickhouse.com>
 Geon Kim <geon0250@gmail.com>
+George <me@georgemac.com>
+George MacRorie <george.macrorie@clickhouse.com>
 Gianluca Mondini <mondini@open2b.com>
 GitHub Action <ch-integrations-robot@clickhouse.com>
 Gregory Petrosyan <gregory.petrosyan@gmail.com>
 Guoqiang <wgq0319@gmail.com>
+Herman Schaaf <herman@cloudquery.io>
 Ian McGraw <ian@arthur.ai>
+Ibrahim Konsowa <imkonsowa@gmail.com>
+Ibrahim Konsowa <u099669@lab.saab.ae>
 Ildarov Gazimagomed <60438666+threadedstream@users.noreply.github.com>
+Ilia Demianenko <ilia.demianenko@clickhouse.com>
 Ivan <pikot@users.noreply.github.com>
 Ivan Blinkov <github@blinkov.ru>
 Ivan Blinkov <ivan@clickhouse.com>
@@ -82,6 +93,9 @@ Jochen Schalanda <jochen@schalanda.name>
 John Troy <john@noxi.us>
 Jon Aquino <jonathan.aquino@adroll.com>
 Julian Maicher <jmaicher@users.noreply.github.com>
+Julio Jimenez <julio@clickhouse.com>
+Kaviraj <kavirajkanagaraj@gmail.com>
+Kaviraj Kanagaraj <kavirajkanagaraj@gmail.com>
 Kemal Hadimli <disq@users.noreply.github.com>
 Kevin Joiner <10265309+KevinJoiner@users.noreply.github.com>
 Kirill Shvakov <shvakov@gmail.com>
@@ -96,6 +110,7 @@ Louis <lspgn@users.noreply.github.com>
 Luc Vieillescazes <luc@vieillescazes.net>
 Lukas Eklund <leklund@gmail.com>
 LuoJi Zhu <lianjie1949@gmail.com>
+M0rdecay <relikts2158@gmail.com>
 Maksim Sokolnikov <stuffsweep@gmail.com>
 Marc Boeker <marc@at6.net>
 Marek Vavrusa <marek@vavrusa.com>
@@ -119,10 +134,12 @@ Nityananda Gohain <nityanandagohain@gmail.com>
 Oleg Strokachuk <oleg.strokachuk@vizor-games.com>
 Oleksandr Nikitin <oleksandr@tvori.info>
 Omurbek <omurbek.jk@gmail.com>
+Onyx2406 <yashsancheti24@gmail.com>
 Pablo Matias Gomez <pablomatiasgomez@gmail.com>
 PalanQu <palan_work@163.com>
 Pavel Lobach <lobach.pavel@gmail.com>
 Paweł Rozlach <2124609+vespian@users.noreply.github.com>
+Peter Leonov <peter.leonov@clickhouse.com>
 Philip Dubé <philip@peerdb.io>
 Philip Dubé <serprex@users.noreply.github.com>
 Philipp Schreiber <phil@ephemeroid.net>
@@ -131,11 +148,14 @@ Rim Zaidullin <rim.zaydullin@clickhouse.com>
 Robert Sköld <robert@department.se>
 Robin Hahling <robin.hahling@gw-computing.net>
 Rodrigo Broggi <r.broggi@efg.gg>
+Rodrigo Broggi <rbroggi@users.noreply.github.com>
 Rodrigo Broggi <vcs.rumor800@aleeas.com>
+RokibulHasan7 <mdrokibulhasan@appscode.com>
 Roman Usachev <ramzeska@gmail.com>
 Rory Crispin <Rory.crispin@clickhouse.com>
 Ross Rothenstine <rossr@unity3d.com>
 Ross Rothenstine <rossrothenstine@gmail.com>
+Rui Cheng <chengrui@unilake.io>
 Ruslan Sibgatulin <doolf@yandex.ru>
 Ryan <rdaniels6813@users.noreply.github.com>
 Selboo <xuguocan@gmail.com>
@@ -160,6 +180,7 @@ Tomasz Czubocha <tomasz.czubocha@gmail.com>
 Tommy Li <tommyzli@gmail.com>
 Tsimafei Bredau <t.bredau@affise.com>
 Valerii Pozdiaev <12141268+ValManP@users.noreply.github.com>
+Varun Deep Saini <varun.23bcs10048@ms.sst.scaler.com>
 Varun Vasan V <varunvasan91@gmail.com>
 Vespertinus <rrvespertinus@gmail.com>
 Vincent Bernat <vincent@bernat.ch>
@@ -189,6 +210,7 @@ daguang <lianghuanan1997@gmail.com>
 dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>
 derN3rd <max@dern3rd.de>
 dmitry kuzmin <dmitry.kuzmin@exness.com>
+erezrokah <erezrokah@users.noreply.github.com>
 fengberlin <fengberlin@qq.com>
 fengyun.rui <rfyiamcool@163.com>
 gaetan.rizio <gaetan.rizio@contentsquare-ext.com>
@@ -201,6 +223,8 @@ ilker karapanca <ilkerkarapanca@gmail.com>
 ilker moral <ilker.moral@comodo.com>
 jiyongwang <jiyongwang@freewheel.tv>
 kshvakov <shvakov@gmail.com>
+luckyevildev <124628459+luckyevildev@users.noreply.github.com>
+luckyevildev <p.stanislav.spb@gmail.com>
 neverlee <neverlea@foxmail.com>
 nevseliev <nevseliev@life-team.net>
 ortyomka <iurin.art@gmail.com>
@@ -208,11 +232,14 @@ pavel raskin <f0ma@inbox.ru>
 restrry <restrry@gmail.com>
 rogeryk <rogeryk@outlook.com>
 rtkaratekid <42547811+rtkaratekid@users.noreply.github.com>
+rui cheng <chengrui0428@gmail.com>
 sentanos <froastj@gmail.com>
 sundy-li <543950155@qq.com>
+tanshun <tanshun.dev@gmail.com>
 vahid sohrabloo <vahid4134@gmail.com>
 vaibhav-kt <vaibhav.kt@nutanix.com>
 vasily.popov <vasily.popov@arrival.com>
+velom <sergey.veletskiy@clickhouse.com>
 viktorzaharov <viktorzahar@gmail.com>
 vl4deee11 <44677024+vl4deee11@users.noreply.github.com>
 vl4deee11 <boi4enkovlad@yandex>

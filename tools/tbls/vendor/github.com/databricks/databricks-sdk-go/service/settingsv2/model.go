@@ -254,7 +254,15 @@ type GetPublicAccountSettingRequest struct {
 	Name string `json:"-" url:"-"`
 }
 
+type GetPublicAccountUserPreferenceRequest struct {
+	// User Setting name.
+	Name string `json:"-" url:"-"`
+	// User ID of the user whose setting is being retrieved.
+	UserId string `json:"-" url:"-"`
+}
+
 type GetPublicWorkspaceSettingRequest struct {
+	// Name of the setting
 	Name string `json:"-" url:"-"`
 }
 
@@ -315,6 +323,51 @@ func (s ListAccountSettingsMetadataResponse) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
+type ListAccountUserPreferencesMetadataRequest struct {
+	// The maximum number of settings to return. The service may return fewer
+	// than this value. If unspecified, at most 200 settings will be returned.
+	// The maximum value is 1000; values above 1000 will be coerced to 1000.
+	PageSize int `json:"-" url:"page_size,omitempty"`
+	// A page token, received from a previous
+	// `ListAccountUserPreferencesMetadataRequest` call. Provide this to
+	// retrieve the subsequent page.
+	//
+	// When paginating, all other parameters provided to
+	// `ListAccountUserPreferencesMetadataRequest` must match the call that
+	// provided the page token.
+	PageToken string `json:"-" url:"page_token,omitempty"`
+	// User ID of the user whose settings metadata is being retrieved.
+	UserId string `json:"-" url:"-"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *ListAccountUserPreferencesMetadataRequest) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s ListAccountUserPreferencesMetadataRequest) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+type ListAccountUserPreferencesMetadataResponse struct {
+	// A token that can be sent as `page_token` to retrieve the next page. If
+	// this field is omitted, there are no subsequent pages.
+	NextPageToken string `json:"next_page_token,omitempty"`
+	// List of all settings available via public APIs and their metadata
+	SettingsMetadata []SettingsMetadata `json:"settings_metadata,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *ListAccountUserPreferencesMetadataResponse) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s ListAccountUserPreferencesMetadataResponse) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
 type ListWorkspaceSettingsMetadataRequest struct {
 	// The maximum number of settings to return. The service may return fewer
 	// than this value. If unspecified, at most 200 settings will be returned.
@@ -364,7 +417,16 @@ type PatchPublicAccountSettingRequest struct {
 	Setting Setting `json:"setting"`
 }
 
+type PatchPublicAccountUserPreferenceRequest struct {
+	Name string `json:"-" url:"-"`
+
+	Setting UserPreference `json:"setting"`
+	// User ID of the user whose setting is being updated.
+	UserId string `json:"-" url:"-"`
+}
+
 type PatchPublicWorkspaceSettingRequest struct {
+	// Name of the setting
 	Name string `json:"-" url:"-"`
 
 	Setting Setting `json:"setting"`
@@ -418,7 +480,21 @@ func (f *PersonalComputeMessagePersonalComputeMessageEnum) Type() string {
 }
 
 type RestrictWorkspaceAdminsMessage struct {
+	// When true, workspace admins cannot create governance tags. ALLOW_ALL
+	// status does not override this; they are independent.
+	DisableGovTagCreation bool `json:"disable_gov_tag_creation,omitempty"`
+
 	Status RestrictWorkspaceAdminsMessageStatus `json:"status"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *RestrictWorkspaceAdminsMessage) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s RestrictWorkspaceAdminsMessage) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
 }
 
 type RestrictWorkspaceAdminsMessageStatus string
@@ -459,38 +535,64 @@ func (f *RestrictWorkspaceAdminsMessageStatus) Type() string {
 }
 
 type Setting struct {
+	// Setting value for aibi_dashboard_embedding_access_policy setting. This is
+	// the setting value set by consumers, check
+	// effective_aibi_dashboard_embedding_access_policy for final setting value.
 	AibiDashboardEmbeddingAccessPolicy *AibiDashboardEmbeddingAccessPolicy `json:"aibi_dashboard_embedding_access_policy,omitempty"`
-
+	// Setting value for aibi_dashboard_embedding_approved_domains setting. This
+	// is the setting value set by consumers, check
+	// effective_aibi_dashboard_embedding_approved_domains for final setting
+	// value.
 	AibiDashboardEmbeddingApprovedDomains *AibiDashboardEmbeddingApprovedDomains `json:"aibi_dashboard_embedding_approved_domains,omitempty"`
-
+	// Setting value for automatic_cluster_update_workspace setting. This is the
+	// setting value set by consumers, check
+	// effective_automatic_cluster_update_workspace for final setting value.
 	AutomaticClusterUpdateWorkspace *ClusterAutoRestartMessage `json:"automatic_cluster_update_workspace,omitempty"`
-
+	// Setting value for boolean type setting. This is the setting value set by
+	// consumers, check effective_boolean_val for final setting value.
 	BooleanVal *BooleanMessage `json:"boolean_val,omitempty"`
-
+	// Effective setting value for aibi_dashboard_embedding_access_policy
+	// setting. This is the final effective value of setting. To set a value use
+	// aibi_dashboard_embedding_access_policy.
 	EffectiveAibiDashboardEmbeddingAccessPolicy *AibiDashboardEmbeddingAccessPolicy `json:"effective_aibi_dashboard_embedding_access_policy,omitempty"`
-
+	// Effective setting value for aibi_dashboard_embedding_approved_domains
+	// setting. This is the final effective value of setting. To set a value use
+	// aibi_dashboard_embedding_approved_domains.
 	EffectiveAibiDashboardEmbeddingApprovedDomains *AibiDashboardEmbeddingApprovedDomains `json:"effective_aibi_dashboard_embedding_approved_domains,omitempty"`
-
+	// Effective setting value for automatic_cluster_update_workspace setting.
+	// This is the final effective value of setting. To set a value use
+	// automatic_cluster_update_workspace.
 	EffectiveAutomaticClusterUpdateWorkspace *ClusterAutoRestartMessage `json:"effective_automatic_cluster_update_workspace,omitempty"`
-
+	// Effective setting value for boolean type setting. This is the final
+	// effective value of setting. To set a value use boolean_val.
 	EffectiveBooleanVal *BooleanMessage `json:"effective_boolean_val,omitempty"`
-
+	// Effective setting value for integer type setting. This is the final
+	// effective value of setting. To set a value use integer_val.
 	EffectiveIntegerVal *IntegerMessage `json:"effective_integer_val,omitempty"`
-
+	// Effective setting value for personal_compute setting. This is the final
+	// effective value of setting. To set a value use personal_compute.
 	EffectivePersonalCompute *PersonalComputeMessage `json:"effective_personal_compute,omitempty"`
-
+	// Effective setting value for restrict_workspace_admins setting. This is
+	// the final effective value of setting. To set a value use
+	// restrict_workspace_admins.
 	EffectiveRestrictWorkspaceAdmins *RestrictWorkspaceAdminsMessage `json:"effective_restrict_workspace_admins,omitempty"`
-
+	// Effective setting value for string type setting. This is the final
+	// effective value of setting. To set a value use string_val.
 	EffectiveStringVal *StringMessage `json:"effective_string_val,omitempty"`
-
+	// Setting value for integer type setting. This is the setting value set by
+	// consumers, check effective_integer_val for final setting value.
 	IntegerVal *IntegerMessage `json:"integer_val,omitempty"`
 	// Name of the setting.
 	Name string `json:"name,omitempty"`
-
+	// Setting value for personal_compute setting. This is the setting value set
+	// by consumers, check effective_personal_compute for final setting value.
 	PersonalCompute *PersonalComputeMessage `json:"personal_compute,omitempty"`
-
+	// Setting value for restrict_workspace_admins setting. This is the setting
+	// value set by consumers, check effective_restrict_workspace_admins for
+	// final setting value.
 	RestrictWorkspaceAdmins *RestrictWorkspaceAdminsMessage `json:"restrict_workspace_admins,omitempty"`
-
+	// Setting value for string type setting. This is the setting value set by
+	// consumers, check effective_string_val for final setting value.
 	StringVal *StringMessage `json:"string_val,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
@@ -511,8 +613,8 @@ type SettingsMetadata struct {
 	DocsLink string `json:"docs_link,omitempty"`
 	// Name of the setting.
 	Name string `json:"name,omitempty"`
-	// Type of the setting. To set this setting, the value sent must match this
-	// type.
+	// Sample message depicting the type of the setting. To set this setting,
+	// the value sent must match this type.
 	Type string `json:"type,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
@@ -538,5 +640,33 @@ func (s *StringMessage) UnmarshalJSON(b []byte) error {
 }
 
 func (s StringMessage) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+// User Preference represents a user-specific setting scoped to an individual
+// user within an account. Unlike workspace or account settings that apply to
+// all users, user preferences allow personal customization (e.g., UI theme,
+// editor preferences) without affecting other users.
+type UserPreference struct {
+	BooleanVal *BooleanMessage `json:"boolean_val,omitempty"`
+
+	EffectiveBooleanVal *BooleanMessage `json:"effective_boolean_val,omitempty"`
+
+	EffectiveStringVal *StringMessage `json:"effective_string_val,omitempty"`
+	// Name of the setting.
+	Name string `json:"name,omitempty"`
+
+	StringVal *StringMessage `json:"string_val,omitempty"`
+	// User ID of the user.
+	UserId string `json:"user_id,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *UserPreference) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s UserPreference) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }

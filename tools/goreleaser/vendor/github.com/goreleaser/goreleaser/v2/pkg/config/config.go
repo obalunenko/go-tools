@@ -233,6 +233,9 @@ type HomebrewCask struct {
 	Uninstall             HomebrewCaskUninstall    `yaml:"uninstall,omitempty" json:"uninstall,omitempty"`
 	Zap                   HomebrewCaskUninstall    `yaml:"zap,omitempty" json:"zap,omitempty"`
 
+	// v2.15+
+	GenerateCompletionsFromExecutable HomebrewCaskGeneratedCompletions `yaml:"generate_completions_from_executable,omitempty" json:"generate_completions_from_executable,omitempty"`
+
 	// XXX: casks don't yet support it, it has no effect.
 	License string `yaml:"license,omitempty" json:"license,omitempty"`
 
@@ -294,6 +297,14 @@ type HomebrewCaskCompletions struct {
 	Fish string `yaml:"fish,omitempty" json:"fish,omitempty"`
 }
 
+type HomebrewCaskGeneratedCompletions struct {
+	Executable           string   `yaml:"executable,omitempty" json:"executable,omitempty"`
+	Args                 []string `yaml:"args,omitempty" json:"args,omitempty"`
+	BaseName             string   `yaml:"base_name,omitempty" json:"base_name,omitempty"`
+	ShellParameterFormat string   `yaml:"shell_parameter_format,omitempty" json:"shell_parameter_format,omitempty"`
+	Shells               []string `yaml:"shells,omitempty" json:"shells,omitempty"`
+}
+
 type Nix struct {
 	Name                  string       `yaml:"name,omitempty" json:"name,omitempty"`
 	Path                  string       `yaml:"path,omitempty" json:"path,omitempty"`
@@ -312,6 +323,9 @@ type Nix struct {
 	License               string       `yaml:"license,omitempty" json:"license,omitempty"`
 
 	Dependencies []NixDependency `yaml:"dependencies,omitempty" json:"dependencies,omitempty"`
+
+	// v2.14+
+	Formatter string `yaml:"formatter,omitempty" json:"formatter,omitempty" jsonschema:"enum=alejandra,enum=nixfmt"`
 }
 
 type NixDependency struct {
@@ -321,6 +335,7 @@ type NixDependency struct {
 
 type Winget struct {
 	Name                  string             `yaml:"name,omitempty" json:"name,omitempty"`
+	PackageName           string             `yaml:"package_name,omitempty" json:"package_name,omitempty"`
 	PackageIdentifier     string             `yaml:"package_identifier,omitempty" json:"package_identifier,omitempty"`
 	Publisher             string             `yaml:"publisher" json:"publisher"`
 	PublisherURL          string             `yaml:"publisher_url,omitempty" json:"publisher_url,omitempty"`
@@ -688,6 +703,9 @@ type NFPM struct {
 
 	ParsedMTime time.Time `yaml:"-" json:"-"`
 
+	// v2.14+
+	GoAmd64 []string `yaml:"goamd64,omitempty" json:"goamd64,omitempty"`
+
 	// Deprecated: use [IDs] instead.
 	Builds []string `yaml:"builds,omitempty" json:"builds,omitempty" jsonschema:"deprecated=true"`
 }
@@ -765,7 +783,7 @@ type NFPMDeb struct {
 	Breaks      []string          `yaml:"breaks,omitempty" json:"breaks,omitempty"`
 	Signature   NFPMDebSignature  `yaml:"signature,omitempty" json:"signature,omitempty"`
 	Lintian     []string          `yaml:"lintian_overrides,omitempty" json:"lintian_overrides,omitempty"`
-	Compression string            `yaml:"compression,omitempty" json:"compression,omitempty" jsonschema:"enum=gzip,enum=xz,enum=none,default=gzip"`
+	Compression string            `yaml:"compression,omitempty" json:"compression,omitempty" jsonschema:"enum=gzip,enum=xz,enum=zstd,enum=none,default=gzip"`
 	Fields      map[string]string `yaml:"fields,omitempty" json:"fields,omitempty"`
 	Predepends  []string          `yaml:"predepends,omitempty" json:"predepends,omitempty"`
 }
@@ -849,6 +867,28 @@ type NFPMContent struct {
 	Packager    string   `yaml:"packager,omitempty" json:"packager,omitempty"`
 	FileInfo    FileInfo `yaml:"file_info,omitempty" json:"file_info,omitempty"`
 	Expand      bool     `yaml:"expand,omitempty" json:"expand,omitempty"`
+}
+
+// SRPM config.
+type SRPM struct {
+	NFPMRPM
+	Enabled          bool              `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	PackageName      string            `yaml:"package_name,omitempty" json:"package_name,omitempty"`
+	Epoch            string            `yaml:"epoch,omitempty" json:"epoch,omitempty"`
+	ImportPath       string            `yaml:"import_path,omitempty" json:"import_path,omitempty"`
+	Section          string            `yaml:"section,omitempty" json:"section,omitempty"`
+	Maintainer       string            `yaml:"maintainer,omitempty" json:"maintainer,omitempty"`
+	FileNameTemplate string            `yaml:"file_name_template,omitempty" json:"file_name_template,omitempty"`
+	SpecFile         string            `yaml:"spec_file,omitempty" json:"spec_file,omitempty"`
+	License          string            `yaml:"license,omitempty" json:"license,omitempty"`
+	LicenseFileName  string            `yaml:"license_file_name,omitempty" json:"license_file_name,omitempty"`
+	Vendor           string            `yaml:"vendor,omitempty" json:"vendor,omitempty"`
+	URL              string            `yaml:"url,omitempty" json:"url,omitempty"`
+	Packager         string            `yaml:"packager,omitempty" json:"packager,omitempty"`
+	Description      string            `yaml:"description,omitempty" json:"description,omitempty"`
+	Bins             map[string]string `yaml:"bins,omitempty" json:"bins,omitempty"`
+	Docs             []string          `yaml:"docs,omitempty" json:"docs,omitempty"`
+	Contents         []NFPMContent     `yaml:"contents,omitempty" json:"contents,omitempty"`
 }
 
 // SBOM config.
@@ -999,6 +1039,33 @@ type SnapcraftExtraFiles struct {
 	Source      string `yaml:"source" json:"source"`
 	Destination string `yaml:"destination,omitempty" json:"destination,omitempty"`
 	Mode        uint32 `yaml:"mode,omitempty" json:"mode,omitempty"`
+}
+
+// Flatpak config.
+type Flatpak struct {
+	ID           string   `yaml:"id,omitempty" json:"id,omitempty"`
+	IDs          []string `yaml:"ids,omitempty" json:"ids,omitempty"`
+	NameTemplate string   `yaml:"name_template,omitempty" json:"name_template,omitempty"`
+
+	// Flatpak application ID in reverse-DNS notation (e.g. org.example.MyApp).
+	AppID string `yaml:"app_id" json:"app_id"`
+
+	// Runtime to use (e.g. org.freedesktop.Platform).
+	Runtime string `yaml:"runtime" json:"runtime"`
+
+	// Runtime version (e.g. "24.08").
+	RuntimeVersion string `yaml:"runtime_version" json:"runtime_version"`
+
+	// SDK to use (e.g. org.freedesktop.Sdk).
+	SDK string `yaml:"sdk" json:"sdk"`
+
+	// Command to run inside the Flatpak sandbox.
+	Command string `yaml:"command,omitempty" json:"command,omitempty"`
+
+	// Sandbox permissions.
+	FinishArgs []string `yaml:"finish_args,omitempty" json:"finish_args,omitempty"`
+
+	Disable string `yaml:"disable,omitempty" json:"disable,omitempty" jsonschema:"oneof_type=string;boolean"`
 }
 
 // Snapshot config.
@@ -1209,7 +1276,9 @@ type Project struct {
 	Builds            []Build           `yaml:"builds,omitempty" json:"builds,omitempty"`
 	Archives          []Archive         `yaml:"archives,omitempty" json:"archives,omitempty"`
 	NFPMs             []NFPM            `yaml:"nfpms,omitempty" json:"nfpms,omitempty"`
+	SRPM              SRPM              `yaml:"srpm,omitempty" json:"srpm,omitempty"`
 	Snapcrafts        []Snapcraft       `yaml:"snapcrafts,omitempty" json:"snapcrafts,omitempty"`
+	Flatpaks          []Flatpak         `yaml:"flatpak,omitempty" json:"flatpak,omitempty"`
 	Snapshot          Snapshot          `yaml:"snapshot,omitempty" json:"snapshot,omitempty"`
 	Checksum          Checksum          `yaml:"checksum,omitempty" json:"checksum,omitempty"`
 	DockersV2         []DockerV2        `yaml:"dockers_v2,omitempty" json:"dockers_v2,omitempty"`
@@ -1381,6 +1450,9 @@ type Telegram struct {
 	MessageTemplate string `yaml:"message_template,omitempty" json:"message_template,omitempty"`
 	ChatID          string `yaml:"chat_id,omitempty" json:"chat_id,omitempty" jsonschema:"oneof_type=string;integer"`
 	ParseMode       string `yaml:"parse_mode,omitempty" json:"parse_mode,omitempty" jsonschema:"enum=MarkdownV2,enum=HTML,default=MarkdownV2"`
+
+	// v2.15+
+	MessageThreadID string `yaml:"message_thread_id,omitempty" json:"message_thread_id,omitempty" jsonschema:"oneof_type=string;integer"`
 }
 
 type OpenCollective struct {
@@ -1480,11 +1552,14 @@ type MakeselfFile struct {
 
 // MCP server configuration.
 type MCP struct {
-	GitHub GitHubMCP `yaml:"github,omitempty" json:"github,omitempty"`
+	// Deprecated: Use top-level MCP fields instead of nesting under GitHub.
+	GitHub MCPDetails `yaml:"github,omitempty" json:"github,omitempty" jsonschema:"deprecated=Use top-level MCP fields instead"`
+
+	MCPDetails `yaml:",inline" json:",inline"`
 }
 
-// GitHubMCP registry configuration.
-type GitHubMCP struct {
+// MCPDetails registry configuration.
+type MCPDetails struct {
 	Name        string         `yaml:"name" json:"name"`
 	Title       string         `yaml:"title" json:"title"`
 	Description string         `yaml:"description,omitempty" json:"description,omitempty"`

@@ -13,6 +13,7 @@ import (
 	"github.com/goreleaser/goreleaser/v2/internal/artifact"
 	"github.com/goreleaser/goreleaser/v2/internal/builders/base"
 	"github.com/goreleaser/goreleaser/v2/internal/cargo"
+	"github.com/goreleaser/goreleaser/v2/internal/elf"
 	"github.com/goreleaser/goreleaser/v2/internal/gio"
 	"github.com/goreleaser/goreleaser/v2/internal/tmpl"
 	api "github.com/goreleaser/goreleaser/v2/pkg/build"
@@ -76,6 +77,11 @@ func (b *Builder) Parse(target string) (api.Target, error) {
 
 	if len(parts) > 3 {
 		t.Abi = parts[3]
+		abi, libc, ok := strings.Cut(t.Abi, ".")
+		if ok {
+			t.Abi = abi
+			t.Libc = libc
+		}
 	}
 
 	return t, nil
@@ -158,6 +164,9 @@ func (b *Builder) Build(ctx *context.Context, build config.Build, options api.Op
 			keyAbi:                t.Abi,
 		},
 	}
+	if t.Libc != "" {
+		a.Extra[keyLibc] = t.Libc
+	}
 
 	env := []string{}
 	env = append(env, ctx.Env.Strings()...)
@@ -190,17 +199,24 @@ func (b *Builder) Build(ctx *context.Context, build config.Build, options api.Op
 	}
 	command = append(command, flags...)
 
+	log.WithField("binary", options.Name).
+		WithField("target", options.Target.String()).
+		Info("building")
 	if err := base.Exec(ctx, command, env, build.Dir); err != nil {
 		return err
 	}
 
-	realPath := filepath.Join(build.Dir, "target", t.Target, "release", options.Name)
+	realPath := filepath.Join(build.Dir, "target", t.clean(), "release", options.Name)
 	if err := gio.Copy(realPath, options.Path); err != nil {
 		return err
 	}
 
 	if err := base.ChTimes(build, tpl, a); err != nil {
 		return err
+	}
+
+	if elf.IsDynamicallyLinked(a.Path) {
+		a.Extra[artifact.ExtranDynLink] = true
 	}
 
 	ctx.Artifacts.Add(a)

@@ -65,6 +65,26 @@ This analyzer is currently disabled by default as the
 transformation does not preserve the nilness of the base slice in
 all cases; see https://go.dev/issue/73557.
 
+# Analyzer atomic
+
+atomic: replace basic types in sync/atomic calls with atomic types
+
+The atomic analyzer suggests replacing the primitive sync/atomic functions with
+the strongly typed atomic wrapper types introduced in Go1.19 (e.g.
+atomic.Int32). For example,
+
+	var x int32
+	atomic.AddInt32(&x, 1)
+
+would become
+
+	var x atomic.Int32
+	x.Add(1)
+
+The atomic types are safer because they don't allow non-atomic access, which is
+a common source of bugs. These types also resolve memory alignment issues that
+plagued the old atomic functions on 32-bit architectures.
+
 # Analyzer bloop
 
 bloop: replace for-range over b.N with b.Loop
@@ -80,6 +100,8 @@ or b.ResetTimer within the same function will also be removed.
 Caveats: The b.Loop() method is designed to prevent the compiler from
 optimizing away the benchmark loop, which can occasionally result in
 slower execution due to increased allocations in some specific cases.
+Since its fix may change the performance of nanosecond-scale benchmarks,
+bloop is disabled by default in the `go fix` analyzer suite; see golang/go#74967.
 
 # Analyzer any
 
@@ -199,11 +221,18 @@ are often used to express optionality.
 
 omitzero: suggest replacing omitempty with omitzero for struct fields
 
-The omitzero analyzer identifies uses of the `omitempty` JSON struct tag on
-fields that are themselves structs. The `omitempty` tag has no effect on
-struct-typed fields. The analyzer offers two suggestions: either remove the
+The omitzero analyzer identifies uses of the `omitempty` JSON struct
+tag on fields that are themselves structs. For struct-typed fields,
+the `omitempty` tag has no effect on the behavior of json.Marshal and
+json.Unmarshal. The analyzer offers two suggestions: either remove the
 tag, or replace it with `omitzero` (added in Go 1.24), which correctly
 omits the field if the struct value is zero.
+
+However, some other serialization packages (notably kubebuilder, see
+https://book.kubebuilder.io/reference/markers.html) may have their own
+interpretation of the `json:",omitzero"` tag, so removing it may affect
+program behavior. For this reason, the omitzero modernizer will not
+make changes in any package that contains +kubebuilder annotations.
 
 Replacing `omitempty` with `omitzero` is a change in behavior. The
 original code would always encode the struct field, whereas the
@@ -254,10 +283,14 @@ is known at compile time, for example:
 	reflect.TypeOf(uint32(0))        -> reflect.TypeFor[uint32]()
 	reflect.TypeOf((*ast.File)(nil)) -> reflect.TypeFor[*ast.File]()
 
-It also offers a fix to simplify the construction below, which uses
+It also offers a fix to simplify the constructions below, which use
 reflect.TypeOf to return the runtime type for an interface type,
 
 	reflect.TypeOf((*io.Reader)(nil)).Elem()
+
+or:
+
+	reflect.TypeOf([]io.Reader(nil)).Elem()
 
 to:
 
@@ -451,14 +484,34 @@ is replaced by:
 
 This avoids quadratic memory allocation and improves performance.
 
-The analyzer requires that all references to s except the final one
+The analyzer requires that all references to s before the final uses
 are += operations. To avoid warning about trivial cases, at least one
 must appear within a loop. The variable s must be a local
 variable, not a global or parameter.
 
-The sole use of the finished string must be the last reference to the
-variable s. (It may appear within an intervening loop or function literal,
-since even s.String() is called repeatedly, it does not allocate memory.)
+All uses of the finished string must come after the last += operation.
+Each such use will be replaced by a call to strings.Builder's String method.
+(These may appear within an intervening loop or function literal, since even
+if s.String() is called repeatedly, it does not allocate memory.)
+
+Often the addend is a call to fmt.Sprintf, as in this example:
+
+	var s string
+	for x := range seq {
+		s += fmt.Sprintf("%v", x)
+	}
+
+which, once the suggested fix is applied, becomes:
+
+	var s strings.Builder
+	for x := range seq {
+		s.WriteString(fmt.Sprintf("%v", x))
+	}
+
+The WriteString call can be further simplified to the more efficient
+fmt.Fprintf(&s, "%v", x), avoiding the allocation of an intermediary.
+However, stringsbuilder does not perform this simplification;
+it requires staticcheck analyzer QF1012. (See https://go.dev/issue/76918.)
 
 # Analyzer testingcontext
 
@@ -474,6 +527,22 @@ with a single call to t.Context(), which was added in Go 1.24.
 
 This change is only suggested if the `cancel` function is not used
 for any other purpose.
+
+# Analyzer unsafefuncs
+
+unsafefuncs: replace unsafe pointer arithmetic with function calls
+
+The unsafefuncs analyzer simplifies pointer arithmetic expressions by
+replacing them with calls to helper functions such as unsafe.Add,
+added in Go 1.17.
+
+Example:
+
+	unsafe.Pointer(uintptr(ptr) + uintptr(n))
+
+where ptr is an unsafe.Pointer, is replaced by:
+
+	unsafe.Add(ptr, n)
 
 # Analyzer waitgroup
 

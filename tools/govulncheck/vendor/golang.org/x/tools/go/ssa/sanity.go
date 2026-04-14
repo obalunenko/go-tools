@@ -14,7 +14,10 @@ import (
 	"go/types"
 	"io"
 	"os"
+	"slices"
 	"strings"
+
+	"golang.org/x/tools/internal/typeparams"
 )
 
 type sanity struct {
@@ -26,9 +29,10 @@ type sanity struct {
 }
 
 // sanityCheck performs integrity checking of the SSA representation
-// of the function fn and returns true if it was valid.  Diagnostics
-// are written to reporter if non-nil, os.Stderr otherwise.  Some
-// diagnostics are only warnings and do not imply a negative result.
+// of the function fn (which must have been "built") and returns true
+// if it was valid. Diagnostics are written to reporter if non-nil,
+// os.Stderr otherwise. Some diagnostics are only warnings and do not
+// imply a negative result.
 //
 // Sanity-checking is intended to facilitate the debugging of code
 // transformation passes.
@@ -48,7 +52,7 @@ func mustSanityCheck(fn *Function, reporter io.Writer) {
 	}
 }
 
-func (s *sanity) diagnostic(prefix, format string, args ...interface{}) {
+func (s *sanity) diagnostic(prefix, format string, args ...any) {
 	fmt.Fprintf(s.reporter, "%s: function %s", prefix, s.fn)
 	if s.block != nil {
 		fmt.Fprintf(s.reporter, ", block %s", s.block)
@@ -58,12 +62,12 @@ func (s *sanity) diagnostic(prefix, format string, args ...interface{}) {
 	io.WriteString(s.reporter, "\n")
 }
 
-func (s *sanity) errorf(format string, args ...interface{}) {
+func (s *sanity) errorf(format string, args ...any) {
 	s.insane = true
 	s.diagnostic("Error", format, args...)
 }
 
-func (s *sanity) warnf(format string, args ...interface{}) {
+func (s *sanity) warnf(format string, args ...any) {
 	s.diagnostic("Warning", format, args...)
 }
 
@@ -119,13 +123,7 @@ func (s *sanity) checkInstr(idx int, instr Instruction) {
 
 	case *Alloc:
 		if !instr.Heap {
-			found := false
-			for _, l := range s.fn.Locals {
-				if l == instr {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(s.fn.Locals, instr)
 			if !found {
 				s.errorf("local alloc %s = %s does not appear in Function.Locals", instr.Name(), instr)
 			}
@@ -142,8 +140,8 @@ func (s *sanity) checkInstr(idx int, instr Instruction) {
 	case *ChangeType:
 	case *SliceToArrayPointer:
 	case *Convert:
-		if from := instr.X.Type(); !isBasicConvTypes(typeSetOf(from)) {
-			if to := instr.Type(); !isBasicConvTypes(typeSetOf(to)) {
+		if from := instr.X.Type(); !isBasicConvTypes(from) {
+			if to := instr.Type(); !isBasicConvTypes(to) {
 				s.errorf("convert %s -> %s: at least one type must be basic (or all basic, []byte, or []rune)", from, to)
 			}
 		}
@@ -158,12 +156,17 @@ func (s *sanity) checkInstr(idx int, instr Instruction) {
 	case *Lookup:
 	case *MakeChan:
 	case *MakeClosure:
-		numFree := len(instr.Fn.(*Function).FreeVars)
-		numBind := len(instr.Bindings)
-		if numFree != numBind {
+		fn := instr.Fn.(*Function)
+		if numFree, numBind := len(fn.FreeVars), len(instr.Bindings); numFree != numBind {
 			s.errorf("MakeClosure has %d Bindings for function %s with %d free vars",
 				numBind, instr.Fn, numFree)
-
+		} else {
+			for i, fv := range fn.FreeVars {
+				if !types.Identical(instr.Bindings[i].Type(), fv.Type()) {
+					s.errorf("MakeClosure binding %d for %s has type %s, expected %s",
+						i, fv.Name(), instr.Bindings[i].Type(), fv.Type())
+				}
+			}
 		}
 		if recv := instr.Type().(*types.Signature).Recv(); recv != nil {
 			s.errorf("MakeClosure's type includes receiver %s", recv.Type())
@@ -174,12 +177,42 @@ func (s *sanity) checkInstr(idx int, instr Instruction) {
 	case *MakeSlice:
 	case *MapUpdate:
 	case *Next:
+		rng, ok := instr.Iter.(*Range)
+		if !ok {
+			s.errorf("Next: Iter is %T, not *Range", instr.Iter)
+		}
+		if rng.Type() != tRangeIter {
+			s.errorf("Next: Iter has type %s, expected %s", rng.Type(), tRangeIter)
+		}
+		var ek, ev types.Type
+		switch xt := typeparams.CoreType(rng.X.Type()).(type) {
+		case *types.Basic:
+			if types.Default(xt) != tString {
+				s.errorf("Next: basic operand of Next.Iter (Range) is %s, want string or untyped string", xt)
+			}
+			ek, ev = tInt, tRune
+		case *types.Map:
+			ek, ev = xt.Key(), xt.Elem()
+		}
+
+		res := instr.Type().(*types.Tuple) // (ok bool, k K, v V), but K or V may be invalid if unused
+		if !types.Identical(res.At(1).Type(), ek) && res.At(1).Type() != tInvalid {
+			s.errorf("Next: key type %s does not match map key type %s", res.At(1).Type(), ek)
+		}
+		if !types.Identical(res.At(2).Type(), ev) && res.At(2).Type() != tInvalid {
+			s.errorf("Next: value type %s does not match map value type %s", res.At(2).Type(), ev)
+		}
+
 	case *Range:
 	case *RunDefers:
 	case *Select:
 	case *Send:
 	case *Slice:
 	case *Store:
+		if !types.Identical(instr.Val.Type(), typeparams.CoreType(instr.Addr.Type()).(*types.Pointer).Elem()) {
+			s.errorf("Store: value type %s does not match address type %s",
+				instr.Val.Type(), instr.Addr.Type())
+		}
 	case *TypeAssert:
 	case *UnOp:
 	case *DebugRef:
@@ -282,13 +315,7 @@ func (s *sanity) checkBlock(b *BasicBlock, index int) {
 	// Check predecessor and successor relations are dual,
 	// and that all blocks in CFG belong to same function.
 	for _, a := range b.Preds {
-		found := false
-		for _, bb := range a.Succs {
-			if bb == b {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(a.Succs, b)
 		if !found {
 			s.errorf("expected successor edge in predecessor %s; found only: %s", a, a.Succs)
 		}
@@ -297,13 +324,7 @@ func (s *sanity) checkBlock(b *BasicBlock, index int) {
 		}
 	}
 	for _, c := range b.Succs {
-		found := false
-		for _, bb := range c.Preds {
-			if bb == b {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(c.Preds, b)
 		if !found {
 			s.errorf("expected predecessor edge in successor %s; found only: %s", c, c.Preds)
 		}
@@ -529,12 +550,10 @@ func (s *sanity) checkFunction(fn *Function) bool {
 	// Build the set of valid referrers.
 	s.instrs = make(map[Instruction]unit)
 
-	// TODO: switch to range-over-func when x/tools updates to 1.23.
 	// instrs are the instructions that are present in the function.
-	fn.instrs()(func(instr Instruction) bool {
+	for instr := range fn.instrs() {
 		s.instrs[instr] = unit{}
-		return true
-	})
+	}
 
 	// Check all Locals allocations appear in the function instruction.
 	for i, l := range fn.Locals {

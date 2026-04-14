@@ -1,6 +1,7 @@
 package query
 
 import (
+	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Issue"
 	"google.golang.org/grpc"
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/params"
@@ -57,10 +58,25 @@ func WithStatsMode(mode options.StatsMode, callback func(Stats)) ExecuteOption {
 	return options.WithStatsMode(mode, callback)
 }
 
+// WithIssuesHandler is the option which helps collect issues generated during query execution
+// May be more than one call of callback during query execution
+func WithIssuesHandler(callback func(issues []*Ydb_Issue.IssueMessage)) ExecuteOption {
+	return options.WithIssuesHandler(callback)
+}
+
 // WithResponsePartLimitSizeBytes limit size of each part (data portion) in stream for query service resoponse
 // it isn't limit total size of answer
 func WithResponsePartLimitSizeBytes(size int64) ExecuteOption {
 	return options.WithResponsePartLimitSizeBytes(size)
+}
+
+// WithConcurrentResultSets enables concurrent computation of result sets. It is useful when a single query executes
+// multiple independent SELECT statements.
+//
+// WARNING: This option must be used only in Query() method. Using it with other methods results in undefined behavior
+// or an error.
+func WithConcurrentResultSets(isEnabled bool) ExecuteOption {
+	return options.WithConcurrentResultSets(isEnabled)
 }
 
 func WithCallOptions(opts ...grpc.CallOption) ExecuteOption {

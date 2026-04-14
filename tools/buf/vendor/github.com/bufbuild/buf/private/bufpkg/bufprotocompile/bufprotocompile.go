@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ func FileAnnotationSetForErrorsWithPos(
 	if err != nil {
 		return nil, err
 	}
-	return bufanalysis.NewFileAnnotationSet(fileAnnotations...), nil
+	return bufanalysis.NewFileAnnotationSet(nil, fileAnnotations...), nil
 }
 
 // FileAnnotationOption is an option when creating a FileAnnotation.

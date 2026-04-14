@@ -164,7 +164,25 @@ var defaultLintersSettings = LintersSettings{
 		AllowPackages: []string{"main"},
 	},
 	Unqueryvet: UnqueryvetSettings{
-		CheckSQLBuilders: true,
+		CheckSQLBuilders:     true,
+		CheckAliasedWildcard: true,
+		CheckStringConcat:    true,
+		CheckFormatStrings:   true,
+		CheckStringBuilder:   true,
+		CheckSubqueries:      true,
+		SQLBuilders: UnqueryvetSQLBuildersSettings{
+			Squirrel:  true,
+			GORM:      true,
+			SQLx:      true,
+			Ent:       true,
+			PGX:       true,
+			Bun:       true,
+			SQLBoiler: true,
+			Jet:       true,
+		},
+		CheckN1:           false,
+		CheckSQLInjection: false,
+		CheckTxLeak:       false,
 	},
 	Unused: UnusedSettings{
 		FieldWritesAreUses:     true,
@@ -575,6 +593,7 @@ type GoModDirectivesSettings struct {
 	ToolForbidden             bool     `mapstructure:"tool-forbidden"`
 	GoDebugForbidden          bool     `mapstructure:"go-debug-forbidden"`
 	GoVersionPattern          string   `mapstructure:"go-version-pattern"`
+	CheckModulePath           bool     `mapstructure:"check-module-path"`
 }
 
 type GoModGuardSettings struct {
@@ -1021,8 +1040,40 @@ type UnparamSettings struct {
 }
 
 type UnqueryvetSettings struct {
-	CheckSQLBuilders bool     `mapstructure:"check-sql-builders"`
-	AllowedPatterns  []string `mapstructure:"allowed-patterns"`
+	CheckSQLBuilders     bool                          `mapstructure:"check-sql-builders"`
+	AllowedPatterns      []string                      `mapstructure:"allowed-patterns"`
+	IgnoredFunctions     []string                      `mapstructure:"ignored-functions"`
+	CheckAliasedWildcard bool                          `mapstructure:"check-aliased-wildcard"`
+	CheckStringConcat    bool                          `mapstructure:"check-string-concat"`
+	CheckFormatStrings   bool                          `mapstructure:"check-format-strings"`
+	CheckStringBuilder   bool                          `mapstructure:"check-string-builder"`
+	CheckSubqueries      bool                          `mapstructure:"check-subqueries"`
+	CheckN1              bool                          `mapstructure:"check-n1"`
+	CheckSQLInjection    bool                          `mapstructure:"check-sql-injection"`
+	CheckTxLeak          bool                          `mapstructure:"check-tx-leaks"`
+	SQLBuilders          UnqueryvetSQLBuildersSettings `mapstructure:"sql-builders"`
+	Allow                []string                      `mapstructure:"allow"`
+	CustomRules          []UnqueryvetCustomRule        `mapstructure:"custom-rules"`
+}
+
+type UnqueryvetSQLBuildersSettings struct {
+	Squirrel  bool `mapstructure:"squirrel"`
+	GORM      bool `mapstructure:"gorm"`
+	SQLx      bool `mapstructure:"sqlx"`
+	Ent       bool `mapstructure:"ent"`
+	PGX       bool `mapstructure:"pgx"`
+	Bun       bool `mapstructure:"bun"`
+	SQLBoiler bool `mapstructure:"sqlboiler"`
+	Jet       bool `mapstructure:"jet"`
+}
+
+type UnqueryvetCustomRule struct {
+	ID       string   `mapstructure:"id"`
+	Pattern  string   `mapstructure:"pattern"`
+	Patterns []string `mapstructure:"patterns"`
+	When     string   `mapstructure:"when"`
+	Message  string   `mapstructure:"message"`
+	Action   string   `mapstructure:"action"`
 }
 
 type UnusedSettings struct {

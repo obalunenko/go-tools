@@ -32,6 +32,8 @@ type executeSettings interface {
 	ResourcePool() string
 	ResponsePartLimitSizeBytes() int64
 	Label() string
+	ConcurrentResultSets() bool
+	UserProvidedTxControl() bool
 }
 
 type executeScriptConfig interface {
@@ -92,7 +94,7 @@ func executeQueryRequest(sessionID, q string, cfg executeSettings) (
 		},
 		Parameters:             params,
 		StatsMode:              Ydb_Query.StatsMode(cfg.StatsMode()),
-		ConcurrentResultSets:   false,
+		ConcurrentResultSets:   cfg.ConcurrentResultSets(),
 		PoolId:                 cfg.ResourcePool(),
 		ResponsePartLimitBytes: cfg.ResponsePartLimitSizeBytes(),
 	}
@@ -119,6 +121,10 @@ func execute(
 	}
 
 	executeCtx, executeCancel := xcontext.WithCancel(xcontext.ValueOnly(ctx))
+
+	stop := context.AfterFunc(ctx, executeCancel)
+	defer stop()
+
 	defer func() {
 		if finalErr != nil {
 			executeCancel()
@@ -131,8 +137,8 @@ func execute(
 	}
 
 	r, err := newResult(ctx, stream, append(opts,
-		withStatsCallback(settings.StatsCallback()),
-		withOnClose(executeCancel),
+		withStreamResultStatsCallback(settings.StatsCallback()),
+		withStreamResultOnClose(executeCancel),
 	)...)
 	if err != nil {
 		return nil, xerrors.WithStackTrace(err)
@@ -199,45 +205,11 @@ func readMaterializedResultSet(ctx context.Context, r *streamResult) (
 
 	_, err = r.nextResultSet(ctx)
 	if err == nil {
-		return nil, 0, xerrors.WithStackTrace(errMoreThanOneResultSet)
+		return nil, 0, xerrors.WithStackTrace(ErrMoreThanOneResultSet)
 	}
 	if !xerrors.Is(err, io.EOF) {
 		return nil, 0, xerrors.WithStackTrace(err)
 	}
 
 	return MaterializedResultSet(rs.Index(), rs.Columns(), rs.ColumnTypes(), rows), len(rows), nil
-}
-
-func readRow(ctx context.Context, r *streamResult) (_ *Row, finalErr error) {
-	defer func() {
-		_ = r.Close(ctx)
-	}()
-
-	rs, err := r.nextResultSet(ctx)
-	if err != nil {
-		return nil, xerrors.WithStackTrace(err)
-	}
-
-	row, err := rs.nextRow(ctx)
-	if err != nil {
-		return nil, xerrors.WithStackTrace(err)
-	}
-
-	_, err = rs.nextRow(ctx)
-	if err == nil {
-		return nil, xerrors.WithStackTrace(errMoreThanOneRow)
-	}
-	if !xerrors.Is(err, io.EOF) {
-		return nil, xerrors.WithStackTrace(err)
-	}
-
-	_, err = r.NextResultSet(ctx)
-	if err == nil {
-		return nil, xerrors.WithStackTrace(errMoreThanOneResultSet)
-	}
-	if !xerrors.Is(err, io.EOF) {
-		return nil, xerrors.WithStackTrace(err)
-	}
-
-	return row, nil
 }

@@ -1,7 +1,6 @@
 package log
 
 import (
-	"context"
 	"time"
 
 	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Topic"
@@ -25,7 +24,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderStreamLifeCycleEvents == 0 {
 			return nil
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "reader", "reconnect")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "reader", "reconnect")
 		start := time.Now()
 		l.Log(ctx, "topic reader reconnect starting...")
 
@@ -40,7 +39,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderStreamLifeCycleEvents == 0 {
 			return
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "reader", "reconnect", "request")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "reader", "reconnect", "request")
 		l.Log(ctx, "topic reader reconnect request",
 			kv.NamedError("reason", info.Reason),
 			kv.Bool("was_sent", info.WasSent),
@@ -52,7 +51,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderPartitionEvents == 0 {
 			return nil
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "reader", "partition", "read", "start", "response")
+		ctx := with(*info.PartitionContext, TRACE, "ydb", "topic", "reader", "partition", "read", "start", "response")
 		start := time.Now()
 		l.Log(ctx, "topic reader start partition read response starting...",
 			kv.String("topic", info.Topic),
@@ -97,7 +96,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderPartitionEvents == 0 {
 			return nil
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "reader", "partition", "read", "stop", "response")
+		ctx := with(info.PartitionContext, TRACE, "ydb", "topic", "reader", "partition", "read", "stop", "response")
 		start := time.Now()
 		l.Log(ctx, "topic reader stop partition read response starting...",
 			kv.String("reader_connection_id", info.ReaderConnectionID),
@@ -133,7 +132,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderStreamEvents == 0 {
 			return nil
 		}
-		ctx := with(*info.RequestContext, TRACE, "ydb", "topic", "reader", "commit")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "reader", "commit")
 		start := time.Now()
 		l.Log(ctx, "topic reader commit starting...",
 			kv.String("topic", info.Topic),
@@ -170,7 +169,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderStreamEvents == 0 {
 			return nil
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "reader", "send", "commit", "message")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "reader", "send", "commit", "message")
 		start := time.Now()
 
 		commitInfo := info.CommitsInfo.GetCommitsInfo()
@@ -211,7 +210,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderStreamEvents == 0 {
 			return
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "reader", "committed", "notify")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "reader", "committed", "notify")
 		l.Log(ctx, "topic reader received commit ack",
 			kv.String("reader_connection_id", info.ReaderConnectionID),
 			kv.String("topic", info.Topic),
@@ -224,7 +223,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderStreamEvents == 0 {
 			return nil
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "reader", "close")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "reader", "close")
 		start := time.Now()
 		l.Log(ctx, "topic reader close starting...",
 			kv.String("reader_connection_id", info.ReaderConnectionID),
@@ -253,7 +252,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderStreamEvents == 0 {
 			return nil
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "reader", "init")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "reader", "init")
 		start := time.Now()
 		l.Log(ctx, "topic reader init starting...",
 			kv.String("pre_init_reader_connection_id", info.PreInitReaderConnectionID),
@@ -284,7 +283,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderStreamEvents == 0 {
 			return
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "reader", "error")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "reader", "error")
 		l.Log(WithLevel(ctx, INFO), "topic reader has grpc stream error",
 			kv.Error(info.Error),
 			kv.String("reader_connection_id", info.ReaderConnectionID),
@@ -299,7 +298,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderStreamEvents == 0 {
 			return nil
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "reader", "update", "token")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "reader", "update", "token")
 		start := time.Now()
 		l.Log(ctx, "topic reader token update starting...",
 			kv.String("reader_connection_id", info.ReaderConnectionID),
@@ -347,7 +346,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderMessageEvents == 0 {
 			return
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "reader", "sent", "data", "request")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "reader", "sent", "data", "request")
 		l.Log(ctx, "topic reader sent data request",
 			kv.String("reader_connection_id", info.ReaderConnectionID),
 			kv.Int("request_bytes", info.RequestBytes),
@@ -360,7 +359,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderMessageEvents == 0 {
 			return nil
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "reader", "receive", "data", "response")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "reader", "receive", "data", "response")
 		start := time.Now()
 		partitionsCount, batchesCount, messagesCount := info.DataResponse.GetPartitionBatchMessagesCounts()
 		l.Log(ctx, "topic reader data response received, process starting...",
@@ -404,7 +403,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderMessageEvents == 0 {
 			return nil
 		}
-		ctx := with(*info.RequestContext, TRACE, "ydb", "topic", "reader", "read", "messages")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "reader", "read", "messages")
 		start := time.Now()
 		l.Log(ctx, "topic read messages, waiting...",
 			kv.Int("min_count", info.MinCount),
@@ -436,7 +435,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicReaderMessageEvents == 0 {
 			return
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "reader", "unknown", "grpc", "message")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "reader", "unknown", "grpc", "message")
 		l.Log(WithLevel(ctx, INFO), "topic reader received unknown grpc message",
 			kv.Error(info.Error),
 			kv.String("reader_connection_id", info.ReaderConnectionID),
@@ -648,7 +647,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicWriterStreamLifeCycleEvents == 0 {
 			return nil
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "writer", "reconnect")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "writer", "reconnect")
 		start := time.Now()
 		l.Log(ctx, "connect to topic writer stream starting...",
 			kv.String("topic", info.Topic),
@@ -694,7 +693,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicWriterStreamLifeCycleEvents == 0 {
 			return nil
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "writer", "stream", "init")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "writer", "stream", "init")
 		start := time.Now()
 		l.Log(ctx, "topic writer init stream starting...",
 			kv.String("topic", info.Topic),
@@ -734,7 +733,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		start := time.Now()
 
 		return func(doneInfo trace.TopicOnWriterBeforeCommitTransactionDoneInfo) {
-			ctx := with(*info.Ctx, TRACE, "ydb", "topic", "writer", "beforecommit")
+			ctx := with(*info.Context, TRACE, "ydb", "topic", "writer", "beforecommit")
 			l.Log(ctx, "topic writer wait of flush messages before commit transaction",
 				kv.String("kqp_session_id", info.KqpSessionID),
 				kv.String("topic_session_id_start", info.TopicSessionID),
@@ -750,7 +749,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		start := time.Now()
 
 		return func(doneInfo trace.TopicOnWriterAfterFinishTransactionDoneInfo) {
-			ctx := with(context.Background(), TRACE, "ydb", "topic", "writer", "beforecommit")
+			ctx := with(*info.Context, TRACE, "ydb", "topic", "writer", "beforecommit")
 			l.Log(ctx, "topic writer close writer after transaction finished",
 				kv.String("kqp_session_id", info.SessionID),
 				kv.String("tx_id", info.TransactionID),
@@ -762,7 +761,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicWriterStreamLifeCycleEvents == 0 {
 			return nil
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "writer", "close")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "writer", "close")
 		start := time.Now()
 		l.Log(ctx, "topic writer close starting...",
 			kv.String("writer_instance_id", info.WriterInstanceID),
@@ -793,7 +792,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicWriterStreamEvents == 0 {
 			return nil
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "writer", "compress", "messages")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "writer", "compress", "messages")
 		start := time.Now()
 		l.Log(ctx, "topic writer compress messages starting...",
 			kv.String("writer_instance_id", info.WriterInstanceID),
@@ -836,7 +835,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicWriterStreamEvents == 0 {
 			return nil
 		}
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "writer", "send", "messages")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "writer", "send", "messages")
 		start := time.Now()
 		l.Log(ctx, "topic writer send messages starting...",
 			kv.String("writer_instance_id", info.WriterInstanceID),
@@ -874,7 +873,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 			return
 		}
 		acks := info.Acks.GetAcks()
-		ctx := with(context.Background(), DEBUG, "ydb", "topic", "writer", "receive", "result")
+		ctx := with(*info.Context, DEBUG, "ydb", "topic", "writer", "receive", "result")
 		l.Log(ctx, "topic writer received result from server",
 			kv.String("writer_instance_id", info.WriterInstanceID),
 			kv.String("session_id", info.SessionID),
@@ -895,7 +894,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 			return
 		}
 
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "writer", "grpc")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "writer", "grpc")
 		l.Log(
 			ctx, "topic writer sent grpc message (message body and metadata are removed)",
 			kv.String("topic_stream_internal_id", info.TopicStreamInternalID),
@@ -911,7 +910,7 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 			return
 		}
 
-		ctx := with(context.Background(), TRACE, "ydb", "topic", "writer", "grpc")
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "writer", "grpc")
 		l.Log(
 			ctx, "topic writer received grpc message (message body and metadata are removed)",
 			kv.String("topic_stream_internal_id", info.TopicStreamInternalID),
@@ -926,12 +925,362 @@ func internalTopic(l Logger, d trace.Detailer) (t trace.Topic) {
 		if d.Details()&trace.TopicWriterStreamEvents == 0 {
 			return
 		}
-		ctx := with(context.Background(), DEBUG, "ydb", "topic", "writer", "read", "unknown", "grpc", "message")
+		ctx := with(*info.Context, DEBUG, "ydb", "topic", "writer", "read", "unknown", "grpc", "message")
 		l.Log(ctx, "topic writer receive unknown grpc message from server",
 			kv.Error(info.Error),
 			kv.String("writer_instance_id", info.WriterInstanceID),
 			kv.String("session_id", info.SessionID),
 		)
+	}
+
+	///
+	/// Topic Listener
+	///
+	t.OnListenerStart = func(info trace.TopicListenerStartInfo) {
+		if d.Details()&trace.TopicListenerStreamEvents == 0 {
+			return
+		}
+		ctx := with(*info.Context, INFO, "ydb", "topic", "listener", "start")
+		l.Log(ctx, "topic listener starting",
+			kv.String("listener_id", info.ListenerID),
+			kv.String("consumer", info.Consumer),
+			kv.Error(info.Error),
+		)
+	}
+
+	t.OnListenerInit = func(info trace.TopicListenerInitStartInfo) func(doneInfo trace.TopicListenerInitDoneInfo) {
+		if d.Details()&trace.TopicListenerStreamEvents == 0 {
+			return nil
+		}
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "listener", "init")
+		start := time.Now()
+		l.Log(ctx, "topic listener init starting...",
+			kv.String("listener_id", info.ListenerID),
+			kv.String("consumer", info.Consumer),
+			kv.Strings("topic_selectors", info.TopicSelectors),
+		)
+
+		return func(doneInfo trace.TopicListenerInitDoneInfo) {
+			fields := []Field{
+				kv.String("listener_id", info.ListenerID),
+				kv.String("consumer", info.Consumer),
+				kv.Strings("topic_selectors", info.TopicSelectors),
+				kv.Latency(start),
+			}
+			if doneInfo.SessionID != "" {
+				fields = append(fields, kv.String("session_id", doneInfo.SessionID))
+			}
+			if doneInfo.Error == nil {
+				l.Log(WithLevel(ctx, INFO), "topic listener init done", fields...)
+			} else {
+				l.Log(WithLevel(ctx, WARN), "topic listener init failed",
+					append(fields,
+						kv.Error(doneInfo.Error),
+						kv.Version(),
+					)...,
+				)
+			}
+		}
+	}
+
+	t.OnListenerReceiveMessage = func(info trace.TopicListenerReceiveMessageInfo) {
+		if d.Details()&trace.TopicListenerStreamEvents == 0 {
+			return
+		}
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "listener", "receive", "message")
+		fields := []Field{
+			kv.String("listener_id", info.ListenerID),
+			kv.String("session_id", info.SessionID),
+			kv.String("message_type", info.MessageType),
+			kv.Int("bytes_size", info.BytesSize),
+		}
+		if info.Error == nil {
+			l.Log(ctx, "topic listener received message", fields...)
+		} else {
+			l.Log(WithLevel(ctx, WARN), "topic listener receive message failed",
+				append(fields,
+					kv.Error(info.Error),
+					kv.Version(),
+				)...,
+			)
+		}
+	}
+
+	t.OnListenerRouteMessage = func(info trace.TopicListenerRouteMessageInfo) {
+		if d.Details()&trace.TopicListenerStreamEvents == 0 {
+			return
+		}
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "listener", "route", "message")
+		fields := []Field{
+			kv.String("listener_id", info.ListenerID),
+			kv.String("session_id", info.SessionID),
+			kv.String("message_type", info.MessageType),
+			kv.Bool("worker_found", info.WorkerFound),
+		}
+		if info.PartitionSessionID != nil {
+			fields = append(fields, kv.Int64("partition_session_id", *info.PartitionSessionID))
+		}
+		if info.Error == nil {
+			l.Log(ctx, "topic listener routed message", fields...)
+		} else {
+			l.Log(WithLevel(ctx, ERROR), "topic listener route message failed",
+				append(fields,
+					kv.Error(info.Error),
+					kv.Version(),
+				)...,
+			)
+		}
+	}
+
+	t.OnListenerSplitMessage = func(info trace.TopicListenerSplitMessageInfo) {
+		if d.Details()&trace.TopicListenerStreamEvents == 0 {
+			return
+		}
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "listener", "split", "message")
+		fields := []Field{
+			kv.String("listener_id", info.ListenerID),
+			kv.String("session_id", info.SessionID),
+			kv.String("message_type", info.MessageType),
+			kv.Int("total_batches", info.TotalBatches),
+			kv.Int("total_partitions", info.TotalPartitions),
+			kv.Int("split_batches", info.SplitBatches),
+			kv.Int("routed_batches", info.RoutedBatches),
+		}
+		if info.Error == nil {
+			l.Log(ctx, "topic listener split message", fields...)
+		} else {
+			l.Log(WithLevel(ctx, ERROR), "topic listener split message failed",
+				append(fields,
+					kv.Error(info.Error),
+					kv.Version(),
+				)...,
+			)
+		}
+	}
+
+	t.OnListenerError = func(info trace.TopicListenerErrorInfo) {
+		if d.Details()&trace.TopicListenerStreamEvents == 0 {
+			return
+		}
+		ctx := with(*info.Context, ERROR, "ydb", "topic", "listener", "error")
+		l.Log(ctx, "topic listener error",
+			kv.String("listener_id", info.ListenerID),
+			kv.String("session_id", info.SessionID),
+			kv.Error(info.Error),
+			kv.Version(),
+		)
+	}
+
+	t.OnListenerClose = func(info trace.TopicListenerCloseStartInfo) func(doneInfo trace.TopicListenerCloseDoneInfo) {
+		if d.Details()&trace.TopicListenerStreamEvents == 0 {
+			return nil
+		}
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "listener", "close")
+		start := time.Now()
+		l.Log(ctx, "topic listener close starting...",
+			kv.String("listener_id", info.ListenerID),
+			kv.String("session_id", info.SessionID),
+			kv.NamedError("reason", info.Reason),
+		)
+
+		return func(doneInfo trace.TopicListenerCloseDoneInfo) {
+			fields := []Field{
+				kv.String("listener_id", info.ListenerID),
+				kv.String("session_id", info.SessionID),
+				kv.NamedError("reason", info.Reason),
+				kv.Int("workers_closed", doneInfo.WorkersClosed),
+				kv.Latency(start),
+			}
+			if doneInfo.Error == nil {
+				l.Log(WithLevel(ctx, INFO), "topic listener close done", fields...)
+			} else {
+				l.Log(WithLevel(ctx, WARN), "topic listener close failed",
+					append(fields,
+						kv.Error(doneInfo.Error),
+						kv.Version(),
+					)...,
+				)
+			}
+		}
+	}
+
+	t.OnListenerSendDataRequest = func(info trace.TopicListenerSendDataRequestInfo) {
+		if d.Details()&trace.TopicListenerStreamEvents == 0 {
+			return
+		}
+		fields := []Field{
+			kv.String("listener_id", info.ListenerID),
+			kv.String("session_id", info.SessionID),
+			kv.String("message_type", info.MessageType),
+		}
+		if info.Error == nil {
+			ctx := with(*info.Context, TRACE, "ydb", "topic", "listener", "send", "data", "request")
+			l.Log(ctx, "topic listener send data request", fields...)
+		} else {
+			ctx := with(*info.Context, WARN, "ydb", "topic", "listener", "send", "data", "request")
+			l.Log(ctx, "topic listener send data request failed",
+				append(fields,
+					kv.Error(info.Error),
+					kv.Version(),
+				)...,
+			)
+		}
+	}
+
+	t.OnListenerUnknownMessage = func(info trace.TopicListenerUnknownMessageInfo) {
+		if d.Details()&trace.TopicListenerStreamEvents == 0 {
+			return
+		}
+		ctx := with(*info.Context, DEBUG, "ydb", "topic", "listener", "unknown", "message")
+		l.Log(ctx, "topic listener received unknown message",
+			kv.String("listener_id", info.ListenerID),
+			kv.String("session_id", info.SessionID),
+			kv.String("message_type", info.MessageType),
+			kv.Error(info.Error),
+			kv.Version(),
+		)
+	}
+
+	///
+	/// Topic Partition Worker
+	///
+	t.OnPartitionWorkerStart = func(info trace.TopicPartitionWorkerStartInfo) {
+		if d.Details()&trace.TopicListenerWorkerEvents == 0 {
+			return
+		}
+		ctx := with(*info.Context, INFO, "ydb", "topic", "listener", "partition", "worker", "start")
+		l.Log(ctx, "topic partition worker starting",
+			kv.String("listener_id", info.ListenerID),
+			kv.String("session_id", info.SessionID),
+			kv.Int64("partition_session_id", info.PartitionSessionID),
+			kv.Int64("partition_id", info.PartitionID),
+			kv.String("topic", info.Topic),
+		)
+	}
+
+	t.OnPartitionWorkerProcessMessage = func(
+		info trace.TopicPartitionWorkerProcessMessageStartInfo,
+	) func(doneInfo trace.TopicPartitionWorkerProcessMessageDoneInfo) {
+		if d.Details()&trace.TopicListenerWorkerEvents == 0 {
+			return nil
+		}
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "listener", "partition", "worker", "process", "message")
+		start := time.Now()
+		l.Log(ctx, "topic partition worker process message starting...",
+			kv.String("listener_id", info.ListenerID),
+			kv.String("session_id", info.SessionID),
+			kv.Int64("partition_session_id", info.PartitionSessionID),
+			kv.Int64("partition_id", info.PartitionID),
+			kv.String("topic", info.Topic),
+			kv.String("message_type", info.MessageType),
+			kv.Int("messages_count", info.MessagesCount),
+		)
+
+		return func(doneInfo trace.TopicPartitionWorkerProcessMessageDoneInfo) {
+			fields := []Field{
+				kv.String("listener_id", info.ListenerID),
+				kv.String("session_id", info.SessionID),
+				kv.Int64("partition_session_id", info.PartitionSessionID),
+				kv.Int64("partition_id", info.PartitionID),
+				kv.String("topic", info.Topic),
+				kv.String("message_type", info.MessageType),
+				kv.Int("messages_count", info.MessagesCount),
+				kv.Int("processed_messages", doneInfo.ProcessedMessages),
+				kv.Latency(start),
+			}
+			if doneInfo.Error == nil {
+				l.Log(ctx, "topic partition worker process message done", fields...)
+			} else {
+				l.Log(WithLevel(ctx, ERROR), "topic partition worker process message failed",
+					append(fields,
+						kv.Error(doneInfo.Error),
+						kv.Version(),
+					)...,
+				)
+			}
+		}
+	}
+
+	t.OnPartitionWorkerHandlerCall = func(
+		info trace.TopicPartitionWorkerHandlerCallStartInfo,
+	) func(doneInfo trace.TopicPartitionWorkerHandlerCallDoneInfo) {
+		if d.Details()&trace.TopicListenerWorkerEvents == 0 {
+			return nil
+		}
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "listener", "partition", "worker", "handler", "call")
+		start := time.Now()
+		l.Log(ctx, "topic partition worker handler call starting...",
+			kv.String("listener_id", info.ListenerID),
+			kv.String("session_id", info.SessionID),
+			kv.Int64("partition_session_id", info.PartitionSessionID),
+			kv.Int64("partition_id", info.PartitionID),
+			kv.String("topic", info.Topic),
+			kv.String("handler_type", info.HandlerType),
+			kv.Int("messages_count", info.MessagesCount),
+		)
+
+		return func(doneInfo trace.TopicPartitionWorkerHandlerCallDoneInfo) {
+			fields := []Field{
+				kv.String("listener_id", info.ListenerID),
+				kv.String("session_id", info.SessionID),
+				kv.Int64("partition_session_id", info.PartitionSessionID),
+				kv.Int64("partition_id", info.PartitionID),
+				kv.String("topic", info.Topic),
+				kv.String("handler_type", info.HandlerType),
+				kv.Int("messages_count", info.MessagesCount),
+				kv.Latency(start),
+			}
+			if doneInfo.Error == nil {
+				l.Log(ctx, "topic partition worker handler call done", fields...)
+			} else {
+				l.Log(WithLevel(ctx, WARN), "topic partition worker handler call failed",
+					append(fields,
+						kv.Error(doneInfo.Error),
+						kv.Version(),
+					)...,
+				)
+			}
+		}
+	}
+
+	t.OnPartitionWorkerStop = func(
+		info trace.TopicPartitionWorkerStopStartInfo,
+	) func(doneInfo trace.TopicPartitionWorkerStopDoneInfo) {
+		if d.Details()&trace.TopicListenerWorkerEvents == 0 {
+			return nil
+		}
+		ctx := with(*info.Context, TRACE, "ydb", "topic", "listener", "partition", "worker", "stop")
+		start := time.Now()
+		l.Log(ctx, "topic partition worker stop starting...",
+			kv.String("listener_id", info.ListenerID),
+			kv.String("session_id", info.SessionID),
+			kv.Int64("partition_session_id", info.PartitionSessionID),
+			kv.Int64("partition_id", info.PartitionID),
+			kv.String("topic", info.Topic),
+			kv.NamedError("reason", info.Reason),
+		)
+
+		return func(doneInfo trace.TopicPartitionWorkerStopDoneInfo) {
+			fields := []Field{
+				kv.String("listener_id", info.ListenerID),
+				kv.String("session_id", info.SessionID),
+				kv.Int64("partition_session_id", info.PartitionSessionID),
+				kv.Int64("partition_id", info.PartitionID),
+				kv.String("topic", info.Topic),
+				kv.NamedError("reason", info.Reason),
+				kv.Latency(start),
+			}
+			if doneInfo.Error == nil {
+				l.Log(WithLevel(ctx, INFO), "topic partition worker stop done", fields...)
+			} else {
+				l.Log(WithLevel(ctx, WARN), "topic partition worker stop failed",
+					append(fields,
+						kv.Error(doneInfo.Error),
+						kv.Version(),
+					)...,
+				)
+			}
+		}
 	}
 
 	return t

@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ import (
 	"github.com/bufbuild/buf/private/bufpkg/bufregistryapi/bufregistryapimodule"
 	"github.com/bufbuild/buf/private/pkg/syserror"
 	"github.com/bufbuild/buf/private/pkg/wasm"
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
@@ -74,6 +75,9 @@ func NewCommand(
 			},
 		),
 		BindFlags: flags.Bind,
+		ModifyCobra: func(cmd *cobra.Command) error {
+			return bufcli.RegisterFlagCompletionErrorFormat(cmd, errorFormatFlagName)
+		},
 	}
 }
 
@@ -177,6 +181,7 @@ func run(
 		container,
 		bufctl.WithDisableSymlinks(flags.DisableSymlinks),
 		bufctl.WithFileAnnotationErrorFormat(flags.ErrorFormat),
+		bufctl.WithColorizedFileAnnotationSetDiagnosticReport(container.LogFormat() == appext.LogFormatColor),
 		bufctl.WithFileAnnotationsToStdout(),
 	)
 	if err != nil {
@@ -364,7 +369,7 @@ func run(
 		}
 	}
 	if len(allFileAnnotations) > 0 {
-		allFileAnnotationSet := bufanalysis.NewFileAnnotationSet(allFileAnnotations...)
+		allFileAnnotationSet := bufanalysis.NewFileAnnotationSet(nil, allFileAnnotations...)
 		if err := bufanalysis.PrintFileAnnotationSet(
 			container.Stdout(),
 			allFileAnnotationSet,
@@ -452,12 +457,15 @@ func filterImageWithConfigsNotInAgainstImages(
 	var filteredImageWithConfigs []bufctl.ImageWithConfig
 	for _, imageWithConfig := range imageWithConfigs {
 		for _, imageFile := range imageWithConfig.Files() {
+			if imageFile.IsImport() {
+				continue
+			}
 			var foundImage bufimage.Image
 			for i, againstImage := range againstImages {
 				if _, ok := foundAgainstImageIndices[i]; ok {
 					continue
 				}
-				if againstImage.GetFile(imageFile.Path()) != nil {
+				if againstFile := againstImage.GetFile(imageFile.Path()); againstFile != nil && !againstFile.IsImport() {
 					foundAgainstImageIndices[i] = struct{}{}
 					foundImage = againstImage
 					break

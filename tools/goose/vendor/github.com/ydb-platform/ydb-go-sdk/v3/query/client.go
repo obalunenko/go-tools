@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/closer"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/query/config"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/query/options"
 	"github.com/ydb-platform/ydb-go-sdk/v3/retry/budget"
 	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
@@ -33,6 +34,12 @@ type (
 
 		// QueryRow execute query and take the exactly single row from exactly single result set from result
 		//
+		// QueryRow returns error if result contains more than one result set or more than one row
+		//
+		// Expected errors:
+		// - ErrNoRows: when query returns no rows
+		// - ErrMoreThanOneRow: when query returns more than one row
+		//
 		// Exec used by default:
 		// - DefaultTxControl
 		QueryRow(ctx context.Context, sql string, opts ...ExecuteOption) (Row, error)
@@ -53,8 +60,8 @@ type (
 		// DoTx provide the best effort for execute transaction.
 		//
 		// DoTx implements internal busy loop until one of the following conditions is met:
-		// - deadline was canceled or deadlined
-		// - retry operation returned nil as error
+		//  - deadline was canceled or deadlined
+		//  - retry operation returned nil as error
 		//
 		// DoTx makes auto selector (with TransactionSettings, by default - SerializableReadWrite), commit and
 		// rollback (on error) of transaction.
@@ -85,7 +92,12 @@ type (
 
 		// QueryRow is a helper which read only one row from first result set in result
 		//
-		// ReadRow returns error if result contains more than one result set or more than one row
+		// QueryRow returns error if result contains more than one result set or more than one row
+		//
+		// Expected errors:
+		// - ErrNoRows: when query returns no rows
+		// - ErrMoreThanOneRow: when query returns more than one row
+		// - ErrMoreThanOneResultSet: when query returns more than one result set
 		QueryRow(ctx context.Context, sql string, opts ...ExecuteOption) (Row, error)
 
 		// ExecuteScript starts long executing script with polling results later
@@ -151,4 +163,22 @@ func WithLabel(lbl string) options.LabelOption {
 // WithRetryBudget creates option with external budget
 func WithRetryBudget(b budget.Budget) options.RetryOptionsOption {
 	return options.WithRetryBudget(b)
+}
+
+// WithLazyTx enables or disables lazy transactions for a specific DoTx call.
+// When enabled, the Begin call will be a no-op and the first execute will create
+// an interactive transaction with the given transaction settings.
+//
+// Experimental: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#experimental
+func WithLazyTx(lazyTx bool) options.DoTxOption {
+	return options.WithLazyTx(lazyTx)
+}
+
+// AllowImplicitSessions is an option to execute queries using an implicit session
+// which allows the queries to be executed without explicitly creating a session.
+// Please note that requests with this option use a separate session pool.
+//
+// Working with `query.Client.{Exec,Query,QueryResultSet,QueryRow}`.
+func AllowImplicitSessions() config.Option {
+	return config.AllowImplicitSessions()
 }

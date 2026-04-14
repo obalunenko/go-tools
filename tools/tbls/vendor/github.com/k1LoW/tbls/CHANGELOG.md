@@ -1,5 +1,69 @@
 # Changelog
 
+## [v1.94.4](https://github.com/k1LoW/tbls/compare/v1.94.3...v1.94.4) - 2026-04-08
+### Other Changes
+- chore(deps): bump go.opentelemetry.io/otel/sdk from 1.42.0 to 1.43.0 by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/825
+
+## [v1.94.3](https://github.com/k1LoW/tbls/compare/v1.94.2...v1.94.3) - 2026-04-08
+### Fix bug 🐛
+- fix(postgres): add missing table schema name to referenced_table in schema.json by @KaoruMuta in https://github.com/k1LoW/tbls/pull/821
+### Other Changes
+- chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.71.1 to 1.97.3 by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/822
+
+## [v1.94.2](https://github.com/k1LoW/tbls/compare/v1.94.1...v1.94.2) - 2026-04-03
+### Other Changes
+- chore(deps): bump github.com/go-jose/go-jose/v4 from 4.1.3 to 4.1.4 by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/818
+- chore(deps): bump github.com/go-jose/go-jose/v3 from 3.0.4 to 3.0.5 by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/817
+- chore(deps): bump the dependencies group with 4 updates by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/815
+- chore(deps): bump the dependencies group with 17 updates by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/816
+
+## [v1.94.1](https://github.com/k1LoW/tbls/compare/v1.94.0...v1.94.1) - 2026-03-31
+### Other Changes
+- chore(deps): bump golang.org/x/image from 0.36.0 to 0.38.0 by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/812
+- chore(deps): bump github.com/buger/jsonparser from 1.1.1 to 1.1.2 in /scripts/jsonschema by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/813
+
+## [v1.94.0](https://github.com/k1LoW/tbls/compare/v1.93.0...v1.94.0) - 2026-03-25
+### Breaking Changes 🛠
+- fix: hide Description header when table has no comment or definition by @KeitaShimura in https://github.com/k1LoW/tbls/pull/810
+
+## [v1.93.0](https://github.com/k1LoW/tbls/compare/v1.92.3...v1.93.0) - 2026-03-19
+### New Features 🎉
+- Add fts5 support by @zxckaneki666 in https://github.com/k1LoW/tbls/pull/791
+### Other Changes
+- chore(deps): bump filippo.io/edwards25519 from 1.1.0 to 1.1.1 by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/803
+- chore(deps): bump the dependencies group with 19 updates by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/805
+- fix: resolve golangci-lint errors (gosec, revive, staticcheck) by @k1LoW in https://github.com/k1LoW/tbls/pull/806
+- chore(deps): bump goreleaser/goreleaser-action from 6 to 7 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/804
+- chore(deps): bump google.golang.org/grpc from 1.78.0 to 1.79.3 by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/807
+
+## [v1.92.3](https://github.com/k1LoW/tbls/compare/v1.92.2...v1.92.3) - 2026-01-07
+### Fix bug 🐛
+- Fix databricks top level arrays by @Ewan-Keith in https://github.com/k1LoW/tbls/pull/794
+- fix: escape double quotes in Mermaid ER diagram relation definitions by @k1LoW in https://github.com/k1LoW/tbls/pull/795
+- fix: freeze github.com/snowflakedb/gosnowflake version by @k1LoW in https://github.com/k1LoW/tbls/pull/799
+### Other Changes
+- chore(deps): bump the dependencies group with 6 updates by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/793
+- fix: handle errors when parsing GOOGLE_APPLICATION_CREDENTIALS_JSON by @k1LoW in https://github.com/k1LoW/tbls/pull/797
+- ci: remove Docker Hub login step from release-test workflow by @k1LoW in https://github.com/k1LoW/tbls/pull/798
+- chore(deps): bump the dependencies group with 3 updates by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/800
+
+## [v1.92.2](https://github.com/k1LoW/tbls/compare/v1.92.1...v1.92.2) - 2025-12-22
+### Fix bug 🐛
+- fix: merge viewpoints only by name, not by tables/labels combination by @k1LoW in https://github.com/k1LoW/tbls/pull/787
+
+## [v1.92.1](https://github.com/k1LoW/tbls/compare/v1.92.0...v1.92.1) - 2025-12-17
+### Other Changes
+- chore(deps): bump github.com/expr-lang/expr from 1.17.6 to 1.17.7 by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/782
+- chore(deps): bump the dependencies group across 1 directory with 18 updates by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/784
+
+## [v1.92.0](https://github.com/k1LoW/tbls/compare/v1.91.4...v1.92.0) - 2025-12-10
+### New Features 🎉
+- feat: add naming strategy `invertedSingularTableName` by @k1LoW in https://github.com/k1LoW/tbls/pull/778
+### Fix bug 🐛
+- fix(mssql): exclude HEAP indexes from index retrieval query by @ejsmile in https://github.com/k1LoW/tbls/pull/777
+### Other Changes
+- chore(deps): bump actions/checkout from 5 to 6 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/tbls/pull/771
+
 ## [v1.91.4](https://github.com/k1LoW/tbls/compare/v1.91.3...v1.91.4) - 2025-11-29
 ### Other Changes
 - chore: update go-graphviz version by @k1LoW in https://github.com/k1LoW/tbls/pull/769

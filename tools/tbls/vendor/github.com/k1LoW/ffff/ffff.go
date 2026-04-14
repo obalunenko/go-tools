@@ -2,7 +2,6 @@ package ffff
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,7 +26,7 @@ var (
 	fonts = map[string]Font{}
 )
 
-// FuzzyFind find font by keyword
+// FuzzyFind find font by keyword.
 func FuzzyFind(keyword string, to *truetype.Options, oo *opentype.FaceOptions) (Font, error) {
 	list := []string{}
 	pathOnly := false
@@ -58,7 +57,7 @@ func FuzzyFind(keyword string, to *truetype.Options, oo *opentype.FaceOptions) (
 	return m, nil
 }
 
-// FuzzyFindPath find font file path by keyword
+// FuzzyFindPath find font file path by keyword.
 func FuzzyFindPath(keyword string) (string, error) {
 	f, err := FuzzyFind(keyword, nil, nil)
 	if err != nil {
@@ -67,7 +66,7 @@ func FuzzyFindPath(keyword string) (string, error) {
 	return f.Path, nil
 }
 
-// FuzzyFindFace find font.Face by keyword
+// FuzzyFindFace find font.Face by keyword.
 func FuzzyFindFace(keyword string, to *truetype.Options, oo *opentype.FaceOptions) (font.Face, error) {
 	f, err := FuzzyFind(keyword, to, oo)
 	if err != nil {
@@ -93,7 +92,7 @@ func listFonts(to *truetype.Options, oo *opentype.FaceOptions) error {
 			var face font.Face
 			if strings.HasSuffix(lp, ".ttf") || strings.HasSuffix(lp, ".ttc") {
 				// TrueType
-				d, err := ioutil.ReadFile(filepath.Clean(path))
+				d, err := os.ReadFile(filepath.Clean(path)) //nolint:gosec // G122: path is from filepath.Walk, acceptable for font directory traversal
 				if err != nil {
 					return err
 				}
@@ -110,7 +109,7 @@ func listFonts(to *truetype.Options, oo *opentype.FaceOptions) error {
 				}
 			} else if strings.HasSuffix(lp, ".otf") {
 				// OpenType
-				d, err := ioutil.ReadFile(filepath.Clean(path))
+				d, err := os.ReadFile(filepath.Clean(path)) //nolint:gosec // G122: path is from filepath.Walk, acceptable for font directory traversal
 				if err != nil {
 					return err
 				}

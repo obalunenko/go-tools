@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -46,10 +47,14 @@ func (Pipe) Run(ctx *context.Context) error {
 	ctx.Git = info
 	log.WithField("commit", info.Commit).
 		WithField("branch", info.Branch).
-		WithField("current_tag", info.CurrentTag).
 		WithField("previous_tag", cmp.Or(info.PreviousTag, "<unknown>")).
+		WithField("current_tag", info.CurrentTag).
 		WithField("dirty", info.Dirty).
-		Info("git state")
+		Debug("git state")
+	log.
+		WithField("previous", cmp.Or(info.PreviousTag, "<unknown>")).
+		WithField("current", info.CurrentTag).
+		Info("using tags")
 	ctx.Version = strings.TrimPrefix(ctx.Git.CurrentTag, "v")
 	return validate(ctx)
 }
@@ -365,10 +370,8 @@ func filterOut(tags []string, exclude []string) string {
 		return tags[0]
 	}
 	for _, tag := range tags {
-		for _, exl := range exclude {
-			if exl != tag {
-				return tag
-			}
+		if !slices.Contains(exclude, tag) {
+			return tag
 		}
 	}
 	return ""

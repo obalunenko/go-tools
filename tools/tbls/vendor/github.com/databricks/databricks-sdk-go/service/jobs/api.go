@@ -209,6 +209,14 @@ type JobsInterface interface {
 	// without creating a job. Runs submitted using this endpoint don’t display in
 	// the UI. Use the `jobs/runs/get` API to check the run state after the job is
 	// submitted.
+	//
+	// **Important:** Jobs submitted using this endpoint are not saved as a job.
+	// They do not show up in the Jobs UI, and do not retry when they fail. Because
+	// they are not saved, Databricks cannot auto-optimize serverless compute in
+	// case of failure. If your job fails, you may want to use classic compute to
+	// specify the compute needs for the job. Alternatively, use the `POST
+	// /jobs/create` and `POST /jobs/run-now` endpoints to create and run a saved
+	// job.
 	Submit(ctx context.Context, submitRun SubmitRun) (*WaitGetRunJobTerminatedOrSkipped[SubmitRunResponse], error)
 
 	// Calls [JobsAPIInterface.Submit] and waits to reach TERMINATED or SKIPPED state
@@ -244,7 +252,7 @@ func NewJobs(client *client.DatabricksClient) *JobsAPI {
 // Databricks manages the task orchestration, cluster management, monitoring,
 // and error reporting for all of your jobs. You can run your jobs immediately
 // or periodically through an easy-to-use scheduling system. You can implement
-// job tasks using notebooks, JARS, Delta Live Tables pipelines, or Python,
+// job tasks using notebooks, JARS, Spark Declarative Pipelines, or Python,
 // Scala, Spark submit, and Java applications.
 //
 // You should never hard code secrets or store them in plain text. Use the
@@ -582,6 +590,14 @@ func (a *JobsAPI) RunNowAndWait(ctx context.Context, runNow RunNow, options ...r
 // without creating a job. Runs submitted using this endpoint don’t display in
 // the UI. Use the `jobs/runs/get` API to check the run state after the job is
 // submitted.
+//
+// **Important:** Jobs submitted using this endpoint are not saved as a job.
+// They do not show up in the Jobs UI, and do not retry when they fail. Because
+// they are not saved, Databricks cannot auto-optimize serverless compute in
+// case of failure. If your job fails, you may want to use classic compute to
+// specify the compute needs for the job. Alternatively, use the `POST
+// /jobs/create` and `POST /jobs/run-now` endpoints to create and run a saved
+// job.
 func (a *JobsAPI) Submit(ctx context.Context, submitRun SubmitRun) (*WaitGetRunJobTerminatedOrSkipped[SubmitRunResponse], error) {
 	submitRunResponse, err := a.jobsImpl.Submit(ctx, submitRun)
 	if err != nil {

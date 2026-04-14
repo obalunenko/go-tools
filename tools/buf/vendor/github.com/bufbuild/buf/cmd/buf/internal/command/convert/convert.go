@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import (
 	"github.com/bufbuild/buf/private/bufpkg/bufimage/bufimageutil"
 	"github.com/bufbuild/buf/private/bufpkg/bufmodule"
 	"github.com/bufbuild/buf/private/gen/data/datawkt"
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
@@ -91,6 +92,9 @@ Use a module on the bsr:
 			},
 		),
 		BindFlags: flags.Bind,
+		ModifyCobra: func(cmd *cobra.Command) error {
+			return bufcli.RegisterFlagCompletionErrorFormat(cmd, errorFormatFlagName)
+		},
 	}
 }
 
@@ -170,6 +174,7 @@ func run(
 		container,
 		bufctl.WithDisableSymlinks(flags.DisableSymlinks),
 		bufctl.WithFileAnnotationErrorFormat(flags.ErrorFormat),
+		bufctl.WithColorizedFileAnnotationSetDiagnosticReport(container.LogFormat() == appext.LogFormatColor),
 	)
 	if err != nil {
 		return err

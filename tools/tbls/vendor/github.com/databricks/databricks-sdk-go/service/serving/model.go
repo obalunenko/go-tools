@@ -3,6 +3,7 @@
 package serving
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -1011,6 +1012,12 @@ type ExternalFunctionRequest struct {
 	Params string `json:"params,omitempty"`
 	// The relative path for the API endpoint. This is required.
 	Path string `json:"path"`
+	// Optional subdomain to prepend to the connection URL's host. If provided,
+	// this will be added as a prefix to the connection URL's host. For example,
+	// if the connection URL is `https://api.example.com/v1` and `sub_domain` is
+	// `"custom"`, the resulting URL will be
+	// `https://custom.api.example.com/v1`.
+	SubDomain string `json:"sub_domain,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
 }
@@ -1432,6 +1439,11 @@ type PtEndpointCoreConfig struct {
 }
 
 type PtServedModel struct {
+	// Whether burst scaling is enabled. When enabled (default), the endpoint
+	// can automatically scale up beyond provisioned capacity to handle traffic
+	// spikes. When disabled, the endpoint maintains fixed capacity at
+	// provisioned_model_units.
+	BurstScalingEnabled bool `json:"burst_scaling_enabled,omitempty"`
 	// The name of the entity to be served. The entity may be a model in the
 	// Databricks Model Registry, a model in the Unity Catalog (UC), or a
 	// function of type FEATURE_SPEC in the UC. If it is a UC object, the full
@@ -1605,6 +1617,8 @@ type QueryEndpointResponse struct {
 	// endpoint, one of [text_completion, chat.completion, list (of
 	// embeddings)].
 	Object QueryEndpointResponseObject `json:"object,omitempty"`
+	// The outputs of the feature serving endpoint.
+	Outputs []json.RawMessage `json:"outputs,omitempty"`
 	// The predictions returned by the serving endpoint.
 	Predictions []any `json:"predictions,omitempty"`
 	// The name of the served model that served the request. This is useful when
@@ -1772,6 +1786,11 @@ func (s Route) MarshalJSON() ([]byte, error) {
 }
 
 type ServedEntityInput struct {
+	// Whether burst scaling is enabled. When enabled (default), the endpoint
+	// can automatically scale up beyond provisioned capacity to handle traffic
+	// spikes. When disabled, the endpoint maintains fixed capacity at
+	// provisioned_model_units.
+	BurstScalingEnabled bool `json:"burst_scaling_enabled,omitempty"`
 	// The name of the entity to be served. The entity may be a model in the
 	// Databricks Model Registry, a model in the Unity Catalog (UC), or a
 	// function of type FEATURE_SPEC in the UC. If it is a UC object, the full
@@ -1852,6 +1871,12 @@ func (s ServedEntityInput) MarshalJSON() ([]byte, error) {
 }
 
 type ServedEntityOutput struct {
+	// Whether burst scaling is enabled. When enabled (default), the endpoint
+	// can automatically scale up beyond provisioned capacity to handle traffic
+	// spikes. When disabled, the endpoint maintains fixed capacity at
+	// provisioned_model_units.
+	BurstScalingEnabled bool `json:"burst_scaling_enabled,omitempty"`
+
 	CreationTimestamp int64 `json:"creation_timestamp,omitempty"`
 
 	Creator string `json:"creator,omitempty"`
@@ -1961,6 +1986,11 @@ func (s ServedEntitySpec) MarshalJSON() ([]byte, error) {
 }
 
 type ServedModelInput struct {
+	// Whether burst scaling is enabled. When enabled (default), the endpoint
+	// can automatically scale up beyond provisioned capacity to handle traffic
+	// spikes. When disabled, the endpoint maintains fixed capacity at
+	// provisioned_model_units.
+	BurstScalingEnabled bool `json:"burst_scaling_enabled,omitempty"`
 	// An object containing a set of optional, user-specified environment
 	// variable key-value pairs used for serving this entity. Note: this is an
 	// experimental feature and subject to change. Example entity environment
@@ -2076,6 +2106,12 @@ func (f *ServedModelInputWorkloadType) Type() string {
 }
 
 type ServedModelOutput struct {
+	// Whether burst scaling is enabled. When enabled (default), the endpoint
+	// can automatically scale up beyond provisioned capacity to handle traffic
+	// spikes. When disabled, the endpoint maintains fixed capacity at
+	// provisioned_model_units.
+	BurstScalingEnabled bool `json:"burst_scaling_enabled,omitempty"`
+
 	CreationTimestamp int64 `json:"creation_timestamp,omitempty"`
 
 	Creator string `json:"creator,omitempty"`

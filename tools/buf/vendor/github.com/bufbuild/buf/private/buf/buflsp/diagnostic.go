@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 package buflsp
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/bufbuild/protocompile/experimental/report"
+	"github.com/bufbuild/protocompile/experimental/report/rtags"
 	"github.com/bufbuild/protocompile/experimental/source/length"
 	"go.lsp.dev/protocol"
 )
@@ -29,14 +29,6 @@ import (
 // supported by the go.lsp.dev/protocol library.
 // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#position
 const positionalEncoding = length.UTF16
-
-// diagnosticData is a structure to hold the [report.Diagnostic] notes, help, and debug
-// messages, to marshal into JSON for the [protocol.Diagnostic].Data field.
-type diagnosticData struct {
-	Notes string `json:"notes,omitempty"`
-	Help  string `json:"help,omitempty"`
-	Debug string `json:"debug,omitempty"`
-}
 
 // reportLevelToDiagnosticSeverity is a mapping of [report.Level] to [protocol.DiagnosticSeverity].
 var reportLevelToDiagnosticSeverity = map[report.Level]protocol.DiagnosticSeverity{
@@ -50,11 +42,26 @@ var reportLevelToDiagnosticSeverity = map[report.Level]protocol.DiagnosticSeveri
 // corresponding [protocol.Diagnostic].
 func reportDiagnosticToProtocolDiagnostic(
 	reportDiagnostic report.Diagnostic,
-) (protocol.Diagnostic, error) {
+) protocol.Diagnostic {
+	parts := []string{reportDiagnostic.Message()}
+	for _, note := range reportDiagnostic.Notes() {
+		parts = append(parts, "note: "+note)
+	}
+	for _, help := range reportDiagnostic.Help() {
+		parts = append(parts, "help: "+help)
+	}
+	// Debug info is implementation-level detail; only include it for ICE where
+	// all available context helps diagnose the unexpected failure.
+	if reportDiagnostic.Level() == report.ICE {
+		for _, debug := range reportDiagnostic.Debug() {
+			parts = append(parts, "debug: "+debug)
+		}
+	}
+	message := strings.Join(parts, "\n")
 	diagnostic := protocol.Diagnostic{
 		Source:   serverName,
 		Severity: reportLevelToDiagnosticSeverity[reportDiagnostic.Level()],
-		Message:  reportDiagnostic.Message(),
+		Message:  message,
 	}
 	if primary := reportDiagnostic.Primary(); !primary.IsZero() {
 		startLocation := primary.Location(primary.Start, positionalEncoding)
@@ -70,20 +77,15 @@ func reportDiagnosticToProtocolDiagnostic(
 			},
 		}
 	}
-	data := diagnosticData{
-		Notes: strings.Join(reportDiagnostic.Notes(), "\n"),
-		Help:  strings.Join(reportDiagnostic.Help(), "\n"),
-		Debug: strings.Join(reportDiagnostic.Debug(), "\n"),
+	switch reportDiagnostic.Tag() {
+	case rtags.UnusedImport:
+		diagnostic.Tags = []protocol.DiagnosticTag{
+			protocol.DiagnosticTagUnnecessary,
+		}
+	case rtags.Deprecated:
+		diagnostic.Tags = []protocol.DiagnosticTag{
+			protocol.DiagnosticTagDeprecated,
+		}
 	}
-	bytes, err := json.Marshal(data)
-	if err != nil {
-		return protocol.Diagnostic{}, err
-	}
-	if bytes != nil {
-		// We serialize the bytes into a string before providing the structure to diagnostic.Data
-		// because diagnostic.Data is an interface{}, which is treated as a JSON "any", which
-		// will not cleanly deserialize.
-		diagnostic.Data = string(bytes)
-	}
-	return diagnostic, nil
+	return diagnostic
 }

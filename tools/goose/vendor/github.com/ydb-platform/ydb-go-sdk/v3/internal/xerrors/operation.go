@@ -3,14 +3,16 @@ package xerrors
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb"
 	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Issue"
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/backoff"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/operation"
-	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xstring"
+	"github.com/ydb-platform/ydb-go-sdk/v3/pkg/xstring"
 )
 
 // operationError reports about operation fail.
@@ -79,7 +81,10 @@ func WithTraceID(traceID string) traceIDOption {
 	return traceIDOption(traceID)
 }
 
-type operationOption = operationError
+type operationOption struct {
+	code   Ydb.StatusIds_StatusCode
+	issues issues
+}
 
 func (e *operationOption) applyToOperationError(oe *operationError) {
 	oe.code = e.code
@@ -156,22 +161,16 @@ func IsOperationError(err error, codes ...Ydb.StatusIds_StatusCode) bool {
 	return false
 }
 
-const issueCodeTransactionLocksInvalidated = 2001
-
 func IsOperationErrorTransactionLocksInvalidated(err error) (isTLI bool) {
-	if IsOperationError(err, Ydb.StatusIds_ABORTED) {
-		IterateByIssues(err, func(_ string, code Ydb.StatusIds_StatusCode, severity uint32) {
-			isTLI = isTLI || (code == issueCodeTransactionLocksInvalidated)
+	return IsOperationError(err, Ydb.StatusIds_ABORTED) &&
+		iterateByIssues(err, func(message string, code Ydb.StatusIds_StatusCode, severity uint32) (stop bool) {
+			return code == IssueCodeTransactionLocksInvalidated
 		})
-	}
-
-	return isTLI
 }
 
 func (e *operationError) Type() Type {
 	switch e.code {
 	case
-		Ydb.StatusIds_ABORTED,
 		Ydb.StatusIds_UNAVAILABLE,
 		Ydb.StatusIds_OVERLOADED,
 		Ydb.StatusIds_BAD_SESSION,
@@ -183,9 +182,33 @@ func (e *operationError) Type() Type {
 		return TypeConditionallyRetryable
 	case Ydb.StatusIds_UNAUTHORIZED:
 		return TypeNonRetryable
+	case Ydb.StatusIds_ABORTED:
+		if e.hasIssueCodes(IssueCodeDatashardProgramSizeLimitExceeded) {
+			return TypeNonRetryable
+		}
+
+		return TypeRetryable
+	case Ydb.StatusIds_GENERIC_ERROR:
+		if e.hasSchemaOperationsLimitExceeded() {
+			return TypeRetryable
+		}
+
+		return TypeUndefined
 	default:
 		return TypeUndefined
 	}
+}
+
+func (e *operationError) hasIssueCodes(codes ...Ydb.StatusIds_StatusCode) bool {
+	return iterateByIssues(e, func(message string, code Ydb.StatusIds_StatusCode, severity uint32) (stop bool) {
+		return slices.Contains(codes, code)
+	})
+}
+
+func (e *operationError) hasSchemaOperationsLimitExceeded() bool {
+	return iterateByIssues(e, func(message string, code Ydb.StatusIds_StatusCode, severity uint32) (stop bool) {
+		return strings.Contains(message, "Request exceeded a limit on the number of schema operations, try again later")
+	})
 }
 
 func (e *operationError) BackoffType() backoff.Type {
@@ -193,12 +216,23 @@ func (e *operationError) BackoffType() backoff.Type {
 	case Ydb.StatusIds_OVERLOADED:
 		return backoff.TypeSlow
 	case
-		Ydb.StatusIds_ABORTED,
 		Ydb.StatusIds_UNAVAILABLE,
 		Ydb.StatusIds_CANCELLED,
 		Ydb.StatusIds_SESSION_BUSY,
 		Ydb.StatusIds_UNDETERMINED:
 		return backoff.TypeFast
+	case Ydb.StatusIds_ABORTED:
+		if e.hasIssueCodes(IssueCodeDatashardProgramSizeLimitExceeded) {
+			return backoff.TypeNoBackoff
+		}
+
+		return backoff.TypeFast
+	case Ydb.StatusIds_GENERIC_ERROR:
+		if e.hasSchemaOperationsLimitExceeded() {
+			return backoff.TypeSlow
+		}
+
+		return backoff.TypeNoBackoff
 	default:
 		return backoff.TypeNoBackoff
 	}

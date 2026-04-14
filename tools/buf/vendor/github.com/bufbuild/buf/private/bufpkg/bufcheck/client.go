@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -163,6 +163,7 @@ func (c *client) Lint(
 		return nil
 	}
 	return bufanalysis.NewFileAnnotationSet(
+		nil,
 		annotationsToFileAnnotations(
 			imageToPathToExternalPath(
 				image,
@@ -302,6 +303,7 @@ func (c *client) Breaking(
 		return nil
 	}
 	return bufanalysis.NewFileAnnotationSet(
+		nil,
 		annotationsToFileAnnotations(
 			imageToPathToExternalPath(
 				image,

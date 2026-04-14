@@ -14,6 +14,7 @@ import (
 
 	"github.com/microsoft/go-mssqldb/internal/decimal"
 	"github.com/microsoft/go-mssqldb/msdsn"
+	shopspring "github.com/shopspring/decimal"
 )
 
 type Bulk struct {
@@ -140,7 +141,7 @@ func (b *Bulk) sendBulkCommand(ctx context.Context) (err error) {
 	if err != nil {
 		return fmt.Errorf("Prepare failed: %s", err.Error())
 	}
-	b.dlogf(ctx, query)
+	b.dlogf(ctx, "%s", query)
 
 	_, err = stmt.(*Stmt).ExecContext(ctx, nil)
 	if err != nil {
@@ -293,6 +294,30 @@ func (b *Bulk) getMetadata(ctx context.Context) (err error) {
 		return
 	}
 
+	// Ensure we always SET FMTONLY OFF even if the next statement fails
+	resetFmtonly := true
+	defer func() {
+		if !resetFmtonly {
+			return
+		}
+
+		// Don't let resetErr shadow the "real" error, since this should
+		// generally only happen if one of the calls below failed
+		stmt, resetErr := b.cn.prepareContext(ctx, "SET FMTONLY OFF")
+		if resetErr != nil {
+			// This _should_ be infallible as prepareContext doesn't
+			// actually contact the server
+			b.cn.sess.logger.Log(ctx, msdsn.LogErrors, fmt.Sprintf("Could not reset FMTONLY: %v", resetErr))
+			return
+		}
+		// stmt.Close is a no-op so ignore it
+		_, resetErr = stmt.ExecContext(ctx, nil)
+		if resetErr != nil {
+			b.cn.sess.logger.Log(ctx, msdsn.LogErrors, fmt.Sprintf("Could not reset FMTONLY: %v", resetErr))
+			return
+		}
+	}()
+
 	// Get columns info.
 	stmt, err = b.cn.prepareContext(ctx, fmt.Sprintf("select * from %s SET FMTONLY OFF", b.tablename))
 	if err != nil {
@@ -302,6 +327,7 @@ func (b *Bulk) getMetadata(ctx context.Context) (err error) {
 	if err != nil {
 		return fmt.Errorf("get columns info failed: %v", err)
 	}
+	resetFmtonly = false
 	b.metadata = rows.(*Rows).cols
 
 	if b.Debug {
@@ -321,6 +347,10 @@ func (b *Bulk) makeParam(val DataValue, col columnStruct) (res param, err error)
 	loc := getTimezone(b.cn)
 
 	switch valuer := val.(type) {
+	case Money[shopspring.Decimal]:
+		return b.makeParam(valuer.Decimal, col)
+	case Money[shopspring.NullDecimal]:
+		return b.makeParam(valuer.Decimal, col)
 	case driver.Valuer:
 		var e error
 		val, e = driver.DefaultParameterConverter.ConvertValue(valuer)
@@ -536,7 +566,37 @@ func (b *Bulk) makeParam(val DataValue, col columnStruct) (res param, err error)
 			err = fmt.Errorf("mssql: invalid type for time column: %T %s", val, val)
 			return
 		}
-	// case typeMoney, typeMoney4, typeMoneyN:
+	case typeMoney, typeMoney4, typeMoneyN:
+		switch v := val.(type) {
+		case string:
+			money, err := decimal.StringToDecimalScale(v, 4)
+			if err != nil {
+				return res, err
+			}
+
+			buf := make([]byte, col.ti.Size)
+
+			integer0 := money.GetInteger(0)
+			if col.ti.Size == 4 {
+				if money.IsPositive() {
+					binary.LittleEndian.PutUint32(buf, integer0)
+				} else {
+					binary.LittleEndian.PutUint32(buf, ^integer0+1)
+				}
+			} else {
+				integer := (uint64(money.GetInteger(1)) << 32) | uint64(integer0)
+				if !money.IsPositive() {
+					integer = ^integer + 1
+				}
+
+				binary.LittleEndian.PutUint32(buf, uint32(integer>>32))
+				binary.LittleEndian.PutUint32(buf[4:], uint32(integer))
+			}
+
+			res.buffer = buf
+		default:
+			return res, fmt.Errorf("unknown value for money: %T %#v", v, v)
+		}
 	case typeDecimal, typeDecimalN, typeNumeric, typeNumericN:
 		prec := col.ti.Prec
 		scale := col.ti.Scale

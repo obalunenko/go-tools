@@ -108,9 +108,9 @@ func (d *TerminalReader) serializeWin32InputRecords(records []xwindows.InputReco
 			} else {
 				// We encode the key to Win32 Input Mode if it is a known key.
 				if kevent.VirtualKeyCode == 0 {
-					d.storeGraphemeRune(kd, kevent.Char)
+					d.eventScanner.storeGraphemeRune(kd, kevent.Char)
 				} else {
-					buf.Write(d.encodeGraphemeBufs())
+					buf.Write(d.eventScanner.encodeGraphemeBufs())
 					fmt.Fprintf(buf,
 						"\x1b[%d;%d;%d;%d;%d;%d_",
 						kevent.VirtualKeyCode,
@@ -158,8 +158,8 @@ func (d *TerminalReader) serializeWin32InputRecords(records []xwindows.InputReco
 
 			// We emulate mouse mode levels on Windows. This is because Windows
 			// doesn't have a concept of different mouse modes. We use the mouse mode to determine
-			if button == MouseNone && mouseMode&AllMouseMode == 0 ||
-				(button != MouseNone && mouseMode&DragMouseMode == 0) {
+			if button == MouseNone && mouseMode&MouseModeMotion == 0 ||
+				(button != MouseNone && mouseMode&MouseModeDrag == 0) {
 				continue
 			}
 
@@ -200,7 +200,7 @@ func (d *TerminalReader) serializeWin32InputRecords(records []xwindows.InputReco
 	}
 
 	// Flush any remaining grapheme buffers.
-	buf.Write(d.encodeGraphemeBufs())
+	buf.Write(d.eventScanner.encodeGraphemeBufs())
 }
 
 func mouseEventButton(p, s uint32) (MouseButton, bool) {

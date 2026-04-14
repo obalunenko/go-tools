@@ -7,6 +7,7 @@ import (
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/stack"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xcontext"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xerrors"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/badconn"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsql/common"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/xsync"
 	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
@@ -60,7 +61,11 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (_ driver.Tx,
 		stack.FunctionID("database/sql.(*Conn).BeginTx", stack.Package("database/sql")),
 	)
 	defer func() {
-		onDone(c.currentTx, finalErr)
+		if c.currentTx != nil {
+			onDone(c.currentTx, finalErr)
+		} else {
+			onDone(nil, finalErr)
+		}
 	}()
 
 	if c.currentTx != nil {
@@ -102,7 +107,11 @@ func (c *Conn) Begin() (_ driver.Tx, finalErr error) {
 		stack.FunctionID("database/sql.(*Conn).Begin", stack.Package("database/sql")),
 	)
 	defer func() {
-		onDone(c.currentTx, finalErr)
+		if c.currentTx != nil {
+			onDone(c.currentTx, finalErr)
+		} else {
+			onDone(nil, finalErr)
+		}
 	}()
 
 	if c.currentTx != nil {
@@ -172,7 +181,12 @@ func (c *Conn) QueryContext(ctx context.Context, sql string, args []driver.Named
 		return c.currentTx.tx.Query(ctx, sql, params)
 	}
 
-	return c.cc.Query(ctx, sql, params)
+	result, err := c.cc.Query(ctx, sql, params)
+	if err != nil {
+		return nil, badconn.Map(err)
+	}
+
+	return result, nil
 }
 
 func (c *Conn) ExecContext(ctx context.Context, sql string, args []driver.NamedValue) (
@@ -198,5 +212,10 @@ func (c *Conn) ExecContext(ctx context.Context, sql string, args []driver.NamedV
 		return c.currentTx.tx.Exec(ctx, sql, params)
 	}
 
-	return c.cc.Exec(ctx, sql, params)
+	result, err := c.cc.Exec(ctx, sql, params)
+	if err != nil {
+		return nil, badconn.Map(err)
+	}
+
+	return result, nil
 }

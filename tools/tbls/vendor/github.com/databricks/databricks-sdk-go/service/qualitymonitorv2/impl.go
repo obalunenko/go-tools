@@ -24,6 +24,10 @@ func (a *qualityMonitorV2Impl) CreateQualityMonitor(ctx context.Context, request
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request.QualityMonitor, &qualityMonitor)
 	return &qualityMonitor, err
 }
@@ -33,6 +37,10 @@ func (a *qualityMonitorV2Impl) DeleteQualityMonitor(ctx context.Context, request
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodDelete, path, headers, queryParams, request, nil)
 	return err
 }
@@ -43,11 +51,16 @@ func (a *qualityMonitorV2Impl) GetQualityMonitor(ctx context.Context, request Ge
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &qualityMonitor)
 	return &qualityMonitor, err
 }
 
-// (Unimplemented) List quality monitors
+// Deprecated: Use Data Quality Monitoring API instead
+// (/api/data-quality/v1/monitors). (Unimplemented) List quality monitors.
 func (a *qualityMonitorV2Impl) ListQualityMonitor(ctx context.Context, request ListQualityMonitorRequest) listing.Iterator[QualityMonitor] {
 
 	getNextPage := func(ctx context.Context, req ListQualityMonitorRequest) (*ListQualityMonitorResponse, error) {
@@ -72,7 +85,8 @@ func (a *qualityMonitorV2Impl) ListQualityMonitor(ctx context.Context, request L
 	return iterator
 }
 
-// (Unimplemented) List quality monitors
+// Deprecated: Use Data Quality Monitoring API instead
+// (/api/data-quality/v1/monitors). (Unimplemented) List quality monitors.
 func (a *qualityMonitorV2Impl) ListQualityMonitorAll(ctx context.Context, request ListQualityMonitorRequest) ([]QualityMonitor, error) {
 	iterator := a.ListQualityMonitor(ctx, request)
 	return listing.ToSlice[QualityMonitor](ctx, iterator)
@@ -84,6 +98,10 @@ func (a *qualityMonitorV2Impl) internalListQualityMonitor(ctx context.Context, r
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &listQualityMonitorResponse)
 	return &listQualityMonitorResponse, err
 }
@@ -95,6 +113,10 @@ func (a *qualityMonitorV2Impl) UpdateQualityMonitor(ctx context.Context, request
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPut, path, headers, queryParams, request.QualityMonitor, &qualityMonitor)
 	return &qualityMonitor, err
 }

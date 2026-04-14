@@ -10,6 +10,7 @@ import (
 	"github.com/caarlos0/log"
 	"github.com/goreleaser/goreleaser/v2/internal/artifact"
 	"github.com/goreleaser/goreleaser/v2/internal/builders/base"
+	"github.com/goreleaser/goreleaser/v2/internal/elf"
 	"github.com/goreleaser/goreleaser/v2/internal/packagejson"
 	"github.com/goreleaser/goreleaser/v2/internal/tmpl"
 	api "github.com/goreleaser/goreleaser/v2/pkg/build"
@@ -144,12 +145,20 @@ func (b *Builder) Build(ctx *context.Context, build config.Build, options api.Op
 		build.Main,
 	)
 
+	log.
+		WithField("binary", options.Name).
+		WithField("target", options.Target.String()).
+		Info("building")
 	if err := base.Exec(ctx, command, env, build.Dir); err != nil {
 		return err
 	}
 
 	if err := base.ChTimes(build, tpl, a); err != nil {
 		return err
+	}
+
+	if elf.IsDynamicallyLinked(a.Path) {
+		a.Extra[artifact.ExtranDynLink] = true
 	}
 
 	ctx.Artifacts.Add(a)

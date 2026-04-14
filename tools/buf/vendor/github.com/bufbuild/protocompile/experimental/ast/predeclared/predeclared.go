@@ -26,7 +26,10 @@ import (
 	"fmt"
 	"iter"
 
+	"google.golang.org/protobuf/types/descriptorpb"
+
 	"github.com/bufbuild/protocompile/experimental/token/keyword"
+	"github.com/bufbuild/protocompile/internal/ext/slicesx"
 )
 
 // Name is one of the built-in Protobuf names. These represent particular
@@ -39,21 +42,21 @@ const (
 
 	Int32    = Name(keyword.Int32)
 	Int64    = Name(keyword.Int64)
-	UInt32   = Name(keyword.UInt32)
-	UInt64   = Name(keyword.UInt64)
-	SInt32   = Name(keyword.SInt32)
-	SInt64   = Name(keyword.SInt64)
+	UInt32   = Name(keyword.Uint32)
+	UInt64   = Name(keyword.Uint64)
+	SInt32   = Name(keyword.Sint32)
+	SInt64   = Name(keyword.Sint64)
 	Fixed32  = Name(keyword.Fixed32)
 	Fixed64  = Name(keyword.Fixed64)
-	SFixed32 = Name(keyword.SFixed32)
-	SFixed64 = Name(keyword.SFixed64)
+	SFixed32 = Name(keyword.Sfixed32)
+	SFixed64 = Name(keyword.Sfixed64)
 	Float    = Name(keyword.Float)
 	Double   = Name(keyword.Double)
 	Bool     = Name(keyword.Bool)
 	String   = Name(keyword.String)
 	Bytes    = Name(keyword.Bytes)
 	Inf      = Name(keyword.Inf)
-	NAN      = Name(keyword.NAN)
+	NAN      = Name(keyword.NaN)
 	True     = Name(keyword.True)
 	False    = Name(keyword.False)
 	Map      = Name(keyword.Map)
@@ -62,6 +65,29 @@ const (
 	Float32 = Float
 	Float64 = Double
 )
+
+// predeclaredToFDPType maps the scalar predeclared [Name]s to their respective
+// [descriptorpb.FieldDescriptorProto_Type].
+var predeclaredToFDPType = []descriptorpb.FieldDescriptorProto_Type{
+	Int32:  descriptorpb.FieldDescriptorProto_TYPE_INT32,
+	Int64:  descriptorpb.FieldDescriptorProto_TYPE_INT64,
+	UInt32: descriptorpb.FieldDescriptorProto_TYPE_UINT32,
+	UInt64: descriptorpb.FieldDescriptorProto_TYPE_UINT64,
+	SInt32: descriptorpb.FieldDescriptorProto_TYPE_SINT32,
+	SInt64: descriptorpb.FieldDescriptorProto_TYPE_SINT64,
+
+	Fixed32:  descriptorpb.FieldDescriptorProto_TYPE_FIXED32,
+	Fixed64:  descriptorpb.FieldDescriptorProto_TYPE_FIXED64,
+	SFixed32: descriptorpb.FieldDescriptorProto_TYPE_SFIXED32,
+	SFixed64: descriptorpb.FieldDescriptorProto_TYPE_SFIXED64,
+
+	Float32: descriptorpb.FieldDescriptorProto_TYPE_FLOAT,
+	Float64: descriptorpb.FieldDescriptorProto_TYPE_DOUBLE,
+
+	Bool:   descriptorpb.FieldDescriptorProto_TYPE_BOOL,
+	String: descriptorpb.FieldDescriptorProto_TYPE_STRING,
+	Bytes:  descriptorpb.FieldDescriptorProto_TYPE_BYTES,
+}
 
 // FromKeyword performs a vast from a [keyword.Keyword], but also validates
 // that it is in-range. If it isn't, returns [Unknown].
@@ -87,6 +113,13 @@ func (n Name) GoString() string {
 		return fmt.Sprintf("predeclared.Name(%d)", int(n))
 	}
 	return keyword.Keyword(n).GoString()
+}
+
+// FDPType returns the [descriptorpb.FieldDescriptorProto_Type] for the predeclared name,
+// if it is a scalar type. Otherwise, it returns 0.
+func (n Name) FDPType() descriptorpb.FieldDescriptorProto_Type {
+	kind, _ := slicesx.Get(predeclaredToFDPType, n)
+	return kind
 }
 
 // InRange returns whether this name value is within the range of declared

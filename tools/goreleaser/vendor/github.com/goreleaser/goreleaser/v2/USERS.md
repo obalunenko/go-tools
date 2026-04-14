@@ -1,6 +1,8 @@
-## Who uses GoReleaser?
+# Who uses GoReleaser?
 
-As the GoReleaser Community grows, we'd like to keep a list of our users.
+GoReleaser is used by [~50k][search] open source repositories!
+
+## Some notable mentions
 
 Here's a running list of some organizations using GoReleaser[^1]:
 
@@ -119,9 +121,9 @@ Hey! Thanks for looking into this file!
 If you're going to edit it, please:
 - keep a-z ordering :)
 - edit only the USERS.md file at the repository's root directory
-- /www/docs/users.md is auto-copied from /USERS.md
+- /www/content/resources/users.md is auto-copied from /USERS.md
 -->
 
-[^1]:
-    Entries were either added by the companies themselves or by the maintainers after seeing it in the wild.
-    You can see all public repositories using GoReleaser by [searching on GitHub](https://github.com/search?q=path%3A.goreleaser.yml+OR+path%3A.goreleaser.yaml+&type=code).
+[^1]: Entries were either added by the companies themselves or by GoReleaser maintainers based on public information only.
+
+[search]: https://github.com/search?q=path%3A.goreleaser.yml+OR+path%3A.goreleaser.yaml+OR+path%3Agoreleaer.yml+OR+path%3Agoreleaser.yaml&type=code

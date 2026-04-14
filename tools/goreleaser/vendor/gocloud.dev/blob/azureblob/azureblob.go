@@ -197,7 +197,7 @@ func NewDefaultServiceURLOptions() *ServiceURLOptions {
 	if connectionString != "" {
 		// Parse the connection string to get a default account name and protocol.
 		// Format: DefaultEndpointsProtocol=https;AccountName=some-account;AccountKey=very-secure;EndpointSuffix=core.windows.net
-		for _, part := range strings.Split(connectionString, ";") {
+		for part := range strings.SplitSeq(connectionString, ";") {
 			keyval := strings.Split(part, "=")
 			if len(keyval) == 2 {
 				if accountName == "" && keyval[0] == "AccountName" {
@@ -650,22 +650,26 @@ func (b *bucket) ErrorAs(err error, i any) bool {
 }
 
 func (b *bucket) ErrorCode(err error) gcerrors.ErrorCode {
-	if bloberror.HasCode(err, bloberror.BlobNotFound) {
-		return gcerrors.NotFound
-	}
-	if bloberror.HasCode(err, bloberror.AuthenticationFailed) {
-		return gcerrors.PermissionDenied
-	}
 	var rErr *azcore.ResponseError
 	if errors.As(err, &rErr) {
-		code := bloberror.Code(rErr.ErrorCode)
-		if code == bloberror.BlobNotFound || rErr.StatusCode == 404 {
+		switch bloberror.Code(rErr.ErrorCode) {
+		case bloberror.AuthenticationFailed:
+			return gcerrors.PermissionDenied
+		case bloberror.BlobAlreadyExists,
+			bloberror.ConditionNotMet,
+			bloberror.TargetConditionNotMet,
+			bloberror.SourceConditionNotMet:
+			// the documented error code is a variation of "ConditionNotMet", but "BlobAlreadyExists" has also been observed
+			return gcerrors.FailedPrecondition
+		case bloberror.BlobNotFound:
 			return gcerrors.NotFound
 		}
-		if code == bloberror.AuthenticationFailed {
-			return gcerrors.PermissionDenied
+
+		if rErr.StatusCode == http.StatusNotFound {
+			return gcerrors.NotFound
 		}
 	}
+
 	if strings.Contains(err.Error(), "no such host") {
 		// This happens with an invalid storage account name; the host
 		// is something like invalidstorageaccount.blob.core.windows.net.
@@ -760,7 +764,6 @@ func (b *bucket) ListPaged(ctx context.Context, opts *driver.ListOptions) (*driv
 	page.Objects = []*driver.ListObject{}
 	segment := resp.ListBlobsHierarchySegmentResponse.Segment
 	for _, blobPrefix := range segment.BlobPrefixes {
-		blobPrefix := blobPrefix // capture loop variable for use in AsFunc
 		page.Objects = append(page.Objects, &driver.ListObject{
 			Key:   unescapeKey(to.String(blobPrefix.Name)),
 			Size:  0,
@@ -775,7 +778,6 @@ func (b *bucket) ListPaged(ctx context.Context, opts *driver.ListOptions) (*driv
 		})
 	}
 	for _, blobInfo := range segment.BlobItems {
-		blobInfo := blobInfo // capture loop variable for use in AsFunc
 		page.Objects = append(page.Objects, &driver.ListObject{
 			Key:     unescapeKey(to.String(blobInfo.Name)),
 			ModTime: *blobInfo.Properties.LastModified,

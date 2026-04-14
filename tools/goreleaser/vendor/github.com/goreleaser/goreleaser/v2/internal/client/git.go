@@ -82,7 +82,6 @@ func (g *gitClient) CreateFiles(
 	env := []string{fmt.Sprintf("GIT_SSH_COMMAND=%s", sshcmd)}
 
 	if _, err := os.Stat(cwd); errors.Is(err, os.ErrNotExist) {
-		log.Infof("cloning %s %s", name, cwd)
 		if err := os.MkdirAll(parent, 0o755); err != nil {
 			return fmt.Errorf("git: failed to create parent: %w", err)
 		}
@@ -151,8 +150,10 @@ func (g *gitClient) CreateFiles(
 	if err := runGitCmds(ctx, cwd, env, [][]string{
 		{"add", "-A", "."},
 		{"commit", "-m", message},
-		{"push", "origin", "HEAD"},
 	}); err != nil {
+		return fmt.Errorf("git: failed to commit %q (%q): %w", repo.Name, url, err)
+	}
+	if err := pushRepo(ctx, cwd, env); err != nil {
 		return fmt.Errorf("git: failed to push %q (%q): %w", repo.Name, url, err)
 	}
 
@@ -220,16 +221,27 @@ func isPasswordError(err error) bool {
 	return errors.As(err, &kerr)
 }
 
+func isRetriableGitError(err error) bool {
+	return strings.Contains(err.Error(), "Connection reset") ||
+		strings.Contains(err.Error(), "Network is unreachable") ||
+		strings.Contains(err.Error(), "Connection closed")
+}
+
 func cloneRepo(ctx *context.Context, parent, url, name string, env []string) error {
 	if err := retry.Do(
 		func() error {
-			log.WithField("url", url).Infof("cloning %s", name)
+			dir := filepath.Join(parent, name)
+			// Remove any leftover directory from a previous failed clone
+			// attempt so that `git clone` does not fail with "already exists".
+			if err := os.RemoveAll(dir); err != nil {
+				return fmt.Errorf("failed to remove partial clone directory %q: %w", dir, err)
+			}
+			log.WithField("url", url).
+				WithField("dir", dir).
+				Info("cloning")
 			return runGitCmds(ctx, parent, env, [][]string{{"clone", url, name}})
 		},
-		retry.RetryIf(func(err error) bool {
-			return strings.Contains(err.Error(), "Connection reset") ||
-				strings.Contains(err.Error(), "Network is unreachable")
-		}),
+		retry.RetryIf(isRetriableGitError),
 		retry.Attempts(10),
 		retry.Delay(time.Second),
 		retry.LastErrorOnly(true),
@@ -237,6 +249,18 @@ func cloneRepo(ctx *context.Context, parent, url, name string, env []string) err
 		return fmt.Errorf("failed to clone local repository: %w", err)
 	}
 	return nil
+}
+
+func pushRepo(ctx *context.Context, cwd string, env []string) error {
+	return retry.Do(
+		func() error {
+			return runGitCmds(ctx, cwd, env, [][]string{{"push", "origin", "HEAD"}})
+		},
+		retry.RetryIf(isRetriableGitError),
+		retry.Attempts(10),
+		retry.Delay(time.Second),
+		retry.LastErrorOnly(true),
+	)
 }
 
 func runGitCmds(ctx *context.Context, cwd string, env []string, cmds [][]string) error {

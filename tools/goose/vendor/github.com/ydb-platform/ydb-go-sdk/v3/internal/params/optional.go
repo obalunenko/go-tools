@@ -119,8 +119,20 @@ func (p *optional) Timestamp(v *time.Time) *optionalBuilder {
 	return &optionalBuilder{opt: p}
 }
 
+func (p *optional) Timestamp64(v *time.Time) *optionalBuilder {
+	p.value = value.NullableTimestamp64ValueFromTime(v)
+
+	return &optionalBuilder{opt: p}
+}
+
 func (p *optional) Date(v *time.Time) *optionalBuilder {
 	p.value = value.NullableDateValueFromTime(v)
+
+	return &optionalBuilder{opt: p}
+}
+
+func (p *optional) Date32(v *time.Time) *optionalBuilder {
+	p.value = value.NullableDate32ValueFromTime(v)
 
 	return &optionalBuilder{opt: p}
 }
@@ -131,8 +143,20 @@ func (p *optional) Datetime(v *time.Time) *optionalBuilder {
 	return &optionalBuilder{opt: p}
 }
 
+func (p *optional) Datetime64(v *time.Time) *optionalBuilder {
+	p.value = value.NullableDatetime64ValueFromTime(v)
+
+	return &optionalBuilder{opt: p}
+}
+
 func (p *optional) Interval(v *time.Duration) *optionalBuilder {
 	p.value = value.NullableIntervalValueFromDuration(v)
+
+	return &optionalBuilder{opt: p}
+}
+
+func (p *optional) Interval64(v *time.Duration) *optionalBuilder {
+	p.value = value.NullableInterval64ValueFromDuration(v)
 
 	return &optionalBuilder{opt: p}
 }
@@ -143,8 +167,20 @@ func (p *optional) JSON(v *string) *optionalBuilder {
 	return &optionalBuilder{opt: p}
 }
 
+func (p *optional) JSONFromBytes(v *[]byte) *optionalBuilder {
+	p.value = value.NullableJSONValueFromBytes(v)
+
+	return &optionalBuilder{opt: p}
+}
+
 func (p *optional) JSONDocument(v *string) *optionalBuilder {
 	p.value = value.NullableJSONDocumentValue(v)
+
+	return &optionalBuilder{opt: p}
+}
+
+func (p *optional) JSONDocumentFromBytes(v *[]byte) *optionalBuilder {
+	p.value = value.NullableJSONDocumentValueFromBytes(v)
 
 	return &optionalBuilder{opt: p}
 }
@@ -165,7 +201,7 @@ func (p *optional) YSON(v *[]byte) *optionalBuilder {
 //	return &optionalBuilder{opt: p}
 //}
 
-func (p *optional) Uuid(v *uuid.UUID) *optionalBuilder { //nolint:revive,stylecheck
+func (p *optional) Uuid(v *uuid.UUID) *optionalBuilder { //nolint:revive
 	p.value = value.NullableUuidValue(v)
 
 	return &optionalBuilder{opt: p}

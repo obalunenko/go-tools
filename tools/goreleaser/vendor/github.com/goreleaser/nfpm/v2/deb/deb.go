@@ -5,6 +5,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"bytes"
+	"cmp"
 	"compress/gzip"
 	"crypto/md5" // nolint:gas
 	"crypto/sha1"
@@ -15,6 +16,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -38,6 +40,7 @@ func init() {
 	nfpm.RegisterPackager(packagerName, Default)
 }
 
+// https://wiki.debian.org/ArchitectureSpecificsMemo
 // nolint: gochecknoglobals
 var archToDebian = map[string]string{
 	"386":      "i386",
@@ -49,6 +52,8 @@ var archToDebian = map[string]string{
 	"mipsle":   "mipsel",
 	"ppc64le":  "ppc64el",
 	"s390":     "s390x",
+	"x86_64":   "amd64",
+	"aarch64":  "arm64",
 }
 
 func ensureValidArch(info *nfpm.Info) *nfpm.Info {
@@ -56,6 +61,14 @@ func ensureValidArch(info *nfpm.Info) *nfpm.Info {
 		info.Arch = info.Deb.Arch
 	} else if arch, ok := archToDebian[info.Arch]; ok {
 		info.Arch = arch
+	}
+
+	switch info.Deb.ArchVariant {
+	case "", "amd64v1", "amd64v2", "amd64v3", "amd64v4":
+		// ignore empty, ignore already valid
+	case "v1", "v2", "v3", "v4":
+		// prefix 'amd64' to valid versions
+		info.Deb.ArchVariant = "amd64" + info.Deb.ArchVariant
 	}
 
 	return info
@@ -287,9 +300,7 @@ func (*Deb) SetPackagerDefaults(info *nfpm.Info) {
 	// Priority should be set on all packages per:
 	//   https://www.debian.org/doc/debian-policy/ch-archive.html#priorities
 	// "optional" seems to be the safe/sane default here
-	if info.Priority == "" {
-		info.Priority = "optional"
-	}
+	info.Priority = cmp.Or(info.Priority, "optional")
 
 	// The safe thing here feels like defaulting to something like below.
 	// That will prevent existing configs from breaking anyway...  Wondering
@@ -299,6 +310,8 @@ func (*Deb) SetPackagerDefaults(info *nfpm.Info) {
 		deprecation.Println("Leaving the 'maintainer' field unset will not be allowed in a future version")
 		info.Maintainer = "Unset Maintainer <unset@localhost>"
 	}
+
+	info.Deb.Compression = cmp.Or(info.Deb.Compression, "gzip")
 }
 
 func addArFile(w *ar.Writer, name string, body []byte, date time.Time) error {
@@ -329,18 +342,55 @@ func createDataTarball(info *nfpm.Info) (dataTarBall, md5sums []byte,
 		dataTarballWriteCloser io.WriteCloser
 	)
 
-	switch info.Deb.Compression {
-	case "", "gzip": // the default for now
-		dataTarballWriteCloser = gzip.NewWriter(&dataTarball)
+	parts := strings.Split(info.Deb.Compression, ":")
+	if len(parts) > 2 {
+		return nil, nil, 0, "", fmt.Errorf("malformed compressor setting: %s", info.Deb.Compression)
+	}
+
+	compressorType := parts[0]
+	compressorLevel := ""
+	if len(parts) == 2 {
+		compressorLevel = parts[1]
+	}
+
+	switch compressorType {
+	case "gzip":
+		level := 9
+		if compressorLevel != "" {
+			var err error
+			level, err = strconv.Atoi(compressorLevel)
+			if err != nil {
+				return nil, nil, 0, "", fmt.Errorf("parse gzip compressor level: %w", err)
+			}
+		}
+		dataTarballWriteCloser, err = gzip.NewWriterLevel(&dataTarball, level)
+		if err != nil {
+			return nil, nil, 0, "", err
+		}
 		name = "data.tar.gz"
 	case "xz":
+		if compressorLevel != "" {
+			return nil, nil, 0, "", fmt.Errorf("no compressor level supported for xz: %s", compressorLevel)
+		}
 		dataTarballWriteCloser, err = xz.NewWriter(&dataTarball)
 		if err != nil {
 			return nil, nil, 0, "", err
 		}
 		name = "data.tar.xz"
 	case "zstd":
-		dataTarballWriteCloser, err = zstd.NewWriter(&dataTarball)
+		level := zstd.SpeedBetterCompression
+		if compressorLevel != "" {
+			if intLevel, err := strconv.Atoi(compressorLevel); err == nil {
+				level = zstd.EncoderLevelFromZstd(intLevel)
+			} else {
+				var ok bool
+				ok, level = zstd.EncoderLevelFromString(compressorLevel)
+				if !ok {
+					return nil, nil, 0, "", fmt.Errorf("invalid zstd compressor level: %s", compressorLevel)
+				}
+			}
+		}
+		dataTarballWriteCloser, err = zstd.NewWriter(&dataTarball, zstd.WithEncoderLevel(level))
 		if err != nil {
 			return nil, nil, 0, "", err
 		}
@@ -455,7 +505,7 @@ func copyToTarAndDigest(file *files.Content, tw *tar.Writer, md5w io.Writer) (in
 	if _, err := io.Copy(tw, io.TeeReader(tarFile, digest)); err != nil {
 		return 0, fmt.Errorf("%s: failed to copy: %w", file.Source, err)
 	}
-	if _, err := fmt.Fprintf(md5w, "%x  %s\n", digest.Sum(nil), header.Name); err != nil {
+	if _, err := fmt.Fprintf(md5w, "%x  %s\n", digest.Sum(nil), files.AsRelativePath(header.Name)); err != nil {
 		return 0, fmt.Errorf("%s: failed to write md5: %w", file.Source, err)
 	}
 	return file.Size(), nil
@@ -518,7 +568,7 @@ func createChangelogInsideDataTar(
 		g,
 		"%x  %s\n",
 		digest.Sum(nil),
-		files.AsExplicitRelativePath(fileName),
+		files.AsRelativePath(fileName),
 	); err != nil {
 		return 0, err
 	}
@@ -729,8 +779,8 @@ Section: {{.Info.Section}}
 Priority: {{.Info.Priority}}
 Architecture: {{ if ne .Info.Platform "linux"}}{{ .Info.Platform }}-{{ end }}{{.Info.Arch}}
 {{- /* Optional fields */ -}}
-{{- if .Info.License }}
-License: {{.Info.License}}
+{{- if .Info.Deb.ArchVariant}}
+Architecture-Variant: {{ .Info.Deb.ArchVariant }}
 {{- end }}
 {{- if .Info.Maintainer}}
 Maintainer: {{.Info.Maintainer}}

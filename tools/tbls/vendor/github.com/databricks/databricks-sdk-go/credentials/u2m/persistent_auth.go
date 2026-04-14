@@ -35,6 +35,11 @@ const (
 	// listenerTimeout is the maximum duration spent trying to acquire a
 	// listener (including port selection).
 	listenerTimeout = 45 * time.Second
+
+	// tokenRefreshBuffer is the duration before token expiry at which the
+	// token is proactively refreshed. This prevents callers from receiving
+	// near-expired tokens that may expire before the next request.
+	tokenRefreshBuffer = 5 * time.Minute
 )
 
 var (
@@ -45,8 +50,8 @@ var (
 
 // PersistentAuth is an OAuth manager that handles the U2M OAuth flow. Tokens
 // are stored in and looked up from the provided cache. Tokens include the
-// refresh token. On load, if the access token is expired, it is refreshed
-// using the refresh token.
+// refresh token. On load, if the access token is expired or close to expiry,
+// it is refreshed using the refresh token.
 //
 // The PersistentAuth is safe for concurrent use. The token cache is locked
 // during token retrieval, refresh and storage.
@@ -88,6 +93,19 @@ type PersistentAuth struct {
 	// netListen is an optional function to listen on a TCP address. If not set,
 	// it will use net.Listen by default. This is useful for testing.
 	netListen func(network, address string) (net.Listener, error)
+
+	// scopes is the list of OAuth scopes to request.
+	scopes []string
+
+	// disableOfflineAccess controls whether offline_access scope is requested.
+	// When true, offline_access will NOT be automatically added to scopes,
+	// meaning the token will not include a refresh token.
+	disableOfflineAccess bool
+
+	// discoveryMode enables the login.databricks.com discovery flow.
+	// When true, Challenge() uses the discovery token source instead of
+	// the standard authhandler flow.
+	discoveryMode bool
 }
 
 type PersistentAuthOption func(*PersistentAuth)
@@ -135,6 +153,34 @@ func WithPort(port int) PersistentAuthOption {
 	}
 }
 
+// WithScopes sets the OAuth scopes for the PersistentAuth.
+func WithScopes(scopes []string) PersistentAuthOption {
+	return func(a *PersistentAuth) {
+		a.scopes = scopes
+	}
+}
+
+// WithDisableOfflineAccess controls whether offline_access scope is requested.
+func WithDisableOfflineAccess(disable bool) PersistentAuthOption {
+	return func(a *PersistentAuth) {
+		a.disableOfflineAccess = disable
+	}
+}
+
+// WithDiscoveryLogin enables the login.databricks.com discovery flow.
+// When enabled, Challenge() routes through login.databricks.com instead
+// of directly to a workspace OIDC endpoint.
+//
+// This option is only valid with [DiscoveryOAuthArgument], which is a
+// bootstrap-only argument type for discovery login. Once the workspace host
+// has been discovered, callers should construct the usual host-based
+// OAuthArgument for future PersistentAuth instances.
+func WithDiscoveryLogin() PersistentAuthOption {
+	return func(a *PersistentAuth) {
+		a.discoveryMode = true
+	}
+}
+
 // NewPersistentAuth creates a new PersistentAuth with the provided options.
 func NewPersistentAuth(ctx context.Context, opts ...PersistentAuthOption) (*PersistentAuth, error) {
 	p := &PersistentAuth{}
@@ -176,47 +222,126 @@ func NewPersistentAuth(ctx context.Context, opts ...PersistentAuthOption) (*Pers
 	return p, nil
 }
 
-// Token loads the OAuth2 token for the given OAuthArgument from the cache. If
-// the token is expired, it is refreshed using the refresh token.
-func (a *PersistentAuth) Token() (t *oauth2.Token, err error) {
-	err = a.startListener(a.ctx)
-	if err != nil {
-		return nil, fmt.Errorf("starting listener: %w", err)
-	}
-	defer a.Close()
-
+// loadToken loads the cached OAuth2 token for the configured OAuthArgument.
+// When a profile is set, lookup is by profile key first. If the profile key is
+// not found and the OAuthArgument implements HostCacheKeyProvider, a fallback
+// lookup by host key is attempted. If found, the token is returned without
+// being migrated to the profile key (see inline comment for rationale).
+//
+// The returned token may be expired; callers are responsible for deciding
+// whether and how to refresh it.
+func (a *PersistentAuth) loadToken() (*oauth2.Token, error) {
 	key := a.oAuthArgument.GetCacheKey()
-	t, err = a.cache.Lookup(key)
+	t, err := a.cache.Lookup(key)
+	if errors.Is(err, cache.ErrNotFound) {
+		hostKey := a.hostCacheKey()
+		if hostKey != "" && hostKey != key {
+			t, err = a.cache.Lookup(hostKey)
+			if err == nil {
+				// Return the host-keyed token so the caller isn't blocked,
+				// but don't migrate it to the profile key. The host key may
+				// contain a token from a different profile with different
+				// scopes. The next `auth login --profile` will write the
+				// correct token under the profile key.
+				logger.Debugf(a.ctx, "token cache: profile key %q not found, using legacy host key %q (run 'databricks auth login --profile <name>' to migrate)", key, hostKey)
+			}
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cache: %w", err)
 	}
-	// refresh if invalid
-	if !t.Valid() {
-		t, err = a.refresh(t)
-		if err != nil {
+	return t, nil
+}
+
+// Token loads the OAuth2 token for the given OAuthArgument from the cache. If
+// the token is expired or close to expiry, it is refreshed using the refresh
+// token. When a proactive refresh (token still valid but near expiry) fails,
+// the existing token is returned so the caller is not blocked.
+func (a *PersistentAuth) Token() (*oauth2.Token, error) {
+	t, err := a.loadToken()
+	if err != nil {
+		return nil, err
+	}
+	if needsRefresh(t) {
+		if refreshedToken, err := a.refresh(t); err == nil {
+			t = refreshedToken
+		} else if !t.Valid() {
 			return nil, fmt.Errorf("token refresh: %w", err)
+		} else {
+			logger.Debugf(a.ctx, "proactive token refresh failed, returning existing token: %v", err)
 		}
 	}
-
-	// Do not include the refresh token for security reasons. Refresh tokens are
-	// long-lived credentials that we do not want to expose unnecessarily.
 	t.RefreshToken = ""
 	return t, nil
 }
 
+// ForceRefreshToken loads the OAuth2 token from the cache and always refreshes
+// it, regardless of its expiry. Unlike Token(), if the refresh fails the error
+// is always returned -- the caller explicitly asked for a fresh token, so
+// silently falling back to a stale one would be incorrect.
+//
+// When the token was loaded via host-key fallback (profile key not found), the
+// refreshed token is dual-written to both the profile key and host key,
+// effectively migrating the token to the profile. Token() has the same
+// migration behavior when it refreshes a host-fallback token (expired or
+// nearly expired); ForceRefreshToken widens this to still-valid tokens because
+// it always refreshes.
+//
+// TODO: Thread provenance out of loadToken() so callers know whether the token
+// came from the primary key or host-key fallback. ForceRefreshToken could then
+// refuse to migrate a fallback token or refresh without writing to the profile
+// key, avoiding the risk of making a wrong-scoped token sticky.
+func (a *PersistentAuth) ForceRefreshToken() (*oauth2.Token, error) {
+	t, err := a.loadToken()
+	if err != nil {
+		return nil, err
+	}
+	t, err = a.refresh(t)
+	if err != nil {
+		return nil, fmt.Errorf("forced token refresh: %w", err)
+	}
+	t.RefreshToken = ""
+	return t, nil
+}
+
+// needsRefresh returns true when the token should be refreshed, either because
+// it is no longer valid or because it will expire within the
+// tokenRefreshBuffer window.
+func needsRefresh(t *oauth2.Token) bool {
+	if !t.Valid() {
+		return true
+	}
+	return !t.Expiry.IsZero() && time.Until(t.Expiry) < tokenRefreshBuffer
+}
+
 // refresh refreshes the token for the given OAuthArgument, storing the new
 // token in the cache.
+//
+// TODO: This read-refresh-write sequence is not coordinated across processes.
+// Because the CLI is stateless, two separate CLI invocations can load the same
+// cached refresh token, both attempt a refresh, and race to update the cache.
+// This should be fixed in a follow-up by adding cross-process coordination
+// around refresh and cache writes.
 func (a *PersistentAuth) refresh(oldToken *oauth2.Token) (*oauth2.Token, error) {
-	// OAuth2 config is invoked only for expired tokens to speed up
-	// the happy path in the token retrieval
+	// Fail fast with ErrMissingRefreshToken instead of letting the oauth2
+	// library attempt to refresh and return a misleading error (e.g. "token
+	// expired" when the real problem is that the cached token is not
+	// refresh-capable).
+	if oldToken.RefreshToken == "" {
+		return nil, ErrMissingRefreshToken
+	}
 	cfg, err := a.oauth2Config()
 	if err != nil {
 		return nil, err
 	}
-	// make OAuth2 library use our client
 	ctx := a.setOAuthContext(a.ctx)
-	// eagerly refresh token
-	t, err := cfg.TokenSource(ctx, oldToken).Token()
+	// Force the oauth2 library to refresh by ensuring the token appears
+	// expired. PersistentAuth owns the refresh decision (including the
+	// proactive buffer), so the oauth2 library should always perform the
+	// refresh when asked.
+	expired := *oldToken
+	expired.Expiry = time.Now().Add(-time.Minute)
+	t, err := cfg.TokenSource(ctx, &expired).Token()
 	if err != nil {
 		// The default RoundTripper of our httpclient.ApiClient returns an error
 		// if the response status code is not 2xx. This isn't compliant with the
@@ -253,7 +378,7 @@ func (a *PersistentAuth) refresh(oldToken *oauth2.Token) (*oauth2.Token, error) 
 		}
 		return nil, err
 	}
-	err = a.cache.Store(a.oAuthArgument.GetCacheKey(), t)
+	err = a.dualWrite(t)
 	if err != nil {
 		return nil, fmt.Errorf("cache update: %w", err)
 	}
@@ -266,6 +391,9 @@ func (a *PersistentAuth) refresh(oldToken *oauth2.Token) (*oauth2.Token, error) 
 // callback server listens for the redirect from the identity provider and
 // exchanges the authorization code for an access token.
 func (a *PersistentAuth) Challenge() error {
+	if a.discoveryMode {
+		return a.discoveryChallenge()
+	}
 	err := a.startListener(a.ctx)
 	if err != nil {
 		return fmt.Errorf("starting listener: %w", err)
@@ -295,12 +423,25 @@ func (a *PersistentAuth) Challenge() error {
 	if err != nil {
 		return fmt.Errorf("authorize: %w", err)
 	}
-	// cache token identified by host (and possibly the account id)
-	err = a.cache.Store(a.oAuthArgument.GetCacheKey(), t)
+	// cache token identified by profile (primary) and host (dual-write for backward compat)
+	err = a.dualWrite(t)
 	if err != nil {
 		return fmt.Errorf("store: %w", err)
 	}
 	return nil
+}
+
+// discoveryChallenge handles the login.databricks.com discovery flow.
+// The listener must be started before the discovery token source is invoked
+// because the challenge needs the redirect address to build the authorize URL.
+func (a *PersistentAuth) discoveryChallenge() error {
+	err := a.startListener(a.ctx)
+	if err != nil {
+		return fmt.Errorf("starting listener: %w", err)
+	}
+	defer a.Close()
+	ds := &discoveryTokenSource{pa: a}
+	return ds.challenge()
 }
 
 // startListener starts a listener on appRedirectAddr, retrying if the address
@@ -357,26 +498,47 @@ func (a *PersistentAuth) Close() error {
 	return a.ln.Close()
 }
 
-// validateArg ensures that the OAuthArgument is either a WorkspaceOAuthArgument
-// or an AccountOAuthArgument.
+// validateArg ensures that the OAuthArgument is either a WorkspaceOAuthArgument,
+// AccountOAuthArgument, UnifiedOAuthArgument, or a bootstrap-only
+// DiscoveryOAuthArgument paired with WithDiscoveryLogin.
 func (a *PersistentAuth) validateArg() error {
 	if a.oAuthArgument == nil {
 		return errors.New("missing OAuthArgument")
 	}
 	_, isWorkspaceArg := a.oAuthArgument.(WorkspaceOAuthArgument)
 	_, isAccountArg := a.oAuthArgument.(AccountOAuthArgument)
-	if !isWorkspaceArg && !isAccountArg {
-		return fmt.Errorf("unsupported OAuthArgument type: %T, must implement either WorkspaceOAuthArgument or AccountOAuthArgument interface", a.oAuthArgument)
+	_, isUnifiedArg := a.oAuthArgument.(UnifiedOAuthArgument)
+	_, isDiscoveryArg := a.oAuthArgument.(DiscoveryOAuthArgument)
+	if !isWorkspaceArg && !isAccountArg && !isUnifiedArg && !isDiscoveryArg {
+		return fmt.Errorf("unsupported OAuthArgument type: %T, must implement WorkspaceOAuthArgument, AccountOAuthArgument, UnifiedOAuthArgument, or DiscoveryOAuthArgument", a.oAuthArgument)
+	}
+	if isDiscoveryArg && !a.discoveryMode {
+		return fmt.Errorf("discovery OAuthArgument %T requires WithDiscoveryLogin; after discovery, construct a WorkspaceOAuthArgument with the discovered host", a.oAuthArgument)
+	}
+	if a.discoveryMode && !isDiscoveryArg {
+		return fmt.Errorf("discovery login requires DiscoveryOAuthArgument, got %T", a.oAuthArgument)
 	}
 	return nil
 }
 
+// resolveScopes returns the effective OAuth scopes for this PersistentAuth.
+// It defaults to "all-apis" for backwards compatibility, and prepends
+// "offline_access" unless disabled.
+func (a *PersistentAuth) resolveScopes() []string {
+	scopes := a.scopes
+	if len(scopes) == 0 {
+		scopes = []string{"all-apis"}
+	}
+	if !a.disableOfflineAccess {
+		scopes = append([]string{"offline_access"}, scopes...)
+	}
+	return scopes
+}
+
 // oauth2Config returns the OAuth2 configuration for the given OAuthArgument.
 func (a *PersistentAuth) oauth2Config() (*oauth2.Config, error) {
-	scopes := []string{
-		"offline_access", // ensures OAuth token includes refresh token
-		"all-apis",       // ensures OAuth token has access to all control-plane APIs
-	}
+	scopes := a.resolveScopes()
+
 	var endpoints *OAuthAuthorizationServer
 	var err error
 	switch argg := a.oAuthArgument.(type) {
@@ -385,8 +547,12 @@ func (a *PersistentAuth) oauth2Config() (*oauth2.Config, error) {
 	case AccountOAuthArgument:
 		endpoints, err = a.endpointSupplier.GetAccountOAuthEndpoints(
 			a.ctx, argg.GetAccountHost(), argg.GetAccountId())
+	case UnifiedOAuthArgument:
+		endpoints, err = a.endpointSupplier.GetUnifiedOAuthEndpoints(a.ctx, argg.GetHost(), argg.GetAccountId())
+	case DiscoveryOAuthArgument:
+		return nil, fmt.Errorf("discovery OAuthArgument %T is only supported with WithDiscoveryLogin during Challenge; after discovery, construct a WorkspaceOAuthArgument with the discovered host", a.oAuthArgument)
 	default:
-		return nil, fmt.Errorf("unsupported OAuthArgument type: %T, must implement either WorkspaceOAuthArgument or AccountOAuthArgument interface", a.oAuthArgument)
+		return nil, fmt.Errorf("unsupported OAuthArgument type: %T, must implement either WorkspaceOAuthArgument, AccountOAuthArgument or UnifiedOAuthArgument interface", a.oAuthArgument)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("fetching OAuth endpoints: %w", err)
@@ -429,6 +595,43 @@ func (a *PersistentAuth) randomString(size int) (string, error) {
 		return "", fmt.Errorf("rand.Read: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+// dualWrite stores the token under both the primary cache key (profile name)
+// and the legacy host-based cache key. If the primary key and the host key are
+// the same (i.e. no profile is set), no extra write is performed.
+//
+// The host-based write exists for cross-SDK compatibility: older versions of
+// the Python and Java SDKs look up tokens exclusively by host URL. Removing
+// the host write would break users who have a newer Go CLI but an older
+// Python/Java SDK sharing the same token cache. Once the other SDKs adopt
+// profile-based cache keys, dualWrite can be replaced with a single write to
+// the primary key. See also HostCacheKeyProvider in oauth_argument.go.
+func (a *PersistentAuth) dualWrite(t *oauth2.Token) error {
+	primaryKey := a.oAuthArgument.GetCacheKey()
+	if err := a.cache.Store(primaryKey, t); err != nil {
+		return err
+	}
+	hostKey := a.hostCacheKey()
+	if hostKey != "" && hostKey != primaryKey {
+		if err := a.cache.Store(hostKey, t); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// hostCacheKey returns the legacy host-based cache key used for cross-SDK
+// token sharing. Discovery logins learn their host from the callback, so the
+// host key comes from the discovered host instead of a static OAuth argument.
+func (a *PersistentAuth) hostCacheKey() string {
+	if discoveryArg, ok := a.oAuthArgument.(DiscoveryOAuthArgument); ok {
+		return discoveryArg.GetDiscoveredHost()
+	}
+	if hcp, ok := a.oAuthArgument.(HostCacheKeyProvider); ok {
+		return hcp.GetHostCacheKey()
+	}
+	return ""
 }
 
 func (a *PersistentAuth) setOAuthContext(ctx context.Context) context.Context {

@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,6 +39,14 @@ func WithFileAnnotationErrorFormat(fileAnnotationErrorFormat string) ControllerO
 func WithFileAnnotationsToStdout() ControllerOption {
 	return func(controller *controller) {
 		controller.fileAnnotationsToStdout = true
+	}
+}
+
+// WithColorizedFileAnnotationSetDiagnosticReport returns a new ControllerOptions that sets
+// whether or not to render a colorized diagnostic report for the FileAnnotationSet.
+func WithColorizedFileAnnotationSetDiagnosticReport(colorizedFileAnnotationSetDiagnosticReport bool) ControllerOption {
+	return func(controller *controller) {
+		controller.colorizedFileAnnotationSetDiagnosticReport = colorizedFileAnnotationSetDiagnosticReport
 	}
 }
 

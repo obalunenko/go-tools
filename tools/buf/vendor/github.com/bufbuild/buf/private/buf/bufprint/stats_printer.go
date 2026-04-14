@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,27 +38,33 @@ func (p *statsPrinter) PrintStats(ctx context.Context, format Format, stats *pro
 	case FormatText:
 		_, err := fmt.Fprintf(
 			p.writer,
-			`Files:       %d
-Types:       %d
-Packages:    %d
-Messages:    %d
-Fields:      %d
-Enums:       %d
-Enum Values: %d
-Services:    %d
-RPCs:        %d
-Extensions:  %d
+			`Files:               %d
+Types:               %d
+Packages:            %d
+Messages:            %d
+Deprecated Messages: %d
+Fields:              %d
+Enums:               %d
+Deprecated Enums:    %d
+Enum Values:         %d
+Services:            %d
+RPCs:                %d
+Deprecated RPCs:     %d
+Extensions:          %d
 `,
 
 			stats.Files,
 			stats.Types,
 			stats.Packages,
 			stats.Messages,
+			stats.DeprecatedMessages,
 			stats.Fields,
 			stats.Enums,
+			stats.DeprecatedEnums,
 			stats.EnumValues,
 			stats.Services,
 			stats.RPCs,
+			stats.DeprecatedRPCs,
 			stats.Extensions,
 		)
 		return err

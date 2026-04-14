@@ -17,8 +17,8 @@ import (
 )
 
 func main() {
-	fontSize := 12
-	dpi := 72
+	fontSize := 12.0
+	dpi := 72.0
 	to := &truetype.Options{
 		Size:              fontSize,
 		DPI:               dpi,

@@ -4,6 +4,7 @@ package rpm
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"io"
 	"os"
@@ -52,7 +53,7 @@ func init() {
 // nolint: gochecknoglobals
 var DefaultRPM = &RPM{formatRPM}
 
-// DefaultRPM RPM packager.
+// DefaultSRPM SRPM packager.
 // nolint: gochecknoglobals
 var DefaultSRPM = &RPM{formatSRPM}
 
@@ -72,6 +73,7 @@ type RPM struct {
 }
 
 // https://docs.fedoraproject.org/ro/Fedora_Draft_Documentation/0.1/html/RPM_Guide/ch01s03.html
+// https://github.com/rpm-software-management/rpm/blob/4a9b7b5908d8b463a836b51322242677677bd8b7/lib/rpmrc.cc#L1167
 // nolint: gochecknoglobals
 var archToRPM = map[string]string{
 	"all":      "noarch",
@@ -84,7 +86,7 @@ var archToRPM = map[string]string{
 	"mips64le": "mips64el",
 	"mipsle":   "mipsel",
 	"mips":     "mips",
-	// TODO: other arches
+	"loong64":  "loongarch64",
 }
 
 func setDefaults(info *nfpm.Info) *nfpm.Info {
@@ -94,8 +96,8 @@ func setDefaults(info *nfpm.Info) *nfpm.Info {
 		info.Arch = arch
 	}
 
-	info.Release = defaultTo(info.Release, "1")
-
+	info.Release = cmp.Or(info.Release, "1")
+	info.RPM.Compression = cmp.Or(info.RPM.Compression, "gzip")
 	return info
 }
 
@@ -230,9 +232,6 @@ func buildRPMMeta(info *nfpm.Info) (*rpmpack.RPMMetaData, error) {
 		suggests,
 		conflicts rpmpack.Relations
 	)
-	if info.RPM.Compression == "" {
-		info.RPM.Compression = "gzip:-1"
-	}
 
 	if info.Epoch == "" {
 		epoch = uint64(rpmpack.NoEpoch)

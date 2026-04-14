@@ -17,7 +17,6 @@
 package gitlab
 
 import (
-	"fmt"
 	"net/http"
 )
 
@@ -97,24 +96,11 @@ type ListGroupProtectedEnvironmentsOptions struct {
 // GitLab API docs:
 // https://docs.gitlab.com/api/group_protected_environments/#list-group-level-protected-environments
 func (s *GroupProtectedEnvironmentsService) ListGroupProtectedEnvironments(gid any, opt *ListGroupProtectedEnvironmentsOptions, options ...RequestOptionFunc) ([]*GroupProtectedEnvironment, *Response, error) {
-	group, err := parseID(gid)
-	if err != nil {
-		return nil, nil, err
-	}
-	u := fmt.Sprintf("groups/%s/protected_environments", PathEscape(group))
-
-	req, err := s.client.NewRequest(http.MethodGet, u, opt, options)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var pes []*GroupProtectedEnvironment
-	resp, err := s.client.Do(req, &pes)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return pes, resp, nil
+	return do[[]*GroupProtectedEnvironment](s.client,
+		withPath("groups/%s/protected_environments", GroupID{gid}),
+		withAPIOpts(opt),
+		withRequestOpts(options...),
+	)
 }
 
 // GetGroupProtectedEnvironment returns a single group-level protected
@@ -123,24 +109,10 @@ func (s *GroupProtectedEnvironmentsService) ListGroupProtectedEnvironments(gid a
 // GitLab API docs:
 // https://docs.gitlab.com/api/group_protected_environments/#get-a-single-protected-environment
 func (s *GroupProtectedEnvironmentsService) GetGroupProtectedEnvironment(gid any, environment string, options ...RequestOptionFunc) (*GroupProtectedEnvironment, *Response, error) {
-	group, err := parseID(gid)
-	if err != nil {
-		return nil, nil, err
-	}
-	u := fmt.Sprintf("groups/%s/protected_environments/%s", PathEscape(group), environment)
-
-	req, err := s.client.NewRequest(http.MethodGet, u, nil, options)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	pe := new(GroupProtectedEnvironment)
-	resp, err := s.client.Do(req, pe)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return pe, resp, nil
+	return do[*GroupProtectedEnvironment](s.client,
+		withPath("groups/%s/protected_environments/%s", GroupID{gid}, environment),
+		withRequestOpts(options...),
+	)
 }
 
 // ProtectGroupEnvironmentOptions represents the available
@@ -186,24 +158,12 @@ type GroupEnvironmentApprovalRuleOptions struct {
 // GitLab API docs:
 // https://docs.gitlab.com/api/group_protected_environments/#protect-a-single-environment
 func (s *GroupProtectedEnvironmentsService) ProtectGroupEnvironment(gid any, opt *ProtectGroupEnvironmentOptions, options ...RequestOptionFunc) (*GroupProtectedEnvironment, *Response, error) {
-	group, err := parseID(gid)
-	if err != nil {
-		return nil, nil, err
-	}
-	u := fmt.Sprintf("groups/%s/protected_environments", PathEscape(group))
-
-	req, err := s.client.NewRequest(http.MethodPost, u, opt, options)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	pe := new(GroupProtectedEnvironment)
-	resp, err := s.client.Do(req, pe)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return pe, resp, nil
+	return do[*GroupProtectedEnvironment](s.client,
+		withMethod(http.MethodPost),
+		withPath("groups/%s/protected_environments", GroupID{gid}),
+		withAPIOpts(opt),
+		withRequestOpts(options...),
+	)
 }
 
 // UpdateGroupProtectedEnvironmentOptions represents the available
@@ -254,24 +214,12 @@ type UpdateGroupEnvironmentApprovalRuleOptions struct {
 // GitLab API docs:
 // https://docs.gitlab.com/api/group_protected_environments/#update-a-protected-environment
 func (s *GroupProtectedEnvironmentsService) UpdateGroupProtectedEnvironment(gid any, environment string, opt *UpdateGroupProtectedEnvironmentOptions, options ...RequestOptionFunc) (*GroupProtectedEnvironment, *Response, error) {
-	group, err := parseID(gid)
-	if err != nil {
-		return nil, nil, err
-	}
-	u := fmt.Sprintf("groups/%s/protected_environments/%s", PathEscape(group), environment)
-
-	req, err := s.client.NewRequest(http.MethodPut, u, opt, options)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	pe := new(GroupProtectedEnvironment)
-	resp, err := s.client.Do(req, pe)
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return pe, resp, nil
+	return do[*GroupProtectedEnvironment](s.client,
+		withMethod(http.MethodPut),
+		withPath("groups/%s/protected_environments/%s", GroupID{gid}, environment),
+		withAPIOpts(opt),
+		withRequestOpts(options...),
+	)
 }
 
 // UnprotectGroupEnvironment unprotects the given protected group-level
@@ -280,16 +228,10 @@ func (s *GroupProtectedEnvironmentsService) UpdateGroupProtectedEnvironment(gid 
 // GitLab API docs:
 // https://docs.gitlab.com/api/group_protected_environments/#unprotect-a-single-environment
 func (s *GroupProtectedEnvironmentsService) UnprotectGroupEnvironment(gid any, environment string, options ...RequestOptionFunc) (*Response, error) {
-	group, err := parseID(gid)
-	if err != nil {
-		return nil, err
-	}
-	u := fmt.Sprintf("groups/%s/protected_environments/%s", PathEscape(group), environment)
-
-	req, err := s.client.NewRequest(http.MethodDelete, u, nil, options)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.client.Do(req, nil)
+	_, resp, err := do[none](s.client,
+		withMethod(http.MethodDelete),
+		withPath("groups/%s/protected_environments/%s", GroupID{gid}, environment),
+		withRequestOpts(options...),
+	)
+	return resp, err
 }

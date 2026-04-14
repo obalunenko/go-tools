@@ -31,6 +31,7 @@ import (
 	schemeConfig "github.com/ydb-platform/ydb-go-sdk/v3/internal/scheme/config"
 	internalScripting "github.com/ydb-platform/ydb-go-sdk/v3/internal/scripting"
 	scriptingConfig "github.com/ydb-platform/ydb-go-sdk/v3/internal/scripting/config"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/secret"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/stack"
 	internalTable "github.com/ydb-platform/ydb-go-sdk/v3/internal/table"
 	tableConfig "github.com/ydb-platform/ydb-go-sdk/v3/internal/table/config"
@@ -280,13 +281,17 @@ func (d *Driver) Topic() topic.Client {
 //
 //nolint:nonamedreturns
 func Open(ctx context.Context, dsn string, opts ...Option) (_ *Driver, _ error) {
+	if ctx.Err() != nil {
+		return nil, xerrors.WithStackTrace(ctx.Err())
+	}
+
 	opts = append(append(make([]Option, 0, len(opts)+1), WithConnectionString(dsn)), opts...)
 
 	for parserIdx := range dsnParsers {
 		if parser := dsnParsers[parserIdx]; parser != nil {
 			optsFromParser, err := parser(dsn)
 			if err != nil {
-				return nil, xerrors.WithStackTrace(fmt.Errorf("data source name '%s' wrong: %w", dsn, err))
+				return nil, xerrors.WithStackTrace(fmt.Errorf("data source name '%s' wrong: %w", secret.DSN(dsn), err))
 			}
 			opts = append(opts, optsFromParser...)
 		}
@@ -429,13 +434,17 @@ func driverFromOptions(ctx context.Context, opts ...Option) (_ *Driver, err erro
 }
 
 //nolint:cyclop, nonamedreturns, funlen
-func (d *Driver) connect(ctx context.Context) (err error) {
+func (d *Driver) connect(ctx context.Context) error {
 	if d.config.Endpoint() == "" {
-		return xerrors.WithStackTrace(errors.New("configuration: empty dial address")) //nolint:goerr113
+		return xerrors.WithStackTrace(errors.New("configuration: empty dial address")) //nolint:err113
 	}
 
 	if d.config.Database() == "" {
-		return xerrors.WithStackTrace(errors.New("configuration: empty database")) //nolint:goerr113
+		return xerrors.WithStackTrace(errors.New("configuration: empty database")) //nolint:err113
+	}
+
+	if ctx.Err() != nil {
+		return xerrors.WithStackTrace(ctx.Err())
 	}
 
 	if d.userInfo != nil {
@@ -470,6 +479,8 @@ func (d *Driver) connect(ctx context.Context) (err error) {
 					// prepend common params from root config
 					[]tableConfig.Option{
 						tableConfig.With(d.config.Common),
+
+						tableConfig.WithMaxRequestMessageSize(d.config.GrpcMaxMessageSize()),
 					},
 					d.tableOptions...,
 				)...,
@@ -491,9 +502,6 @@ func (d *Driver) connect(ctx context.Context) (err error) {
 			),
 		), nil
 	})
-	if err != nil {
-		return xerrors.WithStackTrace(err)
-	}
 
 	d.scheme = xsync.OnceValue(func() (*internalScheme.Client, error) {
 		return internalScheme.New(xcontext.ValueOnly(ctx),

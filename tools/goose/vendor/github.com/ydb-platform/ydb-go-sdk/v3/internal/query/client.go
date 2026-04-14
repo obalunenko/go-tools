@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/closer"
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/meta"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/operation"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/pool"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/query/config"
@@ -40,9 +41,13 @@ type (
 		With(ctx context.Context, f func(ctx context.Context, s *Session) error, opts ...retry.Option) error
 	}
 	Client struct {
-		config *config.Config
-		client Ydb_Query_V1.QueryServiceClient
-		pool   sessionPool
+		config              *config.Config
+		client              Ydb_Query_V1.QueryServiceClient
+		explicitSessionPool sessionPool
+
+		// implicitSessionPool is a pool of implicit sessions,
+		// i.e. fake sessions created without CreateSession/AttachSession requests.
+		implicitSessionPool sessionPool
 
 		done chan struct{}
 	}
@@ -123,6 +128,7 @@ func (c *Client) FetchScriptResults(ctx context.Context,
 
 type executeScriptSettings struct {
 	executeSettings
+
 	ttl             time.Duration
 	operationParams *Ydb_Operations.OperationParams
 }
@@ -193,7 +199,11 @@ func (c *Client) Close(ctx context.Context) error {
 
 	close(c.done)
 
-	if err := c.pool.Close(ctx); err != nil {
+	if err := c.explicitSessionPool.Close(ctx); err != nil {
+		return xerrors.WithStackTrace(err)
+	}
+
+	if err := c.implicitSessionPool.Close(ctx); err != nil {
 		return xerrors.WithStackTrace(err)
 	}
 
@@ -241,7 +251,7 @@ func (c *Client) Do(ctx context.Context, op query.Operation, opts ...options.DoO
 		onDone(attempts, finalErr)
 	}()
 
-	err := do(ctx, c.pool,
+	err := do(ctx, c.explicitSessionPool,
 		func(ctx context.Context, s *Session) error {
 			return op(ctx, s)
 		},
@@ -295,9 +305,25 @@ func doTx(
 	return nil
 }
 
+// validateTxControl checks if user provided a TxControl with BeginTx but without CommitTx
+func validateTxControl(settings executeSettings) error {
+	if settings.UserProvidedTxControl() && settings.TxControl() != nil {
+		txControl, ok := settings.TxControl().(*tx.Control)
+		if ok && txControl.IsBeginTxWithoutCommit() {
+			return xerrors.WithStackTrace(query.ErrTxControlWithoutCommit)
+		}
+	}
+
+	return nil
+}
+
 func clientQueryRow(
 	ctx context.Context, pool sessionPool, q string, settings executeSettings, resultOpts ...resultOption,
 ) (row query.Row, finalErr error) {
+	if err := validateTxControl(settings); err != nil {
+		return nil, err
+	}
+
 	err := do(ctx, pool, func(ctx context.Context, s *Session) (err error) {
 		row, err = s.queryRow(ctx, q, settings, resultOpts...)
 		if err != nil {
@@ -328,7 +354,7 @@ func (c *Client) QueryRow(ctx context.Context, q string, opts ...options.Execute
 		onDone(finalErr)
 	}()
 
-	row, err := clientQueryRow(ctx, c.pool, q, settings, withTrace(c.config.Trace()))
+	row, err := clientQueryRow(ctx, c.pool(), q, settings, withStreamResultTrace(c.config.Trace()))
 	if err != nil {
 		return nil, xerrors.WithStackTrace(err)
 	}
@@ -338,8 +364,14 @@ func (c *Client) QueryRow(ctx context.Context, q string, opts ...options.Execute
 
 func clientExec(ctx context.Context, pool sessionPool, q string, opts ...options.Execute) (finalErr error) {
 	settings := options.ExecuteSettings(opts...)
+
+	if err := validateTxControl(settings); err != nil {
+		return err
+	}
+
 	err := do(ctx, pool, func(ctx context.Context, s *Session) (err error) {
-		streamResult, err := s.execute(ctx, q, settings, withTrace(s.trace))
+		streamResult, err := s.execute(ctx, q, settings,
+			withStreamResultTrace(s.trace), withIssuesHandler(settings.IssuesOpts()))
 		if err != nil {
 			return xerrors.WithStackTrace(err)
 		}
@@ -375,7 +407,7 @@ func (c *Client) Exec(ctx context.Context, q string, opts ...options.Execute) (f
 		onDone(finalErr)
 	}()
 
-	err := clientExec(ctx, c.pool, q, opts...)
+	err := clientExec(ctx, c.pool(), q, opts...)
 	if err != nil {
 		return xerrors.WithStackTrace(err)
 	}
@@ -387,8 +419,14 @@ func clientQuery(ctx context.Context, pool sessionPool, q string, opts ...option
 	r query.Result, err error,
 ) {
 	settings := options.ExecuteSettings(opts...)
+
+	if err := validateTxControl(settings); err != nil {
+		return nil, err
+	}
+
 	err = do(ctx, pool, func(ctx context.Context, s *Session) (err error) {
-		streamResult, err := s.execute(ctx, q, options.ExecuteSettings(opts...), withTrace(s.trace))
+		streamResult, err := s.execute(ctx, q, settings,
+			withStreamResultTrace(s.trace), withIssuesHandler(settings.IssuesOpts()))
 		if err != nil {
 			return xerrors.WithStackTrace(err)
 		}
@@ -423,7 +461,7 @@ func (c *Client) Query(ctx context.Context, q string, opts ...options.Execute) (
 		onDone(err)
 	}()
 
-	r, err = clientQuery(ctx, c.pool, q, opts...)
+	r, err = clientQuery(ctx, c.pool(), q, opts...)
 	if err != nil {
 		return nil, xerrors.WithStackTrace(err)
 	}
@@ -434,6 +472,10 @@ func (c *Client) Query(ctx context.Context, q string, opts ...options.Execute) (
 func clientQueryResultSet(
 	ctx context.Context, pool sessionPool, q string, settings executeSettings, resultOpts ...resultOption,
 ) (rs result.ClosableResultSet, rowsCount int, finalErr error) {
+	if err := validateTxControl(settings); err != nil {
+		return nil, 0, err
+	}
+
 	err := do(ctx, pool, func(ctx context.Context, s *Session) error {
 		streamResult, err := s.execute(ctx, q, settings, resultOpts...)
 		if err != nil {
@@ -478,12 +520,23 @@ func (c *Client) QueryResultSet(
 		onDone(finalErr, rowsCount)
 	}()
 
-	rs, rowsCount, err = clientQueryResultSet(ctx, c.pool, q, settings, withTrace(c.config.Trace()))
+	rs, rowsCount, err = clientQueryResultSet(ctx, c.pool(), q, settings, withStreamResultTrace(c.config.Trace()))
 	if err != nil {
 		return nil, xerrors.WithStackTrace(err)
 	}
 
 	return rs, nil
+}
+
+// pool returns the appropriate session pool based on the client configuration.
+// If implicit sessions are enabled, it returns the implicit session pool;
+// otherwise, it returns the explicit session pool.
+func (c *Client) pool() sessionPool {
+	if c.config.AllowImplicitSessions() {
+		return c.implicitSessionPool
+	}
+
+	return c.explicitSessionPool
 }
 
 func (c *Client) DoTx(ctx context.Context, op query.TxOperation, opts ...options.DoTxOption) (finalErr error) {
@@ -502,7 +555,11 @@ func (c *Client) DoTx(ctx context.Context, op query.TxOperation, opts ...options
 		onDone(attempts, finalErr)
 	}()
 
-	err := doTx(ctx, c.pool, op,
+	if lazyTx := settings.LazyTx(); lazyTx != nil {
+		ctx = tx.WithLazyTx(ctx, *lazyTx)
+	}
+
+	err := doTx(ctx, c.explicitSessionPool, op,
 		settings.TxSettings(),
 		append(
 			[]retry.Option{
@@ -564,25 +621,34 @@ func New(ctx context.Context, cc grpc.ClientConnInterface, cfg *config.Config) *
 
 	client := Ydb_Query_V1.NewQueryServiceClient(cc)
 
+	return newWithQueryServiceClient(ctx, client, cc, cfg)
+}
+
+func newWithQueryServiceClient(ctx context.Context,
+	client Ydb_Query_V1.QueryServiceClient,
+	cc grpc.ClientConnInterface,
+	cfg *config.Config,
+) *Client {
 	return &Client{
-		config: cfg,
-		client: client,
-		done:   make(chan struct{}),
-		pool: pool.New(ctx,
-			pool.WithLimit[*Session, Session](cfg.PoolLimit()),
-			pool.WithItemUsageLimit[*Session, Session](cfg.PoolSessionUsageLimit()),
-			pool.WithItemUsageTTL[*Session, Session](cfg.PoolSessionUsageTTL()),
-			pool.WithTrace[*Session, Session](poolTrace(cfg.Trace())),
-			pool.WithCreateItemTimeout[*Session, Session](cfg.SessionCreateTimeout()),
-			pool.WithCloseItemTimeout[*Session, Session](cfg.SessionDeleteTimeout()),
-			pool.WithMustDeleteItemFunc[*Session, Session](func(s *Session, err error) bool {
+		config:              cfg,
+		client:              client,
+		done:                make(chan struct{}),
+		implicitSessionPool: createImplicitSessionPool(ctx, cfg, client, cc),
+		explicitSessionPool: pool.New(ctx,
+			pool.WithLimit[*Session](cfg.PoolLimit()),
+			pool.WithItemUsageLimit[*Session](cfg.PoolSessionUsageLimit()),
+			pool.WithItemUsageTTL[*Session](cfg.PoolSessionUsageTTL()),
+			pool.WithTrace[*Session](poolTrace(cfg.Trace())),
+			pool.WithCreateItemTimeout[*Session](cfg.SessionCreateTimeout()),
+			pool.WithCloseItemTimeout[*Session](cfg.SessionDeleteTimeout()),
+			pool.WithMustDeleteItemFunc(func(s *Session, err error) bool {
 				if !s.IsAlive() {
 					return true
 				}
 
 				return err != nil && xerrors.MustDeleteTableOrQuerySession(err)
 			}),
-			pool.WithIdleTimeToLive[*Session, Session](cfg.SessionIdleTimeToLive()),
+			pool.WithIdleTimeToLive[*Session](cfg.SessionIdleTimeToLive()),
 			pool.WithCreateItemFunc(func(ctx context.Context) (_ *Session, err error) {
 				var (
 					createCtx    context.Context
@@ -594,6 +660,10 @@ func New(ctx context.Context, cc grpc.ClientConnInterface, cfg *config.Config) *
 					createCtx, cancelCreate = xcontext.WithCancel(ctx)
 				}
 				defer cancelCreate()
+
+				if !cfg.DisableSessionBalancer() {
+					createCtx = meta.WithAllowFeatures(createCtx, meta.HintSessionBalancer)
+				}
 
 				s, err := createSession(createCtx, client,
 					WithConn(cc),
@@ -649,15 +719,47 @@ func poolTrace(t *trace.Query) *pool.Trace {
 				onDone(err)
 			}
 		},
-		OnGet: func(ctx *context.Context, call stack.Caller) func(item any, attempts int, err error) {
+		OnGet: func(ctx *context.Context, call stack.Caller) func(
+			item any,
+			attempts int,
+			hint *trace.NodeHintInfo,
+			err error,
+		) {
 			onDone := trace.QueryOnPoolGet(t, ctx, call)
 
-			return func(item any, attempts int, err error) {
-				onDone(item.(*Session), attempts, err) //nolint:forcetypeassert
+			return func(item any, attempts int, hint *trace.NodeHintInfo, err error) {
+				onDone(item.(*Session), attempts, hint, err) //nolint:forcetypeassert
 			}
 		},
 		OnChange: func(stats pool.Stats) {
 			trace.QueryOnPoolChange(t, stats.Limit, stats.Index, stats.Idle, stats.Wait, stats.CreateInProgress)
 		},
 	}
+}
+
+func createImplicitSessionPool(ctx context.Context,
+	cfg *config.Config,
+	c Ydb_Query_V1.QueryServiceClient,
+	cc grpc.ClientConnInterface,
+) sessionPool {
+	return pool.New(ctx,
+		pool.WithLimit[*Session](cfg.PoolLimit()),
+		pool.WithTrace[*Session](poolTrace(cfg.Trace())),
+		pool.WithCreateItemFunc(func(ctx context.Context) (_ *Session, err error) {
+			core := &implicitSessionCore{
+				sessionCore{
+					cc:     cc,
+					Client: c,
+					Trace:  cfg.Trace(),
+					done:   make(chan struct{}),
+				},
+			}
+
+			return &Session{
+				Core:   core,
+				trace:  cfg.Trace(),
+				client: c,
+			}, nil
+		}),
+	)
 }

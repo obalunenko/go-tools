@@ -620,9 +620,10 @@ func processColumns(columns []*Ydb_Table.ColumnMeta) []options.Column {
 	cs := make([]options.Column, len(columns))
 	for i, c := range columns {
 		cs[i] = options.Column{
-			Name:   c.GetName(),
-			Type:   types.TypeFromYDB(c.GetType()),
-			Family: c.GetFamily(),
+			Name:         c.GetName(),
+			Type:         types.TypeFromYDB(c.GetType()),
+			Family:       c.GetFamily(),
+			DefaultValue: value.GetDefaultFromYDB(c),
 		}
 	}
 
@@ -710,6 +711,8 @@ func processIndexes(indexes []*Ydb_Table.TableIndexDescription) []options.IndexD
 			typ = options.IndexTypeGlobalAsync
 		case *Ydb_Table.TableIndexDescription_GlobalIndex:
 			typ = options.IndexTypeGlobal
+		case *Ydb_Table.TableIndexDescription_GlobalUniqueIndex:
+			typ = options.IndexTypeGlobalUnique
 		}
 		idxs[i] = options.IndexDescription{
 			Name:         idx.GetName(),

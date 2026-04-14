@@ -8,12 +8,13 @@ import (
 	"io"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	goversion "github.com/caarlos0/go-version"
 	"github.com/caarlos0/log"
 	"github.com/charmbracelet/fang"
-	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/goreleaser/goreleaser/v2/internal/gerrors"
 	"github.com/goreleaser/goreleaser/v2/pkg/context"
 	"github.com/spf13/cobra"
@@ -47,17 +48,36 @@ func (cmd *rootCmd) Execute(args []string) {
 		fang.WithColorSchemeFunc(fang.AnsiColorScheme),
 		fang.WithNotifySignal(os.Interrupt, os.Kill),
 	); err != nil {
-		cmd.exit(gerrors.ExitOf(err))
+		if de, ok := errors.AsType[gerrors.ErrDetailed](err); ok {
+			cmd.exit(de.Exit())
+		} else {
+			cmd.exit(1)
+		}
 	}
 }
 
 func errorHandler(_ io.Writer, _ fang.Styles, err error) {
 	log := log.WithError(err)
-	for k, v := range gerrors.DetailsOf(err) {
-		log = log.WithField(k, v)
+	var message string
+	if de, ok := errors.AsType[gerrors.ErrDetailed](err); ok {
+		if len(de.Messages()) > 0 {
+			message = de.Messages()[0]
+		}
+		if len(de.Messages()) > 1 {
+			log = log.WithField(
+				"message",
+				strings.Join(de.Messages()[1:], ": "),
+			)
+		}
+		for k, v := range de.Details() {
+			log = log.WithField(k, v)
+		}
+		if out := de.Output(); out != "" {
+			log = log.WithField("output", out)
+		}
 	}
 	log.Error(cmp.Or(
-		gerrors.MessageOf(err),
+		message,
 		"command failed",
 	))
 }
@@ -121,7 +141,6 @@ goreleaser release
 		newCheckCmd().cmd,
 		newHealthcheckCmd().cmd,
 		newInitCmd().cmd,
-		newDocsCmd().cmd,
 		newManCmd().cmd,
 		newSchemaCmd().cmd,
 	)
@@ -175,10 +194,10 @@ func after(start time.Time) time.Duration {
 
 func decorateWithCtxErr(ctx stdctx.Context, err error, verb string, after time.Duration) error {
 	if errors.Is(ctx.Err(), stdctx.Canceled) {
-		return gerrors.Wrap(ctx.Err(), fmt.Sprintf("%s interrupted after %s", verb, after))
+		return gerrors.Wrap(ctx.Err(), gerrors.WithMessage(fmt.Sprintf("%s interrupted after %s", verb, after)))
 	}
 	if errors.Is(ctx.Err(), stdctx.DeadlineExceeded) {
-		return gerrors.Wrap(ctx.Err(), fmt.Sprintf("%s timed out after %s", verb, after))
+		return gerrors.Wrap(ctx.Err(), gerrors.WithMessage(fmt.Sprintf("%s timed out after %s", verb, after)))
 	}
-	return gerrors.Wrap(err, fmt.Sprintf("%s failed after %s", verb, after))
+	return gerrors.Wrap(err, gerrors.WithMessage(fmt.Sprintf("%s failed after %s", verb, after)))
 }

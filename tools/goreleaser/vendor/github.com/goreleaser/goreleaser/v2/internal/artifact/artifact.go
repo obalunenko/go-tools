@@ -7,6 +7,7 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/sha3"
 	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
@@ -25,7 +26,7 @@ import (
 	"github.com/goreleaser/goreleaser/v2/internal/experimental"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/blake2s"
-	"golang.org/x/crypto/sha3"
+	"lukechampine.com/blake3"
 )
 
 // Type defines the type of an artifact.
@@ -109,10 +110,43 @@ const (
 	Makeself
 	// DockerImageV2 is a container image in OCI format.
 	DockerImageV2
+	// Flatpak is a Flatpak bundle.
+	Flatpak
+	// SourceRPM is a source RPM.
+	SourceRPM
+
+	// XXX: if it is an uploadable kind of artifact, add it to UploadableTypes
+	// below.
+
 	// lastMarker is used in tests to denote the last valid type.
 	// always add new types before this one.
 	lastMarker
 )
+
+// ReleaseUploadableTypes returns the canonical list of artifact types that should be
+// uploaded, checksummed, signed, and otherwise distributed.
+// When adding a new artifact type that should be part of a release, add it
+// here and all pipes that use this func will automatically include it.
+//
+// GoReleaser Pro has more formats: MSI, DMG, etc.
+func ReleaseUploadableTypes() []Type {
+	return []Type{
+		UploadableArchive,
+		UploadableBinary,
+		UploadableFile,
+		UploadableSourceArchive,
+		Makeself,
+		LinuxPackage,
+		Flatpak,
+		SourceRPM,
+		SBOM,
+		PyWheel,
+		PySdist,
+		Checksum,
+		Signature,
+		Certificate,
+	}
+}
 
 func (t Type) isUploadable() bool {
 	switch t {
@@ -188,11 +222,18 @@ func (t Type) String() string {
 		return "Source Dist"
 	case Makeself:
 		return "Makeself Package"
+	case Flatpak:
+		return "Flatpak"
+	case SourceRPM:
+		return "Source RPM"
 	default:
 		return "unknown"
 	}
 }
 
+// Extra field keys used across multiple pipes.
+// If you add or change these, please update the documentation at
+// www/content/customization/general/artifacts.md as well.
 const (
 	ExtraID         = "ID"
 	ExtraBinary     = "Binary"
@@ -200,6 +241,7 @@ const (
 	ExtraFormat     = "Format"
 	ExtraWrappedIn  = "WrappedIn"
 	ExtraBinaries   = "Binaries"
+	ExtraFiles      = "Files"
 	ExtraRefresh    = "Refresh"
 	ExtraReplaces   = "Replaces"
 	ExtraDigest     = "Digest"
@@ -207,6 +249,7 @@ const (
 	ExtraChecksum   = "Checksum"
 	ExtraChecksumOf = "ChecksumOf"
 	ExtraBuilder    = "Builder"
+	ExtranDynLink   = "DynamicallyLinked"
 )
 
 // Extras represents the extra fields in an artifact.
@@ -331,6 +374,8 @@ func (a *Artifact) Checksum(algorithm string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("failed to checksum: %w", err)
 		}
+	case "blake3":
+		h = blake3.New(32, nil)
 	case "crc32":
 		h = crc32.NewIEEE()
 	case "md5":
@@ -346,13 +391,13 @@ func (a *Artifact) Checksum(algorithm string) (string, error) {
 	case "sha512":
 		h = sha512.New()
 	case "sha3-224":
-		h = sha3.New224()
+		h = hash.Hash(sha3.New224())
 	case "sha3-384":
-		h = sha3.New384()
+		h = hash.Hash(sha3.New384())
 	case "sha3-256":
-		h = sha3.New256()
+		h = hash.Hash(sha3.New256())
 	case "sha3-512":
-		h = sha3.New512()
+		h = hash.Hash(sha3.New512())
 	default:
 		return "", fmt.Errorf("invalid algorithm: %s", algorithm)
 	}

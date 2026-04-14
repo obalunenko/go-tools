@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
+// SPDX-License-Identifier: Apache-2.0
+
 package codescan
 
 import (
@@ -78,11 +81,11 @@ func (ht responseTypable) CollectionOf(items *spec.Items, format string) {
 	ht.header.CollectionOf(items, format)
 }
 
-func (ht responseTypable) AddExtension(key string, value interface{}) {
+func (ht responseTypable) AddExtension(key string, value any) {
 	ht.response.AddExtension(key, value)
 }
 
-func (ht responseTypable) WithEnum(values ...interface{}) {
+func (ht responseTypable) WithEnum(values ...any) {
 	ht.header.WithEnum(values)
 }
 
@@ -140,9 +143,9 @@ func (sv headerValidations) SetEnum(val string) {
 	sv.current.Enum = parseEnum(val, &spec.SimpleSchema{Type: sv.current.Type, Format: sv.current.Format})
 }
 
-func (sv headerValidations) SetDefault(val interface{}) { sv.current.Default = val }
+func (sv headerValidations) SetDefault(val any) { sv.current.Default = val }
 
-func (sv headerValidations) SetExample(val interface{}) { sv.current.Example = val }
+func (sv headerValidations) SetExample(val any) { sv.current.Example = val }
 
 type responseBuilder struct {
 	ctx       *scanCtx
@@ -158,7 +161,7 @@ func (r *responseBuilder) Build(responses map[string]spec.Response) error {
 
 	name, _ := r.decl.ResponseNames()
 	response := responses[name]
-	debugLog("building response: %s", name)
+	debugLogf("building response: %s", name)
 
 	// analyze doc comment for the model
 	sp := new(sectionedParser)
@@ -182,7 +185,7 @@ func (r *responseBuilder) Build(responses map[string]spec.Response) error {
 }
 
 func (r *responseBuilder) buildFromField(fld *types.Var, tpe types.Type, typable swaggerTypable, seen map[string]bool) error {
-	debugLog("build from field %s: %T", fld.Name(), tpe)
+	debugLogf("build from field %s: %T", fld.Name(), tpe)
 
 	switch ftpe := tpe.(type) {
 	case *types.Basic:
@@ -202,7 +205,7 @@ func (r *responseBuilder) buildFromField(fld *types.Var, tpe types.Type, typable
 	case *types.Named:
 		return r.buildNamedField(ftpe, typable)
 	case *types.Alias:
-		debugLog("alias(responses.buildFromField): got alias %v to %v", ftpe, ftpe.Rhs())
+		debugLogf("alias(responses.buildFromField): got alias %v to %v", ftpe, ftpe.Rhs())
 		return r.buildFieldAlias(ftpe, typable, fld, seen)
 	default:
 		return fmt.Errorf("unknown type for %s: %T", fld.String(), fld.Type())
@@ -264,7 +267,7 @@ func (r *responseBuilder) buildFromType(otpe types.Type, resp *spec.Response, se
 	case *types.Named:
 		return r.buildNamedType(tpe, resp, seen)
 	case *types.Alias:
-		debugLog("alias(responses.buildFromType): got alias %v to %v", tpe, tpe.Rhs())
+		debugLogf("alias(responses.buildFromType): got alias %v to %v", tpe, tpe.Rhs())
 		return r.buildAlias(tpe, resp, seen)
 	default:
 		return errors.New("anonymous types are currently not supported for responses")
@@ -281,7 +284,7 @@ func (r *responseBuilder) buildNamedType(tpe *types.Named, resp *spec.Response, 
 
 	switch stpe := o.Type().Underlying().(type) { // TODO(fred): this is wrong without checking for aliases?
 	case *types.Struct:
-		debugLog("build from type %s: %T", o.Name(), tpe)
+		debugLogf("build from type %s: %T", o.Name(), tpe)
 		if decl, found := r.ctx.DeclForType(o.Type()); found {
 			return r.buildFromStruct(decl, stpe, resp, seen)
 		}
@@ -325,6 +328,12 @@ func (r *responseBuilder) buildAlias(tpe *types.Alias, resp *spec.Response, seen
 	mustHaveRightHandSide(tpe)
 
 	rhs := tpe.Rhs()
+
+	// If transparent aliases are enabled, use the underlying type directly without creating a definition
+	if r.ctx.app.transparentAliases {
+		return r.buildFromType(rhs, resp, seen)
+	}
+
 	decl, ok := r.ctx.FindModel(o.Pkg().Path(), o.Name())
 	if !ok {
 		return fmt.Errorf("can't find source file for aliased type: %v -> %v", tpe, rhs)
@@ -378,7 +387,6 @@ func (r *responseBuilder) buildNamedField(ftpe *types.Named, typable swaggerTypa
 		return nil
 	}
 
-	// ICI
 	sb := &schemaBuilder{ctx: r.ctx, decl: decl}
 	sb.inferNames()
 	if err := sb.buildFromType(decl.ObjType(), typable); err != nil {
@@ -401,6 +409,19 @@ func (r *responseBuilder) buildFieldAlias(tpe *types.Alias, typable swaggerTypab
 		return nil // just leave an empty schema
 	}
 
+	// If transparent aliases are enabled, use the underlying type directly without creating a definition
+	if r.ctx.app.transparentAliases {
+		sb := schemaBuilder{
+			decl: r.decl,
+			ctx:  r.ctx,
+		}
+		if err := sb.buildFromType(tpe.Rhs(), typable); err != nil {
+			return err
+		}
+		r.postDecls = append(r.postDecls, sb.postDecls...)
+		return nil
+	}
+
 	decl, ok := r.ctx.FindModel(o.Pkg().Path(), o.Name())
 	if !ok {
 		return fmt.Errorf("can't find source file for aliased type: %v", tpe)
@@ -415,17 +436,16 @@ func (r *responseBuilder) buildFromStruct(decl *entityDecl, tpe *types.Struct, r
 		return nil
 	}
 
-	for i := 0; i < tpe.NumFields(); i++ {
+	for i := range tpe.NumFields() {
 		fld := tpe.Field(i)
 		if fld.Embedded() {
-
 			if err := r.buildFromType(fld.Type(), resp, seen); err != nil {
 				return err
 			}
 			continue
 		}
 		if fld.Anonymous() {
-			debugLog("skipping anonymous field")
+			debugLogf("skipping anonymous field")
 			continue
 		}
 
@@ -439,19 +459,19 @@ func (r *responseBuilder) buildFromStruct(decl *entityDecl, tpe *types.Struct, r
 				continue
 			}
 
-			debugLog("field %s: %s(%T) [%q] ==> %s", fld.Name(), fld.Type().String(), fld.Type(), tg, at.Doc.Text())
+			debugLogf("field %s: %s(%T) [%q] ==> %s", fld.Name(), fld.Type().String(), fld.Type(), tg, at.Doc.Text())
 			afld = at
 			break
 		}
 
 		if afld == nil {
-			debugLog("can't find source associated with %s for %s", fld.String(), tpe.String())
+			debugLogf("can't find source associated with %s for %s", fld.String(), tpe.String())
 			continue
 		}
 
 		// if the field is annotated with swagger:ignore, ignore it
 		if ignored(afld.Doc) {
-			debugLog("field %v of type %v is deliberately ignored", fld, tpe)
+			debugLogf("field %v of type %v is deliberately ignored", fld, tpe)
 			continue
 		}
 
@@ -467,7 +487,7 @@ func (r *responseBuilder) buildFromStruct(decl *entityDecl, tpe *types.Struct, r
 		// scan for param location first, this changes some behavior down the line
 		if afld.Doc != nil {
 			for _, cmt := range afld.Doc.List {
-				for _, line := range strings.Split(cmt.Text, "\n") {
+				for line := range strings.SplitSeq(cmt.Text, "\n") {
 					matches := rxIn.FindStringSubmatch(line)
 					if len(matches) > 0 && len(strings.TrimSpace(matches[1])) > 0 {
 						in = strings.TrimSpace(matches[1])
@@ -485,7 +505,7 @@ func (r *responseBuilder) buildFromStruct(decl *entityDecl, tpe *types.Struct, r
 			resp.Schema = &spec.Schema{}
 			resp.Schema.Typed("file", "")
 		} else {
-			debugLog("build response %v (%v) (not a file)", fld, fld.Type())
+			debugLogf("build response %v (%v) (not a file)", fld, fld.Type())
 			if err := r.buildFromField(fld, fld.Type(), responseTypable{in, &ps, resp}, seen); err != nil {
 				return err
 			}

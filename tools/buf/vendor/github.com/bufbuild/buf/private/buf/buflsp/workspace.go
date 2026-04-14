@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ import (
 	"github.com/bufbuild/buf/private/pkg/normalpath"
 	"github.com/bufbuild/buf/private/pkg/storage"
 	"go.lsp.dev/protocol"
-	"go.lsp.dev/uri"
 )
 
 // errUnresolvableWorkspace is an unsupported workspace error.
@@ -248,13 +247,13 @@ func (w *workspace) indexFiles(ctx context.Context) {
 	for fileInfo := range w.fileInfos(ctx) {
 		file, ok := previous[fileInfo.Path()]
 		if !ok {
-			fileURI := uri.File(fileInfo.LocalPath())
+			fileURI := FilePathToURI(fileInfo.LocalPath())
 			file = w.lsp.fileManager.Track(fileURI)
 			w.lsp.logger.Debug("workspace: index track file", slog.String("path", file.uri.Filename()))
 		}
 
 		// Currently we only associate a file with one workspace. This assumption isn't accurate
-		// for shared dependencies. Here we update to the lastest, most recently used, workspace.
+		// for shared dependencies. Here we update to the latest, most recently used, workspace.
 		// This will make goto definition and find references only work in that workspace.
 		if oldWorkspace := file.workspace; oldWorkspace != nil && oldWorkspace != w {
 			oldWorkspace.Release()

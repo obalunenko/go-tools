@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,18 +68,34 @@ type formatter struct {
 	// Records all errors that occur during the formatting process. Nearly any
 	// non-nil error represents a bug in the implementation.
 	err error
+
+	// deprecation tracks which types should have deprecated options injected.
+	deprecation *fullNameMatcher
+	// packageFQN holds the current fully-qualified name.
+	packageFQN string
+	// injectCompactDeprecation is set when the next compact options should have
+	// deprecated = true injected at the beginning.
+	injectCompactDeprecation bool
+	// deprecationMatched is set to true when any type matches the deprecation prefix,
+	// regardless of whether it was already deprecated.
+	deprecationMatched bool
 }
 
 // newFormatter returns a new formatter for the given file.
 func newFormatter(
 	writer io.Writer,
 	fileNode *ast.FileNode,
+	options *formatOptions,
 ) *formatter {
-	return &formatter{
+	f := &formatter{
 		writer:                   writer,
 		fileNode:                 fileNode,
 		overrideTrailingComments: map[ast.Node]ast.Comments{},
 	}
+	if options != nil && len(options.deprecatePrefixes) > 0 {
+		f.deprecation = newFullNameMatcher(options.deprecatePrefixes...)
+	}
+	return f
 }
 
 // Run runs the formatter and writes the file's content to the formatter's writer.
@@ -247,6 +263,10 @@ func (f *formatter) writeFileHeader() {
 			continue
 		}
 	}
+	// Extract package FQN for deprecation tracking
+	if packageNode != nil {
+		f.packageFQN = packageNameToString(packageNode.Name)
+	}
 	if f.fileNode.Syntax == nil && f.fileNode.Edition == nil &&
 		packageNode == nil && importNodes == nil && optionNodes == nil {
 		// There aren't any header values, so we can return early.
@@ -272,21 +292,21 @@ func (f *formatter) writeFileHeader() {
 	sort.Slice(importNodes, func(i, j int) bool {
 		iName := importNodes[i].Name.AsString()
 		jName := importNodes[j].Name.AsString()
-		// sort by public > None > weak
+		// "import option" sorts after all other imports. Within each
+		// group, sort alphabetically by name, then by modifier
+		// (public > regular > weak), and finally by comment.
+		iOption := isOptionImport(importNodes[i])
+		jOption := isOptionImport(importNodes[j])
+		if iOption != jOption {
+			return !iOption
+		}
+		if iName != jName {
+			return iName < jName
+		}
 		iOrder := importSortOrder(importNodes[i])
 		jOrder := importSortOrder(importNodes[j])
-
-		if iName < jName {
-			return true
-		}
-		if iName > jName {
-			return false
-		}
-		if iOrder > jOrder {
-			return true
-		}
-		if iOrder < jOrder {
-			return false
+		if iOrder != jOrder {
+			return iOrder < jOrder
 		}
 
 		// put commented import first
@@ -330,6 +350,13 @@ func (f *formatter) writeFileHeader() {
 		}
 		f.writeFileOption(optionNode, i > 0, first)
 		first = false
+	}
+	// Inject file-level deprecated option if needed
+	if f.shouldInjectDeprecation(f.packageFQN) && !hasDeprecatedOption(optionNodes) {
+		if len(optionNodes) == 0 && f.previousNode != nil {
+			f.P("")
+		}
+		f.writeDeprecatedOption()
 	}
 }
 
@@ -419,6 +446,9 @@ func (f *formatter) writeImport(importNode *ast.ImportNode, forceCompact, first 
 		f.Space()
 	case importNode.Weak != nil:
 		f.writeInline(importNode.Weak)
+		f.Space()
+	case importNode.Modifier != nil:
+		f.writeInline(importNode.Modifier)
 		f.Space()
 	}
 	f.writeInline(importNode.Name)
@@ -577,15 +607,35 @@ func (f *formatter) writeOptionName(optionNameNode *ast.OptionNameNode) {
 //	  Baz baz = 2;
 //	}
 func (f *formatter) writeMessage(messageNode *ast.MessageNode) {
+	// Track FQN for deprecation
+	popFQN := f.pushFQN(messageNode.Name.Val)
+	defer popFQN()
+
 	var elementWriterFunc func()
 	if len(messageNode.Decls) != 0 {
+		// Check if we need to inject deprecation
+		needsDeprecation := f.shouldInjectDeprecation(f.currentFQN()) && !hasDeprecatedOption(messageNode.Decls)
 		elementWriterFunc = func() {
+			if needsDeprecation {
+				f.writeDeprecatedOption()
+			}
 			for _, decl := range messageNode.Decls {
 				f.writeNode(decl)
 			}
 		}
+	} else if f.shouldInjectDeprecation(f.currentFQN()) {
+		// Empty message that needs deprecation
+		elementWriterFunc = func() {
+			f.writeDeprecatedOption()
+		}
 	}
-	f.writeStart(messageNode.Keyword, false)
+	if messageNode.Visibility != nil {
+		f.writeStart(messageNode.Visibility, false)
+		f.Space()
+		f.writeInline(messageNode.Keyword)
+	} else {
+		f.writeStart(messageNode.Keyword, false)
+	}
 	f.Space()
 	f.writeInline(messageNode.Name)
 	f.Space()
@@ -848,15 +898,35 @@ func (f *formatter) writeMessageFieldPrefix(messageFieldNode *ast.MessageFieldNo
 //	  FOO_UNSPECIFIED = 0;
 //	}
 func (f *formatter) writeEnum(enumNode *ast.EnumNode) {
+	// Track FQN for deprecation
+	popFQN := f.pushFQN(enumNode.Name.Val)
+	defer popFQN()
+
 	var elementWriterFunc func()
 	if len(enumNode.Decls) > 0 {
+		// Check if we need to inject deprecation
+		needsDeprecation := f.shouldInjectDeprecation(f.currentFQN()) && !hasDeprecatedOption(enumNode.Decls)
 		elementWriterFunc = func() {
+			if needsDeprecation {
+				f.writeDeprecatedOption()
+			}
 			for _, decl := range enumNode.Decls {
 				f.writeNode(decl)
 			}
 		}
+	} else if f.shouldInjectDeprecation(f.currentFQN()) {
+		// Empty enum that needs deprecation
+		elementWriterFunc = func() {
+			f.writeDeprecatedOption()
+		}
 	}
-	f.writeStart(enumNode.Keyword, false)
+	if enumNode.Visibility != nil {
+		f.writeStart(enumNode.Visibility, false)
+		f.Space()
+		f.writeInline(enumNode.Keyword)
+	} else {
+		f.writeStart(enumNode.Keyword, false)
+	}
 	f.Space()
 	f.writeInline(enumNode.Name)
 	f.Space()
@@ -881,9 +951,21 @@ func (f *formatter) writeEnumValue(enumValueNode *ast.EnumValueNode) {
 	f.writeInline(enumValueNode.Equals)
 	f.Space()
 	f.writeInline(enumValueNode.Number)
+	// Check if we need to inject deprecation for this enum value (exact match only)
+	// Enum values are scoped to their parent (message or package), NOT the enum itself.
+	// So we use the parent FQN (without the enum name) + the enum value name.
+	enumValueFQN := parentFQN(f.packageFQN) + "." + enumValueNode.Name.Val
+	needsDeprecation := f.shouldInjectDeprecationExact(enumValueFQN) &&
+		!hasCompactDeprecatedOption(enumValueNode.Options)
 	if enumValueNode.Options != nil {
 		f.Space()
+		if needsDeprecation {
+			f.injectCompactDeprecation = true
+		}
 		f.writeNode(enumValueNode.Options)
+		f.injectCompactDeprecation = false
+	} else if needsDeprecation {
+		f.writeCompactDeprecatedOption()
 	}
 	f.writeLineEnd(enumValueNode.Semicolon)
 }
@@ -924,9 +1006,19 @@ func (f *formatter) writeField(fieldNode *ast.FieldNode) {
 	if fieldNode.Tag != nil {
 		f.writeInline(fieldNode.Tag)
 	}
+	// Check if we need to inject deprecation for this field (exact match only)
+	fieldFQN := f.currentFQN() + "." + fieldNode.Name.Val
+	needsDeprecation := f.shouldInjectDeprecationExact(fieldFQN) &&
+		!hasCompactDeprecatedOption(fieldNode.Options)
 	if fieldNode.Options != nil {
 		f.Space()
+		if needsDeprecation {
+			f.injectCompactDeprecation = true
+		}
 		f.writeNode(fieldNode.Options)
+		f.injectCompactDeprecation = false
+	} else if needsDeprecation {
+		f.writeCompactDeprecatedOption()
 	}
 	f.writeLineEnd(fieldNode.Semicolon)
 }
@@ -1005,12 +1097,26 @@ func (f *formatter) writeExtend(extendNode *ast.ExtendNode) {
 //
 //	  rpc Foo(FooRequest) returns (FooResponse) {};
 func (f *formatter) writeService(serviceNode *ast.ServiceNode) {
+	// Track FQN for deprecation
+	popFQN := f.pushFQN(serviceNode.Name.Val)
+	defer popFQN()
+
 	var elementWriterFunc func()
 	if len(serviceNode.Decls) > 0 {
+		// Check if we need to inject deprecation
+		needsDeprecation := f.shouldInjectDeprecation(f.currentFQN()) && !hasDeprecatedOption(serviceNode.Decls)
 		elementWriterFunc = func() {
+			if needsDeprecation {
+				f.writeDeprecatedOption()
+			}
 			for _, decl := range serviceNode.Decls {
 				f.writeNode(decl)
 			}
+		}
+	} else if f.shouldInjectDeprecation(f.currentFQN()) {
+		// Empty service that needs deprecation
+		elementWriterFunc = func() {
+			f.writeDeprecatedOption()
 		}
 	}
 	f.writeStart(serviceNode.Keyword, false)
@@ -1033,12 +1139,25 @@ func (f *formatter) writeService(serviceNode *ast.ServiceNode) {
 //	  option deprecated = true;
 //	};
 func (f *formatter) writeRPC(rpcNode *ast.RPCNode) {
+	// Track FQN for deprecation (RPCs are children of services)
+	popFQN := f.pushFQN(rpcNode.Name.Val)
+	defer popFQN()
+
+	needsDeprecation := f.shouldInjectDeprecation(f.currentFQN()) && !hasDeprecatedOption(rpcNode.Decls)
+
 	var elementWriterFunc func()
 	if len(rpcNode.Decls) > 0 {
 		elementWriterFunc = func() {
+			if needsDeprecation {
+				f.writeDeprecatedOption()
+			}
 			for _, decl := range rpcNode.Decls {
 				f.writeNode(decl)
 			}
+		}
+	} else if needsDeprecation {
+		elementWriterFunc = func() {
+			f.writeDeprecatedOption()
 		}
 	}
 	f.writeStart(rpcNode.Keyword, false)
@@ -1049,21 +1168,37 @@ func (f *formatter) writeRPC(rpcNode *ast.RPCNode) {
 	f.writeInline(rpcNode.Returns)
 	f.Space()
 	f.writeInline(rpcNode.Output)
-	if rpcNode.OpenBrace == nil {
-		// This RPC doesn't have any elements, so we prefer the
-		// ';' form.
+	if rpcNode.OpenBrace == nil && !needsDeprecation {
+		// This RPC doesn't have any elements and doesn't need deprecation,
+		// so we prefer the ';' form.
 		//
 		//  rpc Ping(PingRequest) returns (PingResponse);
 		//
 		f.writeLineEnd(rpcNode.Semicolon)
 		return
 	}
+	// If we need to add deprecation to an RPC without a body, we need to
+	// create a body for it.
 	f.Space()
-	f.writeCompositeTypeBody(
-		rpcNode.OpenBrace,
-		rpcNode.CloseBrace,
-		elementWriterFunc,
-	)
+	if rpcNode.OpenBrace != nil {
+		f.writeCompositeTypeBody(
+			rpcNode.OpenBrace,
+			rpcNode.CloseBrace,
+			elementWriterFunc,
+		)
+	} else {
+		// RPC had no body but needs deprecation - create synthetic body
+		f.WriteString("{")
+		f.P("")
+		f.In()
+		if elementWriterFunc != nil {
+			elementWriterFunc()
+		}
+		f.Out()
+		f.Indent(nil)
+		f.WriteString("}")
+		f.P("")
+	}
 }
 
 // writeRPCType writes the RPC type node (e.g. (stream foo.Bar)).
@@ -1248,7 +1383,9 @@ func (f *formatter) writeCompactOptions(compactOptionsNode *ast.CompactOptionsNo
 	defer func() {
 		f.inCompactOptions = false
 	}()
-	if len(compactOptionsNode.Options) == 1 &&
+	// If we need to inject deprecation, we must use multiline format
+	injectDeprecation := f.injectCompactDeprecation
+	if len(compactOptionsNode.Options) == 1 && !injectDeprecation &&
 		!f.hasInteriorComments(compactOptionsNode.OpenBracket, compactOptionsNode.Options[0].Name) {
 		// If there's only a single compact scalar option without comments, we can write it
 		// in-line. For example:
@@ -1282,8 +1419,16 @@ func (f *formatter) writeCompactOptions(compactOptionsNode *ast.CompactOptionsNo
 		return
 	}
 	var elementWriterFunc func()
-	if len(compactOptionsNode.Options) > 0 {
+	if len(compactOptionsNode.Options) > 0 || injectDeprecation {
 		elementWriterFunc = func() {
+			// If we need to inject deprecation, write it first
+			if injectDeprecation {
+				if len(compactOptionsNode.Options) > 0 {
+					f.P("deprecated = true,")
+				} else {
+					f.P("deprecated = true")
+				}
+			}
 			for i, opt := range compactOptionsNode.Options {
 				if i == len(compactOptionsNode.Options)-1 {
 					// The last element won't have a trailing comma.
@@ -2141,8 +2286,8 @@ func (f *formatter) writeInlineComments(comments ast.Comments) {
 			f.Space()
 		}
 		text := comments.Index(i).RawText()
-		if strings.HasPrefix(text, "//") {
-			text = strings.TrimSpace(strings.TrimPrefix(text, "//"))
+		if after, ok := strings.CutPrefix(text, "//"); ok {
+			text = strings.TrimSpace(after)
 			text = "/* " + text + " */"
 		} else {
 			// no multi-line comments
@@ -2408,7 +2553,7 @@ func (n infoWithTrailingComments) TrailingComments() ast.Comments {
 }
 
 // importSortOrder maps import types to a sort order number, so it can be compared and sorted.
-// `import`=3, `import public`=2, `import weak`=1
+// Higher values sort first: `import`=3, `import public`=2, `import weak`=1.
 func importSortOrder(node *ast.ImportNode) int {
 	switch {
 	case node.Public != nil:
@@ -2420,18 +2565,23 @@ func importSortOrder(node *ast.ImportNode) int {
 	}
 }
 
+// isOptionImport reports whether the import has the "option" modifier.
+func isOptionImport(node *ast.ImportNode) bool {
+	return node.Modifier != nil && node.Modifier.Val == "option"
+}
+
 // stringForOptionName returns the string representation of the given option name node.
 // This is used for sorting file-level options.
 func stringForOptionName(optionNameNode *ast.OptionNameNode) string {
-	var result string
+	var result strings.Builder
 	for j, part := range optionNameNode.Parts {
 		if j > 0 {
 			// Add a dot between each of the parts.
-			result += "."
+			result.WriteString(".")
 		}
-		result += stringForFieldReference(part)
+		result.WriteString(stringForFieldReference(part))
 	}
-	return result
+	return result.String()
 }
 
 // stringForFieldReference returns the string representation of the given field reference.
@@ -2490,4 +2640,62 @@ func messageLiteralClose(msg *ast.MessageLiteralNode) *ast.RuneNode {
 	// If it's not "}" then this message literal used "<" and ">" to enclose it.
 	// For consistent formatted output, change it to "}".
 	return ast.NewRuneNode('}', node.Token())
+}
+
+// writeDeprecatedOption writes "option deprecated = true;" on its own line.
+// This is used to inject deprecation options for types that should be deprecated.
+func (f *formatter) writeDeprecatedOption() {
+	f.Indent(nil)
+	f.WriteString("option deprecated = true;")
+	f.P("")
+}
+
+// currentFQN returns the current fully-qualified name.
+func (f *formatter) currentFQN() string {
+	return f.packageFQN
+}
+
+// pushFQN appends a name component to the current FQN and returns a function to restore it.
+func (f *formatter) pushFQN(name string) func() {
+	original := f.packageFQN
+	if f.packageFQN == "" {
+		f.packageFQN = name
+	} else {
+		f.packageFQN = f.packageFQN + "." + name
+	}
+	return func() {
+		f.packageFQN = original
+	}
+}
+
+// shouldInjectDeprecation returns true if the given FQN should have a deprecated option injected.
+// It also sets deprecationMatched to true if the FQN matches the prefix.
+func (f *formatter) shouldInjectDeprecation(fqn string) bool {
+	if f.deprecation == nil {
+		return false
+	}
+	if f.deprecation.matchesPrefix(fqn) {
+		f.deprecationMatched = true
+		return true
+	}
+	return false
+}
+
+// shouldInjectDeprecationExact returns true if the given FQN should have a deprecated option
+// injected using exact matching (for fields and enum values).
+// It also sets deprecationMatched to true if the FQN matches exactly.
+func (f *formatter) shouldInjectDeprecationExact(fqn string) bool {
+	if f.deprecation == nil {
+		return false
+	}
+	if f.deprecation.matchesExact(fqn) {
+		f.deprecationMatched = true
+		return true
+	}
+	return false
+}
+
+// writeCompactDeprecatedOption writes " [deprecated = true]" for compact options.
+func (f *formatter) writeCompactDeprecatedOption() {
+	f.WriteString(" [deprecated = true]")
 }

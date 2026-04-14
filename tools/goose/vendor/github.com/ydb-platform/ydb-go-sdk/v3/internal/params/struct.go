@@ -215,10 +215,28 @@ func (s *structValue) JSON(v string) *structure {
 	return s.parent
 }
 
+func (s *structValue) JSONFromBytes(v []byte) *structure {
+	s.parent.values = append(s.parent.values, value.StructValueField{
+		Name: s.name,
+		V:    value.JSONValueFromBytes(v),
+	})
+
+	return s.parent
+}
+
 func (s *structValue) JSONDocument(v string) *structure {
 	s.parent.values = append(s.parent.values, value.StructValueField{
 		Name: s.name,
 		V:    value.JSONDocumentValue(v),
+	})
+
+	return s.parent
+}
+
+func (s *structValue) JSONDocumentFromBytes(v []byte) *structure {
+	s.parent.values = append(s.parent.values, value.StructValueField{
+		Name: s.name,
+		V:    value.JSONDocumentValueFromBytes(v),
 	})
 
 	return s.parent
@@ -246,7 +264,7 @@ func (s *structValue) YSON(v []byte) *structure {
 //	return s.parent
 //}
 
-func (s *structValue) Uuid(v uuid.UUID) *structure { //nolint:revive,stylecheck
+func (s *structValue) Uuid(v uuid.UUID) *structure { //nolint:revive
 	s.parent.values = append(s.parent.values, value.StructValueField{
 		Name: s.name,
 		V:    value.Uuid(v),

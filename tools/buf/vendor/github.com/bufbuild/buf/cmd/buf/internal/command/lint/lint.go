@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import (
 	"github.com/bufbuild/buf/private/bufpkg/bufanalysis"
 	"github.com/bufbuild/buf/private/bufpkg/bufcheck"
 	"github.com/bufbuild/buf/private/bufpkg/bufconfig"
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
@@ -55,6 +56,9 @@ func NewCommand(
 			},
 		),
 		BindFlags: flags.Bind,
+		ModifyCobra: func(cmd *cobra.Command) error {
+			return bufcli.RegisterFlagCompletionLintErrorFormat(cmd, errorFormatFlagName)
+		},
 	}
 }
 
@@ -116,6 +120,7 @@ func run(
 		container,
 		bufctl.WithDisableSymlinks(flags.DisableSymlinks),
 		bufctl.WithFileAnnotationErrorFormat(controllerErrorFormat),
+		bufctl.WithColorizedFileAnnotationSetDiagnosticReport(container.LogFormat() == appext.LogFormatColor),
 		bufctl.WithFileAnnotationsToStdout(),
 	)
 	if err != nil {
@@ -168,7 +173,7 @@ func run(
 		}
 	}
 	if len(allFileAnnotations) > 0 {
-		allFileAnnotationSet := bufanalysis.NewFileAnnotationSet(allFileAnnotations...)
+		allFileAnnotationSet := bufanalysis.NewFileAnnotationSet(nil, allFileAnnotations...)
 		if flags.ErrorFormat == "config-ignore-yaml" {
 			if err := bufcli.PrintFileAnnotationSetLintConfigIgnoreYAMLV1(
 				container.Stdout(),

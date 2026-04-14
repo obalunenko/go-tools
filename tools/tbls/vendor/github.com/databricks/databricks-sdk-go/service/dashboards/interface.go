@@ -20,6 +20,9 @@ type GenieService interface {
 	// to respond.
 	CreateMessage(ctx context.Context, request GenieCreateConversationMessageRequest) (*GenieMessage, error)
 
+	// Creates a Genie space from a serialized payload.
+	CreateSpace(ctx context.Context, request GenieCreateSpaceRequest) (*GenieSpace, error)
+
 	// Delete a conversation.
 	DeleteConversation(ctx context.Context, request GenieDeleteConversationRequest) error
 
@@ -33,6 +36,75 @@ type GenieService interface {
 	// DEPRECATED: Use [Execute Message Attachment
 	// Query](:method:genie/executemessageattachmentquery) instead.
 	ExecuteMessageQuery(ctx context.Context, request GenieExecuteMessageQueryRequest) (*GenieGetMessageQueryResultResponse, error)
+
+	// Initiates a new SQL execution and returns a `download_id` and
+	// `download_id_signature` that you can use to track the progress of the
+	// download. The query result is stored in an external link and can be
+	// retrieved using the [Get Download Full Query
+	// Result](:method:genie/getdownloadfullqueryresult) API. Both `download_id`
+	// and `download_id_signature` must be provided when calling the Get
+	// endpoint.
+	//
+	// ----
+	//
+	// ### **Warning: Databricks strongly recommends that you protect the URLs
+	// that are returned by the `EXTERNAL_LINKS` disposition.**
+	//
+	// When you use the `EXTERNAL_LINKS` disposition, a short-lived, URL is
+	// generated, which can be used to download the results directly from . As a
+	// short-lived is embedded in this URL, you should protect the URL.
+	//
+	// Because URLs are already generated with embedded temporary s, you must
+	// not set an `Authorization` header in the download requests.
+	//
+	// See [Execute Statement](:method:statementexecution/executestatement) for
+	// more details.
+	//
+	// ----
+	GenerateDownloadFullQueryResult(ctx context.Context, request GenieGenerateDownloadFullQueryResultRequest) (*GenieGenerateDownloadFullQueryResultResponse, error)
+
+	// Create and run evaluations for multiple benchmark questions in a Genie
+	// space.
+	GenieCreateEvalRun(ctx context.Context, request GenieCreateEvalRunRequest) (*GenieEvalRunResponse, error)
+
+	// Get details for evaluation results.
+	GenieGetEvalResultDetails(ctx context.Context, request GenieGetEvalResultDetailsRequest) (*GenieEvalResultDetails, error)
+
+	// Get evaluation run details.
+	GenieGetEvalRun(ctx context.Context, request GenieGetEvalRunRequest) (*GenieEvalRunResponse, error)
+
+	// List evaluation results for a specific evaluation run.
+	GenieListEvalResults(ctx context.Context, request GenieListEvalResultsRequest) (*GenieListEvalResultsResponse, error)
+
+	// Lists all evaluation runs in a space.
+	GenieListEvalRuns(ctx context.Context, request GenieListEvalRunsRequest) (*GenieListEvalRunsResponse, error)
+
+	// After [Generating a Full Query Result
+	// Download](:method:genie/generatedownloadfullqueryresult) and successfully
+	// receiving a `download_id` and `download_id_signature`, use this API to
+	// poll the download progress. Both `download_id` and
+	// `download_id_signature` are required to call this endpoint. When the
+	// download is complete, the API returns the result in the `EXTERNAL_LINKS`
+	// disposition, containing one or more external links to the query result
+	// files.
+	//
+	// ----
+	//
+	// ### **Warning: Databricks strongly recommends that you protect the URLs
+	// that are returned by the `EXTERNAL_LINKS` disposition.**
+	//
+	// When you use the `EXTERNAL_LINKS` disposition, a short-lived, URL is
+	// generated, which can be used to download the results directly from . As a
+	// short-lived is embedded in this URL, you should protect the URL.
+	//
+	// Because URLs are already generated with embedded temporary s, you must
+	// not set an `Authorization` header in the download requests.
+	//
+	// See [Execute Statement](:method:statementexecution/executestatement) for
+	// more details.
+	//
+	// ----
+	GetDownloadFullQueryResult(ctx context.Context, request GenieGetDownloadFullQueryResultRequest) (*GenieGetDownloadFullQueryResultResponse, error)
 
 	// Get message from conversation.
 	GetMessage(ctx context.Context, request GenieGetConversationMessageRequest) (*GenieMessage, error)
@@ -70,6 +142,9 @@ type GenieService interface {
 
 	// Move a Genie Space to the trash.
 	TrashSpace(ctx context.Context, request GenieTrashSpaceRequest) error
+
+	// Updates a Genie space with a serialized payload.
+	UpdateSpace(ctx context.Context, request GenieUpdateSpaceRequest) (*GenieSpace, error)
 }
 
 // These APIs provide specific management operations for Lakeview dashboards.

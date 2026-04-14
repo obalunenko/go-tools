@@ -192,6 +192,8 @@ type CreateRecipient struct {
 	DataRecipientGlobalMetastoreId string `json:"data_recipient_global_metastore_id,omitempty"`
 	// Expiration timestamp of the token, in epoch milliseconds.
 	ExpirationTime int64 `json:"expiration_time,omitempty"`
+	// [Create,Update:IGN] common - id of the recipient
+	Id string `json:"id,omitempty"`
 	// IP Access List
 	IpAccessList *IpAccessList `json:"ip_access_list,omitempty"`
 	// Name of Recipient.
@@ -1235,6 +1237,8 @@ type RecipientInfo struct {
 	DataRecipientGlobalMetastoreId string `json:"data_recipient_global_metastore_id,omitempty"`
 	// Expiration timestamp of the token, in epoch milliseconds.
 	ExpirationTime int64 `json:"expiration_time,omitempty"`
+	// [Create,Update:IGN] common - id of the recipient
+	Id string `json:"id,omitempty"`
 	// IP Access List
 	IpAccessList *IpAccessList `json:"ip_access_list,omitempty"`
 	// Unique identifier of recipient's Unity Catalog Metastore. This field is
@@ -1498,10 +1502,30 @@ type SharedDataObject struct {
 	Name string `json:"name"`
 	// Array of partitions for the shared data.
 	Partitions []Partition `json:"partitions,omitempty"`
-	// A user-provided new name for the data object within the share. If this
-	// new name is not provided, the object's original name will be used as the
-	// `shared_as` name. The `shared_as` name must be unique within a share. For
-	// tables, the new name must follow the format of `<schema>.<table>`.
+	// A user-provided alias name for table-like data objects within the share.
+	//
+	// Use this field for table-like objects (for example: TABLE, VIEW,
+	// MATERIALIZED_VIEW, STREAMING_TABLE, FOREIGN_TABLE). For non-table objects
+	// (for example: VOLUME, MODEL, NOTEBOOK_FILE, FUNCTION), use
+	// `string_shared_as` instead.
+	//
+	// Important: For non-table objects, this field must be omitted entirely.
+	//
+	// Format: Must be a 2-part name `<schema_name>.<table_name>` (e.g.,
+	// "sales_schema.orders_table") - Both schema and table names must contain
+	// only alphanumeric characters and underscores - No periods, spaces,
+	// forward slashes, or control characters are allowed within each part - Do
+	// not include the catalog name (use 2 parts, not 3)
+	//
+	// Behavior: - If not provided, the service automatically generates the
+	// alias as `<schema>.<table>` from the object's original name - If you
+	// don't want to specify this field, omit it entirely from the request (do
+	// not pass an empty string) - The `shared_as` name must be unique within
+	// the share
+	//
+	// Examples: - Valid: "analytics_schema.customer_view" - Invalid:
+	// "catalog.analytics_schema.customer_view" (3 parts not allowed) - Invalid:
+	// "analytics-schema.customer-view" (hyphens not allowed)
 	SharedAs string `json:"shared_as,omitempty"`
 	// The start version associated with the object. This allows data providers
 	// to control the lowest object version that is accessible by clients. If
@@ -1513,11 +1537,34 @@ type SharedDataObject struct {
 	StartVersion int64 `json:"start_version,omitempty"`
 	// One of: **ACTIVE**, **PERMISSION_DENIED**.
 	Status SharedDataObjectStatus `json:"status,omitempty"`
-	// A user-provided new name for the shared object within the share. If this
-	// new name is not not provided, the object's original name will be used as
-	// the `string_shared_as` name. The `string_shared_as` name must be unique
-	// for objects of the same type within a Share. For notebooks, the new name
-	// should be the new notebook file name.
+	// A user-provided alias name for non-table data objects within the share.
+	//
+	// Use this field for non-table objects (for example: VOLUME, MODEL,
+	// NOTEBOOK_FILE, FUNCTION). For table-like objects (for example: TABLE,
+	// VIEW, MATERIALIZED_VIEW, STREAMING_TABLE, FOREIGN_TABLE), use `shared_as`
+	// instead.
+	//
+	// Important: For table-like objects, this field must be omitted entirely.
+	//
+	// Format: - For VOLUME: Must be a 2-part name `<schema_name>.<volume_name>`
+	// (e.g., "data_schema.ml_models") - For FUNCTION: Must be a 2-part name
+	// `<schema_name>.<function_name>` (e.g., "udf_schema.calculate_tax") - For
+	// MODEL: Must be a 2-part name `<schema_name>.<model_name>` (e.g.,
+	// "models.prediction_model") - For NOTEBOOK_FILE: Should be the notebook
+	// file name (e.g., "analysis_notebook.py") - All names must contain only
+	// alphanumeric characters and underscores - No periods, spaces, forward
+	// slashes, or control characters are allowed within each part
+	//
+	// Behavior: - If not provided, the service automatically generates the
+	// alias from the object's original name - If you don't want to specify this
+	// field, omit it entirely from the request (do not pass an empty string) -
+	// The `string_shared_as` name must be unique for objects of the same type
+	// within the share
+	//
+	// Examples: - Valid for VOLUME: "data_schema.training_data" - Valid for
+	// FUNCTION: "analytics.calculate_revenue" - Invalid:
+	// "catalog.data_schema.training_data" (3 parts not allowed for volumes) -
+	// Invalid: "data-schema.training-data" (hyphens not allowed)
 	StringSharedAs string `json:"string_shared_as,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
@@ -1535,6 +1582,8 @@ type SharedDataObjectDataObjectType string
 
 const SharedDataObjectDataObjectTypeFeatureSpec SharedDataObjectDataObjectType = `FEATURE_SPEC`
 
+const SharedDataObjectDataObjectTypeForeignTable SharedDataObjectDataObjectType = `FOREIGN_TABLE`
+
 const SharedDataObjectDataObjectTypeFunction SharedDataObjectDataObjectType = `FUNCTION`
 
 const SharedDataObjectDataObjectTypeMaterializedView SharedDataObjectDataObjectType = `MATERIALIZED_VIEW`
@@ -1551,6 +1600,8 @@ const SharedDataObjectDataObjectTypeTable SharedDataObjectDataObjectType = `TABL
 
 const SharedDataObjectDataObjectTypeView SharedDataObjectDataObjectType = `VIEW`
 
+const SharedDataObjectDataObjectTypeVolume SharedDataObjectDataObjectType = `VOLUME`
+
 // String representation for [fmt.Print]
 func (f *SharedDataObjectDataObjectType) String() string {
 	return string(*f)
@@ -1559,11 +1610,11 @@ func (f *SharedDataObjectDataObjectType) String() string {
 // Set raw string value and validate it against allowed values
 func (f *SharedDataObjectDataObjectType) Set(v string) error {
 	switch v {
-	case `FEATURE_SPEC`, `FUNCTION`, `MATERIALIZED_VIEW`, `MODEL`, `NOTEBOOK_FILE`, `SCHEMA`, `STREAMING_TABLE`, `TABLE`, `VIEW`:
+	case `FEATURE_SPEC`, `FOREIGN_TABLE`, `FUNCTION`, `MATERIALIZED_VIEW`, `MODEL`, `NOTEBOOK_FILE`, `SCHEMA`, `STREAMING_TABLE`, `TABLE`, `VIEW`, `VOLUME`:
 		*f = SharedDataObjectDataObjectType(v)
 		return nil
 	default:
-		return fmt.Errorf(`value "%s" is not one of "FEATURE_SPEC", "FUNCTION", "MATERIALIZED_VIEW", "MODEL", "NOTEBOOK_FILE", "SCHEMA", "STREAMING_TABLE", "TABLE", "VIEW"`, v)
+		return fmt.Errorf(`value "%s" is not one of "FEATURE_SPEC", "FOREIGN_TABLE", "FUNCTION", "MATERIALIZED_VIEW", "MODEL", "NOTEBOOK_FILE", "SCHEMA", "STREAMING_TABLE", "TABLE", "VIEW", "VOLUME"`, v)
 	}
 }
 
@@ -1573,6 +1624,7 @@ func (f *SharedDataObjectDataObjectType) Set(v string) error {
 func (f *SharedDataObjectDataObjectType) Values() []SharedDataObjectDataObjectType {
 	return []SharedDataObjectDataObjectType{
 		SharedDataObjectDataObjectTypeFeatureSpec,
+		SharedDataObjectDataObjectTypeForeignTable,
 		SharedDataObjectDataObjectTypeFunction,
 		SharedDataObjectDataObjectTypeMaterializedView,
 		SharedDataObjectDataObjectTypeModel,
@@ -1581,6 +1633,7 @@ func (f *SharedDataObjectDataObjectType) Values() []SharedDataObjectDataObjectTy
 		SharedDataObjectDataObjectTypeStreamingTable,
 		SharedDataObjectDataObjectTypeTable,
 		SharedDataObjectDataObjectTypeView,
+		SharedDataObjectDataObjectTypeVolume,
 	}
 }
 
@@ -1782,9 +1835,6 @@ type Table struct {
 	Comment string `json:"comment,omitempty"`
 	// The id of the table.
 	Id string `json:"id,omitempty"`
-	// Internal information for D2D sharing that should not be disclosed to
-	// external users.
-	InternalAttributes *TableInternalAttributes `json:"internal_attributes,omitempty"`
 	// The catalog and schema of the materialized table
 	MaterializationNamespace string `json:"materialization_namespace,omitempty"`
 	// The name of a materialized table.
@@ -1808,127 +1858,6 @@ func (s *Table) UnmarshalJSON(b []byte) error {
 }
 
 func (s Table) MarshalJSON() ([]byte, error) {
-	return marshal.Marshal(s)
-}
-
-// Internal information for D2D sharing that should not be disclosed to external
-// users.
-type TableInternalAttributes struct {
-	// Managed Delta Metadata location for foreign iceberg tables.
-	AuxiliaryManagedLocation string `json:"auxiliary_managed_location,omitempty"`
-	// Storage locations of all table dependencies for shared views. Used on the
-	// recipient side for SEG (Secure Egress Gateway) whitelisting.
-	DependencyStorageLocations []string `json:"dependency_storage_locations,omitempty"`
-	// Will be populated in the reconciliation response for VIEW and
-	// FOREIGN_TABLE, with the value of the parent UC entity's storage_location,
-	// following the same logic as getManagedEntityPath in
-	// CreateStagingTableHandler, which is used to store the materialized table
-	// for a shared VIEW/FOREIGN_TABLE for D2O queries. The value will be used
-	// on the recipient side to be whitelisted when SEG is enabled on the
-	// workspace of the recipient, to allow the recipient users to query this
-	// shared VIEW/FOREIGN_TABLE.
-	ParentStorageLocation string `json:"parent_storage_location,omitempty"`
-	// The cloud storage location of a shard table with DIRECTORY_BASED_TABLE
-	// type.
-	StorageLocation string `json:"storage_location,omitempty"`
-	// The type of the shared table.
-	Type TableInternalAttributesSharedTableType `json:"type,omitempty"`
-	// The view definition of a shared view. DEPRECATED.
-	ViewDefinition string `json:"view_definition,omitempty"`
-
-	ForceSendFields []string `json:"-" url:"-"`
-}
-
-func (s *TableInternalAttributes) UnmarshalJSON(b []byte) error {
-	return marshal.Unmarshal(b, s)
-}
-
-func (s TableInternalAttributes) MarshalJSON() ([]byte, error) {
-	return marshal.Marshal(s)
-}
-
-type TableInternalAttributesSharedTableType string
-
-const TableInternalAttributesSharedTableTypeDeltaIcebergTable TableInternalAttributesSharedTableType = `DELTA_ICEBERG_TABLE`
-
-const TableInternalAttributesSharedTableTypeDirectoryBasedTable TableInternalAttributesSharedTableType = `DIRECTORY_BASED_TABLE`
-
-const TableInternalAttributesSharedTableTypeFileBasedTable TableInternalAttributesSharedTableType = `FILE_BASED_TABLE`
-
-const TableInternalAttributesSharedTableTypeForeignIcebergTable TableInternalAttributesSharedTableType = `FOREIGN_ICEBERG_TABLE`
-
-const TableInternalAttributesSharedTableTypeForeignTable TableInternalAttributesSharedTableType = `FOREIGN_TABLE`
-
-const TableInternalAttributesSharedTableTypeMaterializedView TableInternalAttributesSharedTableType = `MATERIALIZED_VIEW`
-
-const TableInternalAttributesSharedTableTypeMetricView TableInternalAttributesSharedTableType = `METRIC_VIEW`
-
-const TableInternalAttributesSharedTableTypeStreamingTable TableInternalAttributesSharedTableType = `STREAMING_TABLE`
-
-const TableInternalAttributesSharedTableTypeView TableInternalAttributesSharedTableType = `VIEW`
-
-// String representation for [fmt.Print]
-func (f *TableInternalAttributesSharedTableType) String() string {
-	return string(*f)
-}
-
-// Set raw string value and validate it against allowed values
-func (f *TableInternalAttributesSharedTableType) Set(v string) error {
-	switch v {
-	case `DELTA_ICEBERG_TABLE`, `DIRECTORY_BASED_TABLE`, `FILE_BASED_TABLE`, `FOREIGN_ICEBERG_TABLE`, `FOREIGN_TABLE`, `MATERIALIZED_VIEW`, `METRIC_VIEW`, `STREAMING_TABLE`, `VIEW`:
-		*f = TableInternalAttributesSharedTableType(v)
-		return nil
-	default:
-		return fmt.Errorf(`value "%s" is not one of "DELTA_ICEBERG_TABLE", "DIRECTORY_BASED_TABLE", "FILE_BASED_TABLE", "FOREIGN_ICEBERG_TABLE", "FOREIGN_TABLE", "MATERIALIZED_VIEW", "METRIC_VIEW", "STREAMING_TABLE", "VIEW"`, v)
-	}
-}
-
-// Values returns all possible values for TableInternalAttributesSharedTableType.
-//
-// There is no guarantee on the order of the values in the slice.
-func (f *TableInternalAttributesSharedTableType) Values() []TableInternalAttributesSharedTableType {
-	return []TableInternalAttributesSharedTableType{
-		TableInternalAttributesSharedTableTypeDeltaIcebergTable,
-		TableInternalAttributesSharedTableTypeDirectoryBasedTable,
-		TableInternalAttributesSharedTableTypeFileBasedTable,
-		TableInternalAttributesSharedTableTypeForeignIcebergTable,
-		TableInternalAttributesSharedTableTypeForeignTable,
-		TableInternalAttributesSharedTableTypeMaterializedView,
-		TableInternalAttributesSharedTableTypeMetricView,
-		TableInternalAttributesSharedTableTypeStreamingTable,
-		TableInternalAttributesSharedTableTypeView,
-	}
-}
-
-// Type always returns TableInternalAttributesSharedTableType to satisfy [pflag.Value] interface
-func (f *TableInternalAttributesSharedTableType) Type() string {
-	return "TableInternalAttributesSharedTableType"
-}
-
-type UpdateFederationPolicyRequest struct {
-	// Name of the policy. This is the name of the current name of the policy.
-	Name string `json:"-" url:"-"`
-
-	Policy FederationPolicy `json:"policy"`
-	// Name of the recipient. This is the name of the recipient for which the
-	// policy is being updated.
-	RecipientName string `json:"-" url:"-"`
-	// The field mask specifies which fields of the policy to update. To specify
-	// multiple fields in the field mask, use comma as the separator (no space).
-	// The special value '*' indicates that all fields should be updated (full
-	// replacement). If unspecified, all fields that are set in the policy
-	// provided in the update request will overwrite the corresponding fields in
-	// the existing policy. Example value: 'comment,oidc_policy.audiences'.
-	UpdateMask string `json:"-" url:"update_mask,omitempty"`
-
-	ForceSendFields []string `json:"-" url:"-"`
-}
-
-func (s *UpdateFederationPolicyRequest) UnmarshalJSON(b []byte) error {
-	return marshal.Unmarshal(b, s)
-}
-
-func (s UpdateFederationPolicyRequest) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
@@ -1961,6 +1890,8 @@ type UpdateRecipient struct {
 	Comment string `json:"comment,omitempty"`
 	// Expiration timestamp of the token, in epoch milliseconds.
 	ExpirationTime int64 `json:"expiration_time,omitempty"`
+	// [Create,Update:IGN] common - id of the recipient
+	Id string `json:"id,omitempty"`
 	// IP Access List
 	IpAccessList *IpAccessList `json:"ip_access_list,omitempty"`
 	// Name of the recipient.
@@ -2043,9 +1974,6 @@ type Volume struct {
 	// shared_volume_id for recon to check if this volume is already in
 	// recipient's DB or not.
 	Id string `json:"id,omitempty"`
-	// Internal attributes for D2D sharing that should not be disclosed to
-	// external users.
-	InternalAttributes *VolumeInternalAttributes `json:"internal_attributes,omitempty"`
 	// The name of the volume.
 	Name string `json:"name,omitempty"`
 	// The name of the schema that the volume belongs to.
@@ -2065,24 +1993,5 @@ func (s *Volume) UnmarshalJSON(b []byte) error {
 }
 
 func (s Volume) MarshalJSON() ([]byte, error) {
-	return marshal.Marshal(s)
-}
-
-// Internal information for D2D sharing that should not be disclosed to external
-// users.
-type VolumeInternalAttributes struct {
-	// The cloud storage location of the volume
-	StorageLocation string `json:"storage_location,omitempty"`
-	// The type of the shared volume.
-	Type string `json:"type,omitempty"`
-
-	ForceSendFields []string `json:"-" url:"-"`
-}
-
-func (s *VolumeInternalAttributes) UnmarshalJSON(b []byte) error {
-	return marshal.Unmarshal(b, s)
-}
-
-func (s VolumeInternalAttributes) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }

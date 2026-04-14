@@ -34,7 +34,7 @@ func (mode withMeteringMode) ApplyAlterOption(req *rawtopic.AlterTopicRequest) {
 type withMinActivePartitions int64
 
 func (minActivePartitions withMinActivePartitions) ApplyCreateOption(request *rawtopic.CreateTopicRequest) {
-	request.PartitionSettings.MinActivePartitions = int64(minActivePartitions)
+	request.PartitioningSettings.MinActivePartitions = int64(minActivePartitions)
 }
 
 func (minActivePartitions withMinActivePartitions) ApplyAlterOption(req *rawtopic.AlterTopicRequest) {
@@ -45,7 +45,7 @@ func (minActivePartitions withMinActivePartitions) ApplyAlterOption(req *rawtopi
 type withPartitionCountLimit int64
 
 func (partitionCountLimit withPartitionCountLimit) ApplyCreateOption(request *rawtopic.CreateTopicRequest) {
-	request.PartitionSettings.PartitionCountLimit = int64(partitionCountLimit)
+	request.PartitioningSettings.PartitionCountLimit = int64(partitionCountLimit)
 }
 
 func (partitionCountLimit withPartitionCountLimit) ApplyAlterOption(req *rawtopic.AlterTopicRequest) {
@@ -195,4 +195,28 @@ func (consumerAttributes withConsumerWithAttributes) ApplyAlterOption(req *rawto
 	var index int
 	req.AlterConsumers, index = ensureAlterConsumer(req.AlterConsumers, consumerAttributes.name)
 	req.AlterConsumers[index].AlterAttributes = consumerAttributes.attributes
+}
+
+type withConsumerWithAvailabilityPeriod struct {
+	name               string
+	availabilityPeriod time.Duration
+}
+
+func (consumerAvailability withConsumerWithAvailabilityPeriod) ApplyAlterOption(req *rawtopic.AlterTopicRequest) {
+	var index int
+	req.AlterConsumers, index = ensureAlterConsumer(req.AlterConsumers, consumerAvailability.name)
+	req.AlterConsumers[index].SetAvailabilityPeriod.HasValue = true
+	req.AlterConsumers[index].SetAvailabilityPeriod.Value = consumerAvailability.availabilityPeriod
+	req.AlterConsumers[index].ResetAvailabilityPeriod = false
+}
+
+type withConsumerResetAvailabilityPeriod struct {
+	name string
+}
+
+func (consumerReset withConsumerResetAvailabilityPeriod) ApplyAlterOption(req *rawtopic.AlterTopicRequest) {
+	var index int
+	req.AlterConsumers, index = ensureAlterConsumer(req.AlterConsumers, consumerReset.name)
+	req.AlterConsumers[index].ResetAvailabilityPeriod = true
+	req.AlterConsumers[index].SetAvailabilityPeriod.HasValue = false
 }

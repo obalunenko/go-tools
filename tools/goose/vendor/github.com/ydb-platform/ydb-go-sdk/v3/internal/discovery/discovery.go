@@ -52,12 +52,14 @@ func Discover(
 
 	response, err = client.ListEndpoints(ctx, &request)
 	if err != nil {
-		return nil, location, xerrors.WithStackTrace(err)
+		return nil, location, xerrors.WithStackTrace(
+			xerrors.TransportError(err),
+		)
 	}
 
 	if response.GetOperation().GetStatus() != Ydb.StatusIds_SUCCESS {
 		return nil, location, xerrors.WithStackTrace(
-			xerrors.FromOperation(response.GetOperation()),
+			xerrors.Operation(xerrors.FromOperation(response.GetOperation())),
 		)
 	}
 
@@ -151,9 +153,9 @@ func (c *Client) WhoAmI(ctx context.Context) (whoAmI *discovery.WhoAmI, err erro
 
 	if response.GetOperation().GetStatus() != Ydb.StatusIds_SUCCESS {
 		return nil, xerrors.WithStackTrace(
-			xerrors.FromOperation(
+			xerrors.Operation(xerrors.FromOperation(
 				response.GetOperation(),
-			),
+			)),
 		)
 	}
 

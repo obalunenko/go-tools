@@ -2,13 +2,16 @@ package table
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jonboulle/clockwork"
 	"github.com/ydb-platform/ydb-go-genproto/Ydb_Table_V1"
 	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb"
 	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Table"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/meta"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/pool"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/stack"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/table/config"
@@ -54,6 +57,10 @@ func New(ctx context.Context, cc grpc.ClientConnInterface, config *config.Config
 			}),
 			pool.WithClock[*Session, Session](config.Clock()),
 			pool.WithCreateItemFunc[*Session, Session](func(ctx context.Context) (*Session, error) {
+				if !config.DisableSessionBalancer() {
+					ctx = meta.WithAllowFeatures(ctx, meta.HintSessionBalancer)
+				}
+
 				return newSession(ctx, cc, config)
 			}),
 			pool.WithTrace[*Session, Session](&pool.Trace{
@@ -71,11 +78,16 @@ func New(ctx context.Context, cc grpc.ClientConnInterface, config *config.Config
 						onDone(err)
 					}
 				},
-				OnGet: func(ctx *context.Context, call stack.Caller) func(item any, attempts int, err error) {
+				OnGet: func(ctx *context.Context, call stack.Caller) func(
+					item any,
+					attempts int,
+					hintInfo *trace.NodeHintInfo,
+					err error,
+				) {
 					onDone := trace.TableOnPoolGet(config.Trace(), ctx, call)
 
-					return func(item any, attempts int, err error) {
-						onDone(item.(*Session), attempts, err) //nolint:forcetypeassert
+					return func(item any, attempts int, hintInfo *trace.NodeHintInfo, err error) {
+						onDone(item.(*Session), attempts, hintInfo, err) //nolint:forcetypeassert
 					}
 				},
 				OnWith: func(ctx *context.Context, call stack.Caller) func(attempts int, err error) {
@@ -106,6 +118,25 @@ type Client struct {
 	clock  clockwork.Clock
 	pool   sessionPool
 	done   chan struct{}
+}
+
+func (c *Client) DescribeTable(ctx context.Context, path string, opts ...options.DescribeTableOption) (
+	*options.Description, error,
+) {
+	var desc options.Description
+	err := c.Do(ctx, func(ctx context.Context, s table.Session) (err error) {
+		desc, err = s.DescribeTable(ctx, path, opts...)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, xerrors.WithStackTrace(err)
+	}
+
+	return &desc, nil
 }
 
 func (c *Client) CreateSession(ctx context.Context, opts ...table.Option) (_ table.ClosableSession, err error) {
@@ -299,7 +330,7 @@ func (c *Client) BulkUpsert(
 		retry.WithTrace(&trace.Retry{
 			OnRetry: func(info trace.RetryLoopStartInfo) func(trace.RetryLoopDoneInfo) {
 				return func(info trace.RetryLoopDoneInfo) {
-					attempts = info.Attempts
+					attempts += max(info.Attempts-1, 0) // `max` guarded against negative values
 				}
 			},
 		}),
@@ -309,7 +340,7 @@ func (c *Client) BulkUpsert(
 		stack.FunctionID("github.com/ydb-platform/ydb-go-sdk/v3/internal/table.(*Client).BulkUpsert"),
 	)
 	defer func() {
-		onDone(finalErr, attempts)
+		onDone(finalErr, attempts+1)
 	}()
 
 	request, err := data.ToYDB(tableName)
@@ -317,22 +348,101 @@ func (c *Client) BulkUpsert(
 		return xerrors.WithStackTrace(err)
 	}
 
+	chunks := make([]*Ydb_Table.BulkUpsertRequest, 0, 1)
+
+	// We must send requests in chunks to avoid exceeding the maximum message size
+	chunks, err = chunkBulkUpsertRequest(chunks, request, c.config.MaxRequestMessageSize())
+	if err != nil {
+		return err
+	}
+
+	return c.sendBulkUpsertRequest(ctx, chunks, config.RetryOptions...)
+}
+
+func (c *Client) sendBulkUpsertRequest(
+	ctx context.Context,
+	requests []*Ydb_Table.BulkUpsertRequest,
+	retryOpts ...retry.Option,
+) error {
 	client := Ydb_Table_V1.NewTableServiceClient(c.cc)
 
-	err = retry.Retry(ctx,
-		func(ctx context.Context) (err error) {
-			attempts++
-			_, err = client.BulkUpsert(ctx, request)
+	for _, request := range requests {
+		err := retry.Retry(ctx,
+			func(ctx context.Context) (err error) {
+				_, err = client.BulkUpsert(ctx, request)
 
-			return err
-		},
-		config.RetryOptions...,
-	)
-	if err != nil {
-		return xerrors.WithStackTrace(err)
+				return err
+			},
+			retryOpts...,
+		)
+		if err != nil {
+			return xerrors.WithStackTrace(err)
+		}
 	}
 
 	return nil
+}
+
+// chunkBulkUpsertRequest splits a bulk upsert request into smaller chunks if it exceeds the maximum message size.
+// It recursively divides the request into smaller parts, ensuring each chunk is within the size limit.
+// Returns a slice of chunked bulk upsert requests or an error if the request cannot be split.
+func chunkBulkUpsertRequest(
+	dst []*Ydb_Table.BulkUpsertRequest,
+	req *Ydb_Table.BulkUpsertRequest,
+	maxBytes int,
+) ([]*Ydb_Table.BulkUpsertRequest, error) {
+	reqSize := proto.Size(req)
+
+	// not exceed the maximum size -> ret original request
+	if reqSize <= maxBytes {
+		return append(dst, req), nil
+	}
+
+	// not a row bulk upsert request -> ret original request
+	if req.GetRows() == nil || req.GetRows().GetValue() == nil {
+		return nil, xerrors.WithStackTrace(
+			xerrors.Wrap(
+				fmt.Errorf("ydb: request size (%d bytes) exceeds maximum size (%d bytes) "+
+					" but cannot be chunked (only row-based bulk upserts support chunking)", reqSize, maxBytes)))
+	}
+
+	n := len(req.GetRows().GetValue().GetItems())
+	if n == 0 {
+		return dst, nil
+	}
+
+	// we cannot split one item and one item is too big
+	if n == 1 {
+		return nil, xerrors.WithStackTrace(
+			xerrors.Wrap(
+				fmt.Errorf("ydb: single row size (%d bytes) exceeds maximum request size (%d bytes) "+
+					"- row is too large to process", reqSize, maxBytes)))
+	}
+
+	left, right := splitBulkUpsertRequestAt(req, n/2)
+
+	dst, err := chunkBulkUpsertRequest(dst, left, maxBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return chunkBulkUpsertRequest(dst, right, maxBytes)
+}
+
+// splitBulkUpsertRequestAt splits a bulk upsert request into two parts at the specified position.
+// It divides the request's items into two separate requests, with the first request containing
+// items from the start up to the specified position, and the second request containing the remaining items.
+// Returns two modified bulk upsert requests with their respective item sets.
+func splitBulkUpsertRequestAt(req *Ydb_Table.BulkUpsertRequest, pos int) (_, _ *Ydb_Table.BulkUpsertRequest) {
+	items := req.GetRows().GetValue().GetItems() // save original items
+	req.Rows.Value.Items = nil
+
+	right := proto.Clone(req).(*Ydb_Table.BulkUpsertRequest) //nolint:forcetypeassert
+
+	req.Rows.Value.Items = items[:pos]
+	right.Rows.Value.Items = items[pos:]
+
+	return req, right
 }
 
 func makeReadRowsRequest(
@@ -362,7 +472,7 @@ func makeReadRowsResponse(response *Ydb_Table.ReadRowsResponse, err error, isTru
 
 	if response.GetStatus() != Ydb.StatusIds_SUCCESS {
 		return nil, xerrors.WithStackTrace(
-			xerrors.FromOperation(response),
+			xerrors.Operation(xerrors.FromOperation(response)),
 		)
 	}
 

@@ -24,16 +24,22 @@ type (
 		// Read about versioning policy: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#deprecated
 		LocalDC() bool
 	}
+	Key struct {
+		Address      string
+		NodeID       uint32
+		HostOverride string
+	}
 	Endpoint interface {
 		Info
 
 		String() string
 		Copy() Endpoint
 		Touch(opts ...Option)
+		Key() Key
 	}
 )
 
-type endpoint struct { //nolint:maligned
+type endpoint struct {
 	mu              sync.RWMutex
 	id              uint32
 	address         string
@@ -47,6 +53,14 @@ type endpoint struct { //nolint:maligned
 	lastUpdated time.Time
 
 	local bool
+}
+
+func (e *endpoint) Key() Key {
+	return Key{
+		Address:      e.Address(),
+		NodeID:       e.id,
+		HostOverride: e.sslNameOverride,
+	}
 }
 
 func (e *endpoint) Copy() Endpoint {
@@ -73,7 +87,7 @@ func (e *endpoint) String() string {
 
 	return fmt.Sprintf(`{id:%d,address:%q,local:%t,location:%q,loadFactor:%f,lastUpdated:%q}`,
 		e.id,
-		e.address,
+		e.getAddress(), // Use getAddress() to avoid deadlock from nested RLock in Address()
 		e.local,
 		e.location,
 		e.loadFactor,
@@ -111,6 +125,12 @@ func (e *endpoint) Address() (address string) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
+	return e.getAddress()
+}
+
+// getAddress returns the address without acquiring a lock.
+// Caller must ensure the lock is held.
+func (e *endpoint) getAddress() string {
 	if len(e.ipv4) != 0 {
 		return getResolvedAddr(e, false)
 	}

@@ -10,7 +10,6 @@ import (
 	"github.com/databricks/databricks-sdk-go/client"
 	"github.com/databricks/databricks-sdk-go/listing"
 	"github.com/databricks/databricks-sdk-go/useragent"
-	"golang.org/x/exp/slices"
 )
 
 // unexported type that holds implementations of just Providers API methods
@@ -25,6 +24,10 @@ func (a *providersImpl) Create(ctx context.Context, request CreateProvider) (*Pr
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &providerInfo)
 	return &providerInfo, err
 }
@@ -33,6 +36,10 @@ func (a *providersImpl) Delete(ctx context.Context, request DeleteProviderReques
 	path := fmt.Sprintf("/api/2.1/unity-catalog/providers/%v", request.Name)
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodDelete, path, headers, queryParams, request, nil)
 	return err
 }
@@ -43,14 +50,20 @@ func (a *providersImpl) Get(ctx context.Context, request GetProviderRequest) (*P
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &providerInfo)
 	return &providerInfo, err
 }
 
 // Gets an array of available authentication providers. The caller must either
-// be a metastore admin or the owner of the providers. Providers not owned by
-// the caller are not included in the response. There is no guarantee of a
-// specific ordering of the elements in the array.
+// be a metastore admin, have the **USE_PROVIDER** privilege on the providers,
+// or be the owner of the providers. Providers not owned by the caller and for
+// which the caller does not have the **USE_PROVIDER** privilege are not
+// included in the response. There is no guarantee of a specific ordering of the
+// elements in the array.
 func (a *providersImpl) List(ctx context.Context, request ListProvidersRequest) listing.Iterator[ProviderInfo] {
 
 	request.ForceSendFields = append(request.ForceSendFields, "MaxResults")
@@ -78,9 +91,11 @@ func (a *providersImpl) List(ctx context.Context, request ListProvidersRequest) 
 }
 
 // Gets an array of available authentication providers. The caller must either
-// be a metastore admin or the owner of the providers. Providers not owned by
-// the caller are not included in the response. There is no guarantee of a
-// specific ordering of the elements in the array.
+// be a metastore admin, have the **USE_PROVIDER** privilege on the providers,
+// or be the owner of the providers. Providers not owned by the caller and for
+// which the caller does not have the **USE_PROVIDER** privilege are not
+// included in the response. There is no guarantee of a specific ordering of the
+// elements in the array.
 func (a *providersImpl) ListAll(ctx context.Context, request ListProvidersRequest) ([]ProviderInfo, error) {
 	iterator := a.List(ctx, request)
 	return listing.ToSlice[ProviderInfo](ctx, iterator)
@@ -92,6 +107,10 @@ func (a *providersImpl) internalList(ctx context.Context, request ListProvidersR
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &listProvidersResponse)
 	return &listProvidersResponse, err
 }
@@ -102,6 +121,10 @@ func (a *providersImpl) ListProviderShareAssets(ctx context.Context, request Lis
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &listProviderShareAssetsResponse)
 	return &listProviderShareAssetsResponse, err
 }
@@ -149,6 +172,10 @@ func (a *providersImpl) internalListShares(ctx context.Context, request ListShar
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &listProviderSharesResponse)
 	return &listProviderSharesResponse, err
 }
@@ -160,6 +187,10 @@ func (a *providersImpl) Update(ctx context.Context, request UpdateProvider) (*Pr
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPatch, path, headers, queryParams, request, &providerInfo)
 	return &providerInfo, err
 }
@@ -174,6 +205,10 @@ func (a *recipientActivationImpl) GetActivationUrlInfo(ctx context.Context, requ
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, nil)
 	return err
 }
@@ -184,6 +219,10 @@ func (a *recipientActivationImpl) RetrieveToken(ctx context.Context, request Ret
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &retrieveTokenResponse)
 	return &retrieveTokenResponse, err
 }
@@ -200,6 +239,10 @@ func (a *recipientFederationPoliciesImpl) Create(ctx context.Context, request Cr
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request.Policy, &federationPolicy)
 	return &federationPolicy, err
 }
@@ -209,6 +252,10 @@ func (a *recipientFederationPoliciesImpl) Delete(ctx context.Context, request De
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodDelete, path, headers, queryParams, request, nil)
 	return err
 }
@@ -219,6 +266,10 @@ func (a *recipientFederationPoliciesImpl) GetFederationPolicy(ctx context.Contex
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &federationPolicy)
 	return &federationPolicy, err
 }
@@ -264,23 +315,12 @@ func (a *recipientFederationPoliciesImpl) internalList(ctx context.Context, requ
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &listFederationPoliciesResponse)
 	return &listFederationPoliciesResponse, err
-}
-
-func (a *recipientFederationPoliciesImpl) Update(ctx context.Context, request UpdateFederationPolicyRequest) (*FederationPolicy, error) {
-	var federationPolicy FederationPolicy
-	path := fmt.Sprintf("/api/2.0/data-sharing/recipients/%v/federation-policies/%v", request.RecipientName, request.Name)
-	queryParams := make(map[string]any)
-
-	if request.UpdateMask != "" || slices.Contains(request.ForceSendFields, "UpdateMask") {
-		queryParams["update_mask"] = request.UpdateMask
-	}
-	headers := make(map[string]string)
-	headers["Accept"] = "application/json"
-	headers["Content-Type"] = "application/json"
-	err := a.client.Do(ctx, http.MethodPatch, path, headers, queryParams, request.Policy, &federationPolicy)
-	return &federationPolicy, err
 }
 
 // unexported type that holds implementations of just Recipients API methods
@@ -295,6 +335,10 @@ func (a *recipientsImpl) Create(ctx context.Context, request CreateRecipient) (*
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &recipientInfo)
 	return &recipientInfo, err
 }
@@ -303,6 +347,10 @@ func (a *recipientsImpl) Delete(ctx context.Context, request DeleteRecipientRequ
 	path := fmt.Sprintf("/api/2.1/unity-catalog/recipients/%v", request.Name)
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodDelete, path, headers, queryParams, request, nil)
 	return err
 }
@@ -313,6 +361,10 @@ func (a *recipientsImpl) Get(ctx context.Context, request GetRecipientRequest) (
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &recipientInfo)
 	return &recipientInfo, err
 }
@@ -362,6 +414,10 @@ func (a *recipientsImpl) internalList(ctx context.Context, request ListRecipient
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &listRecipientsResponse)
 	return &listRecipientsResponse, err
 }
@@ -373,6 +429,10 @@ func (a *recipientsImpl) RotateToken(ctx context.Context, request RotateRecipien
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &recipientInfo)
 	return &recipientInfo, err
 }
@@ -383,6 +443,10 @@ func (a *recipientsImpl) SharePermissions(ctx context.Context, request SharePerm
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &getRecipientSharePermissionsResponse)
 	return &getRecipientSharePermissionsResponse, err
 }
@@ -394,6 +458,10 @@ func (a *recipientsImpl) Update(ctx context.Context, request UpdateRecipient) (*
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPatch, path, headers, queryParams, request, &recipientInfo)
 	return &recipientInfo, err
 }
@@ -410,6 +478,10 @@ func (a *sharesImpl) Create(ctx context.Context, request CreateShare) (*ShareInf
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &shareInfo)
 	return &shareInfo, err
 }
@@ -418,6 +490,10 @@ func (a *sharesImpl) Delete(ctx context.Context, request DeleteShareRequest) err
 	path := fmt.Sprintf("/api/2.1/unity-catalog/shares/%v", request.Name)
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodDelete, path, headers, queryParams, request, nil)
 	return err
 }
@@ -428,12 +504,17 @@ func (a *sharesImpl) Get(ctx context.Context, request GetShareRequest) (*ShareIn
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &shareInfo)
 	return &shareInfo, err
 }
 
-// Gets an array of data object shares from the metastore. The caller must be a
-// metastore admin or the owner of the share. There is no guarantee of a
+// Gets an array of data object shares from the metastore. If the caller has the
+// USE_SHARE privilege on the metastore, all shares are returned. Otherwise,
+// only shares owned by the caller are returned. There is no guarantee of a
 // specific ordering of the elements in the array.
 func (a *sharesImpl) ListShares(ctx context.Context, request SharesListRequest) listing.Iterator[ShareInfo] {
 
@@ -461,8 +542,9 @@ func (a *sharesImpl) ListShares(ctx context.Context, request SharesListRequest) 
 	return iterator
 }
 
-// Gets an array of data object shares from the metastore. The caller must be a
-// metastore admin or the owner of the share. There is no guarantee of a
+// Gets an array of data object shares from the metastore. If the caller has the
+// USE_SHARE privilege on the metastore, all shares are returned. Otherwise,
+// only shares owned by the caller are returned. There is no guarantee of a
 // specific ordering of the elements in the array.
 func (a *sharesImpl) ListSharesAll(ctx context.Context, request SharesListRequest) ([]ShareInfo, error) {
 	iterator := a.ListShares(ctx, request)
@@ -475,6 +557,10 @@ func (a *sharesImpl) internalListShares(ctx context.Context, request SharesListR
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &listSharesResponse)
 	return &listSharesResponse, err
 }
@@ -485,6 +571,10 @@ func (a *sharesImpl) SharePermissions(ctx context.Context, request SharePermissi
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &getSharePermissionsResponse)
 	return &getSharePermissionsResponse, err
 }
@@ -496,6 +586,10 @@ func (a *sharesImpl) Update(ctx context.Context, request UpdateShare) (*ShareInf
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPatch, path, headers, queryParams, request, &shareInfo)
 	return &shareInfo, err
 }
@@ -507,6 +601,10 @@ func (a *sharesImpl) UpdatePermissions(ctx context.Context, request UpdateShareP
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPatch, path, headers, queryParams, request, &updateSharePermissionsResponse)
 	return &updateSharePermissionsResponse, err
 }

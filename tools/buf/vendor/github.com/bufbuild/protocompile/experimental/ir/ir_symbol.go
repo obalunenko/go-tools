@@ -150,20 +150,31 @@ func (s Symbol) Deprecated() Value {
 }
 
 // Visible returns whether or not this symbol is visible according to Protobuf's
-// import semantics, within s.Context().File().
-func (s Symbol) Visible(in *File) bool {
+// import semantics, within the given file.
+//
+// If allowOptions is true, symbols that were pulled in via import option are
+// accepted.
+func (s Symbol) Visible(in *File, allowOptions bool) bool {
 	if s.Context() == in || s.Context() == primitiveCtx || s.Kind() == SymbolKindPackage {
 		// Packages don't get visibility checks.
 		return true
 	}
 
-	// fmt.Println(s.Context().File().Path)
 	idx, imported := in.imports.byPath[s.Context().InternedPath()]
 	if !imported {
 		return false
 	}
 
 	imp := in.imports.files[idx]
+	if !imp.visible || !(allowOptions || !imp.option) {
+		return false
+	}
+
+	if ty := s.AsType(); !ty.IsZero() {
+		exported, _ := ty.IsExported()
+		return exported
+	}
+
 	return imp.visible
 }
 
@@ -191,6 +202,24 @@ func (s Symbol) Definition() source.Span {
 	}
 
 	return source.Span{}
+}
+
+// Import returns the import declaration that brought this symbol into scope
+// in the given file.
+//
+// Returns zero if s is defined in the current file or if s is not imported
+// by in.
+func (s Symbol) Import(in *File) Import {
+	if s.Context() == in || s.Context() == primitiveCtx {
+		return Import{}
+	}
+
+	idx, imported := in.imports.byPath[s.Context().InternedPath()]
+	if !imported {
+		return Import{}
+	}
+
+	return in.imports.Transitive().At(int(idx))
 }
 
 // noun returns a [taxa.Noun] for diagnostic use.
@@ -282,7 +311,12 @@ var optionTargets = [...]OptionTarget{
 //
 // The elements of a symtab are sorted by the [intern.ID] of their FQN, allowing
 // for O(n) merging of symbol tables.
-type symtab []Ref[Symbol]
+type symtab []symbol
+
+type symbol struct {
+	fqn intern.ID // This avoids an extra pointer chase in lookupBytes.
+	ref Ref[Symbol]
+}
 
 var resolveScratch = sync.Pool{
 	New: func() any { return new([]byte) },
@@ -293,18 +327,18 @@ func symtabMerge(file *File, tables iter.Seq[symtab], fileForTable func(int) *Fi
 	return slicesx.MergeKeySeq(
 		tables,
 
-		func(which int, elem Ref[Symbol]) intern.ID {
+		func(which int, elem symbol) intern.ID {
 			f := fileForTable(which)
-			return GetRef(f, elem).InternedFullName()
+			return GetRef(f, elem.ref).InternedFullName()
 		},
 
-		func(which int, elem Ref[Symbol]) Ref[Symbol] {
+		func(which int, elem symbol) symbol {
 			// We need top map the file number from src to the current one.
 			src := fileForTable(which)
 			if src != file {
-				theirs := GetRef(src, elem)
+				theirs := GetRef(src, elem.ref)
 				ours := file.imports.byPath[theirs.Context().InternedPath()]
-				elem.file = int32(ours + 1)
+				elem.ref.file = int32(ours + 1)
 			}
 
 			return elem
@@ -315,23 +349,24 @@ func symtabMerge(file *File, tables iter.Seq[symtab], fileForTable func(int) *Fi
 // sort sorts this symbol table according to the value of each intern
 // ID.
 func (s symtab) sort(file *File) {
-	slices.SortFunc(s, func(a, b Ref[Symbol]) int {
-		symA := GetRef(file, a)
-		symB := GetRef(file, b)
-		return cmp.Compare(symA.InternedFullName(), symB.InternedFullName())
+	for i := range s {
+		s[i].fqn = GetRef(file, s[i].ref).InternedFullName()
+	}
+	slices.SortFunc(s, func(a, b symbol) int {
+		return cmp.Compare(a.fqn, b.fqn)
 	})
 }
 
 // lookupBytes looks up a symbol with the given fully-qualified name.
-func (s symtab) lookup(file *File, fqn intern.ID) Ref[Symbol] {
-	idx, ok := slicesx.BinarySearchKey(s, fqn, func(r Ref[Symbol]) intern.ID {
-		return GetRef(file, r).InternedFullName()
+func (s symtab) lookup(fqn intern.ID) Ref[Symbol] {
+	idx, ok := slicesx.BinarySearchKey(s, fqn, func(r symbol) intern.ID {
+		return r.fqn
 	})
 	if !ok {
 		return Ref[Symbol]{}
 	}
 
-	return s[idx]
+	return s[idx].ref
 }
 
 // lookupBytes looks up a symbol with the given fully-qualified name.
@@ -340,14 +375,35 @@ func (s symtab) lookupBytes(file *File, fqn []byte) Ref[Symbol] {
 	if !ok {
 		return Ref[Symbol]{}
 	}
-	idx, ok := slicesx.BinarySearchKey(s, id, func(r Ref[Symbol]) intern.ID {
-		return GetRef(file, r).InternedFullName()
-	})
+
+	var idx int
+	// Manual inlining of slices.BinarySearch.
+	//
+	// Doing this avoids log(len(s)) virtual calls to compare
+	{
+		x, target := s, id
+		n := len(x)
+		// Define cmp(x[-1], target) < 0 and cmp(x[n], target) >= 0 .
+		// Invariant: cmp(x[i - 1], target) < 0, cmp(x[j], target) >= 0.
+		i, j := 0, n
+		for i < j {
+			h := int(uint(i+j) >> 1) // avoid overflow when computing h
+			// i ≤ h < j
+			if x[h].fqn < target {
+				i = h + 1 // preserves cmp(x[i - 1], target) < 0
+			} else {
+				j = h // preserves cmp(x[j], target) >= 0
+			}
+		}
+		// i == j, cmp(x[i-1], target) < 0, and cmp(x[j], target) (= cmp(x[i], target)) >= 0  =>  answer is i.
+		idx, ok = i, i < n && x[i].fqn == target
+	}
+
 	if !ok {
 		return Ref[Symbol]{}
 	}
 
-	return s[idx]
+	return s[idx].ref
 }
 
 // resolve attempts to resolve the relative path name within the given scope
@@ -464,12 +520,14 @@ func (s symtab) resolve(
 again:
 	for {
 		r := s.lookupBytes(file, candidate)
-		remarks.Apply(report.Debugf("candidate: `%s`", candidate))
+		if remarks != nil {
+			remarks.Apply(report.Debugf("candidate: `%s`", candidate))
+		}
 
 		if !r.IsZero() {
 			found = r
 			sym := GetRef(file, r)
-			if sym.Visible(file) && accept(sym.Kind()) {
+			if sym.Visible(file, true) && accept(sym.Kind()) {
 				// If the symbol is not visible, keep looking; we may find
 				// another match that is actually visible.
 				break

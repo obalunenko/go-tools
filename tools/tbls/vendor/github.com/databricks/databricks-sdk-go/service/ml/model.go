@@ -5,6 +5,7 @@ package ml
 import (
 	"fmt"
 
+	"github.com/databricks/databricks-sdk-go/common/types/fieldmask"
 	"github.com/databricks/databricks-sdk-go/marshal"
 )
 
@@ -199,6 +200,37 @@ func (f *ActivityType) Type() string {
 	return "ActivityType"
 }
 
+// An aggregation function applied over a time window.
+type AggregationFunction struct {
+	ApproxCountDistinct *ApproxCountDistinctFunction `json:"approx_count_distinct,omitempty"`
+
+	ApproxPercentile *ApproxPercentileFunction `json:"approx_percentile,omitempty"`
+
+	Avg *AvgFunction `json:"avg,omitempty"`
+
+	CountFunction *CountFunction `json:"count_function,omitempty"`
+
+	First *FirstFunction `json:"first,omitempty"`
+
+	Last *LastFunction `json:"last,omitempty"`
+
+	Max *MaxFunction `json:"max,omitempty"`
+
+	Min *MinFunction `json:"min,omitempty"`
+
+	StddevPop *StddevPopFunction `json:"stddev_pop,omitempty"`
+
+	StddevSamp *StddevSampFunction `json:"stddev_samp,omitempty"`
+
+	Sum *SumFunction `json:"sum,omitempty"`
+	// The time window over which the aggregation is computed.
+	TimeWindow *TimeWindow `json:"time_window,omitempty"`
+
+	VarPop *VarPopFunction `json:"var_pop,omitempty"`
+
+	VarSamp *VarSampFunction `json:"var_samp,omitempty"`
+}
+
 // Details required to identify and approve a model version stage transition
 // request.
 type ApproveTransitionRequest struct {
@@ -236,6 +268,93 @@ func (s ApproveTransitionRequest) MarshalJSON() ([]byte, error) {
 type ApproveTransitionRequestResponse struct {
 	// New activity generated as a result of this operation.
 	Activity *Activity `json:"activity,omitempty"`
+}
+
+// Computes the approximate count of distinct values.
+type ApproxCountDistinctFunction struct {
+	// The input column from which the approximate count of distinct values is
+	// computed.
+	Input string `json:"input"`
+	// The maximum relative standard deviation allowed (default defined by
+	// Spark).
+	RelativeSd float64 `json:"relative_sd,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *ApproxCountDistinctFunction) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s ApproxCountDistinctFunction) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+// Computes the approximate percentile of values.
+type ApproxPercentileFunction struct {
+	// The accuracy parameter (higher is more accurate but slower).
+	Accuracy int64 `json:"accuracy,omitempty"`
+	// The input column from which the approximate percentile is computed.
+	Input string `json:"input"`
+	// The percentile value to compute (between 0 and 1).
+	Percentile float64 `json:"percentile"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *ApproxPercentileFunction) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s ApproxPercentileFunction) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+type AuthConfig struct {
+	// Name of the Unity Catalog service credential. This value will be set
+	// under the option databricks.serviceCredential
+	UcServiceCredentialName string `json:"uc_service_credential_name,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *AuthConfig) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s AuthConfig) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+// Computes the average of values.
+type AvgFunction struct {
+	// The input column from which the average is computed.
+	Input string `json:"input"`
+}
+
+type BackfillSource struct {
+	// The Delta table source containing the historic data to backfill. Only the
+	// delta table name is used for backfill, the entity columns and timeseries
+	// column are ignored as they are defined by the associated KafkaSource.
+	DeltaTableSource *DeltaTableSource `json:"delta_table_source,omitempty"`
+}
+
+type BatchCreateMaterializedFeaturesRequest struct {
+	// The requests to create materialized features.
+	Requests []CreateMaterializedFeatureRequest `json:"requests"`
+}
+
+type BatchCreateMaterializedFeaturesResponse struct {
+	// The created materialized features with assigned IDs.
+	MaterializedFeatures []MaterializedFeature `json:"materialized_features,omitempty"`
+}
+
+type ColumnIdentifier struct {
+	// String representation of the column name or variant expression path. For
+	// nested fields, the leaf value is what will be present in materialized
+	// tables and expected to match at query time. For example, the leaf node of
+	// value:trip_details.location_details.pickup_zip is pickup_zip.
+	VariantExprPath string `json:"variant_expr_path"`
 }
 
 // An action that a user (with sufficient permissions) could take on an activity
@@ -329,6 +448,29 @@ func (s *CommentObject) UnmarshalJSON(b []byte) error {
 
 func (s CommentObject) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
+}
+
+type ContinuousWindow struct {
+	// The offset of the continuous window (must be non-positive).
+	Offset string `json:"offset,omitempty"`
+	// The duration of the continuous window (must be positive).
+	WindowDuration string `json:"window_duration"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *ContinuousWindow) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s ContinuousWindow) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+// Computes the count of values.
+type CountFunction struct {
+	// The input column from which the count is computed.
+	Input string `json:"input"`
 }
 
 // Details required to create a comment on a model version.
@@ -486,6 +628,10 @@ func (s CreateForecastingExperimentResponse) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
+type CreateKafkaConfigRequest struct {
+	KafkaConfig KafkaConfig `json:"kafka_config"`
+}
+
 type CreateLoggedModelRequest struct {
 	// The ID of the experiment that owns the model.
 	ExperimentId string `json:"experiment_id"`
@@ -514,6 +660,11 @@ func (s CreateLoggedModelRequest) MarshalJSON() ([]byte, error) {
 type CreateLoggedModelResponse struct {
 	// The newly created logged model.
 	Model *LoggedModel `json:"model,omitempty"`
+}
+
+type CreateMaterializedFeatureRequest struct {
+	// The materialized feature to create.
+	MaterializedFeature MaterializedFeature `json:"materialized_feature"`
 }
 
 type CreateModelRequest struct {
@@ -714,6 +865,8 @@ type CreateWebhookResponse struct {
 
 type DataSource struct {
 	DeltaTableSource *DeltaTableSource `json:"delta_table_source,omitempty"`
+
+	KafkaSource *KafkaSource `json:"kafka_source,omitempty"`
 }
 
 // Dataset. Represents a reference to data used for training, testing, or
@@ -784,6 +937,11 @@ type DeleteFeatureTagRequest struct {
 	TableName string `json:"-" url:"-"`
 }
 
+type DeleteKafkaConfigRequest struct {
+	// Name of the Kafka config to delete.
+	Name string `json:"-" url:"-"`
+}
+
 type DeleteLoggedModelRequest struct {
 	// The ID of the logged model to delete.
 	ModelId string `json:"-" url:"-"`
@@ -794,6 +952,11 @@ type DeleteLoggedModelTagRequest struct {
 	ModelId string `json:"-" url:"-"`
 	// The tag key.
 	TagKey string `json:"-" url:"-"`
+}
+
+type DeleteMaterializedFeatureRequest struct {
+	// The ID of the materialized feature to delete.
+	MaterializedFeatureId string `json:"-" url:"-"`
 }
 
 type DeleteModelRequest struct {
@@ -829,6 +992,11 @@ type DeleteModelVersionTagRequest struct {
 type DeleteOnlineStoreRequest struct {
 	// Name of the online store to delete.
 	Name string `json:"-" url:"-"`
+}
+
+type DeleteOnlineTableRequest struct {
+	// The full three-part (catalog, schema, table) name of the online table.
+	OnlineTableName string `json:"-" url:"-"`
 }
 
 type DeleteRun struct {
@@ -924,12 +1092,44 @@ type DeleteWebhookRequest struct {
 }
 
 type DeltaTableSource struct {
+	// Schema of the resulting dataframe after transformations, in Spark
+	// StructType JSON format (from df.schema.json()). Required if
+	// transformation_sql is specified. Example:
+	// {"type":"struct","fields":[{"name":"col_a","type":"integer","nullable":true,"metadata":{}},{"name":"col_c","type":"integer","nullable":true,"metadata":{}}]}
+	DataframeSchema string `json:"dataframe_schema,omitempty"`
+	// Deprecated: Use Feature.entity instead. Kept for backwards compatibility.
 	// The entity columns of the Delta table.
-	EntityColumns []string `json:"entity_columns"`
+	EntityColumns []string `json:"entity_columns,omitempty"`
+	// Single WHERE clause to filter delta table before applying
+	// transformations. Will be row-wise evaluated, so should only include
+	// conditionals and projections.
+	FilterCondition string `json:"filter_condition,omitempty"`
 	// The full three-part (catalog, schema, table) name of the Delta table.
 	FullName string `json:"full_name"`
-	// The timeseries column of the Delta table.
-	TimeseriesColumn string `json:"timeseries_column"`
+	// Deprecated: Use Feature.timeseries_column instead. Kept for backwards
+	// compatibility. The timeseries column of the Delta table.
+	TimeseriesColumn string `json:"timeseries_column,omitempty"`
+	// A single SQL SELECT expression applied after filter_condition. Should
+	// contains all the columns needed (eg. "SELECT *, col_a + col_b AS col_c
+	// FROM x.y.z WHERE col_a > 0" would have `transformation_sql` "*, col_a +
+	// col_b AS col_c") If transformation_sql is not provided, all columns of
+	// the delta table are present in the DataSource dataframe.
+	TransformationSql string `json:"transformation_sql,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *DeltaTableSource) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s DeltaTableSource) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+type EntityColumn struct {
+	// The name of the entity column.
+	Name string `json:"name"`
 }
 
 // An experiment and its metadata.
@@ -1125,16 +1325,37 @@ func (s ExperimentTag) MarshalJSON() ([]byte, error) {
 type Feature struct {
 	// The description of the feature.
 	Description string `json:"description,omitempty"`
+	// The entity columns for the feature, used as aggregation keys and for
+	// query-time lookup.
+	Entities []EntityColumn `json:"entities,omitempty"`
+	// Deprecated: Use DeltaTableSource.filter_condition or
+	// KafkaSource.filter_condition instead. Kept for backwards compatibility.
+	// The filter condition applied to the source data before aggregation.
+	FilterCondition string `json:"filter_condition,omitempty"`
 	// The full three-part name (catalog, schema, name) of the feature.
 	FullName string `json:"full_name"`
 	// The function by which the feature is computed.
 	Function Function `json:"function"`
-	// The input columns from which the feature is computed.
-	Inputs []string `json:"inputs"`
+	// Deprecated: Use AggregationFunction.inputs instead. Kept for backwards
+	// compatibility. The input columns from which the feature is computed.
+	Inputs []string `json:"inputs,omitempty"`
+	// Lineage context information for this feature. WARNING: This field is
+	// primarily intended for internal use by Databricks systems and is
+	// automatically populated when features are created through Databricks
+	// notebooks or jobs. Users should not manually set this field as incorrect
+	// values may lead to inaccurate lineage tracking or unexpected behavior.
+	// This field will be set by feature-engineering client and should be left
+	// unset by SDK and terraform users.
+	LineageContext *LineageContext `json:"lineage_context,omitempty"`
 	// The data source of the feature.
 	Source DataSource `json:"source"`
-	// The time window in which the feature is computed.
-	TimeWindow TimeWindow `json:"time_window"`
+	// Deprecated: Use Function.aggregation_function.time_window instead. Kept
+	// for backwards compatibility. The time window in which the feature is
+	// computed.
+	TimeWindow *TimeWindow `json:"time_window,omitempty"`
+	// Column recording time, used for point-in-time joins, backfills, and
+	// aggregations.
+	TimeseriesColumn *TimeseriesColumn `json:"timeseries_column,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
 }
@@ -1261,6 +1482,12 @@ type FinalizeLoggedModelResponse struct {
 	Model *LoggedModel `json:"model,omitempty"`
 }
 
+// Returns the first value.
+type FirstFunction struct {
+	// The input column from which the first value is returned.
+	Input string `json:"input"`
+}
+
 // Represents a forecasting experiment with its unique identifier, URL, and
 // state.
 type ForecastingExperiment struct {
@@ -1329,12 +1556,20 @@ func (f *ForecastingExperimentState) Type() string {
 }
 
 type Function struct {
-	// Extra parameters for parameterized functions.
+	// An aggregation function applied over a time window.
+	AggregationFunction *AggregationFunction `json:"aggregation_function,omitempty"`
+	// Deprecated: Use the function oneof with AggregationFunction instead. Kept
+	// for backwards compatibility. Extra parameters for parameterized
+	// functions.
 	ExtraParameters []FunctionExtraParameter `json:"extra_parameters,omitempty"`
-	// The type of the function.
-	FunctionType FunctionFunctionType `json:"function_type"`
+	// Deprecated: Use the function oneof with AggregationFunction instead. Kept
+	// for backwards compatibility. The type of the function.
+	FunctionType FunctionFunctionType `json:"function_type,omitempty"`
 }
 
+// Deprecated: Use typed fields on function-specific messages (e.g.
+// ApproxPercentileFunction.percentile) or AggregationFunction.ExtraParameter
+// instead. Kept for backwards compatibility.
 type FunctionExtraParameter struct {
 	// The name of the parameter.
 	Key string `json:"key"`
@@ -1342,6 +1577,9 @@ type FunctionExtraParameter struct {
 	Value string `json:"value"`
 }
 
+// Deprecated: Use the function-specific messages in
+// AggregationFunction.function_type oneof instead. Kept for backwards
+// compatibility.
 type FunctionFunctionType string
 
 const FunctionFunctionTypeApproxCountDistinct FunctionFunctionType = `APPROX_COUNT_DISTINCT`
@@ -1498,6 +1736,11 @@ func (s GetHistoryRequest) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
+type GetKafkaConfigRequest struct {
+	// Name of the Kafka config to get.
+	Name string `json:"-" url:"-"`
+}
+
 type GetLatestVersionsRequest struct {
 	// Registered model unique name identifier.
 	Name string `json:"name"`
@@ -1520,6 +1763,11 @@ type GetLoggedModelRequest struct {
 type GetLoggedModelResponse struct {
 	// The retrieved logged model.
 	Model *LoggedModel `json:"model,omitempty"`
+}
+
+type GetMaterializedFeatureRequest struct {
+	// The ID of the materialized feature.
+	MaterializedFeatureId string `json:"-" url:"-"`
 }
 
 type GetMetricHistoryResponse struct {
@@ -1693,6 +1941,23 @@ type InputTag struct {
 	Value string `json:"value"`
 }
 
+type JobContext struct {
+	// The job ID where this API invoked.
+	JobId int64 `json:"job_id,omitempty"`
+	// The job run ID where this API was invoked.
+	JobRunId int64 `json:"job_run_id,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *JobContext) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s JobContext) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
 type JobSpec struct {
 	// The personal access token used to authorize webhook's job runs.
 	AccessToken string `json:"access_token"`
@@ -1730,6 +1995,85 @@ func (s *JobSpecWithoutSecret) UnmarshalJSON(b []byte) error {
 }
 
 func (s JobSpecWithoutSecret) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+type KafkaConfig struct {
+	// Authentication configuration for connection to topics.
+	AuthConfig AuthConfig `json:"auth_config"`
+	// A user-provided and managed source for backfilling data. Historical data
+	// is used when creating a training set from streaming features linked to
+	// this Kafka config. In the future, a separate table will be maintained by
+	// Databricks for forward filling data. The schema for this source must
+	// match exactly that of the key and value schemas specified for this Kafka
+	// config.
+	BackfillSource *BackfillSource `json:"backfill_source,omitempty"`
+	// A comma-separated list of host/port pairs pointing to Kafka cluster.
+	BootstrapServers string `json:"bootstrap_servers"`
+	// Catch-all for miscellaneous options. Keys should be source options or
+	// Kafka consumer options (kafka.*)
+	ExtraOptions map[string]string `json:"extra_options,omitempty"`
+	// Schema configuration for extracting message keys from topics. At least
+	// one of key_schema and value_schema must be provided.
+	KeySchema *SchemaConfig `json:"key_schema,omitempty"`
+	// Name that uniquely identifies this Kafka config within the metastore.
+	// This will be the identifier used from the Feature object to reference
+	// these configs for a feature. Can be distinct from topic name.
+	Name string `json:"name"`
+	// Options to configure which Kafka topics to pull data from.
+	SubscriptionMode SubscriptionMode `json:"subscription_mode"`
+	// Schema configuration for extracting message values from topics. At least
+	// one of key_schema and value_schema must be provided.
+	ValueSchema *SchemaConfig `json:"value_schema,omitempty"`
+}
+
+type KafkaSource struct {
+	// Deprecated: Use Feature.entity instead. Kept for backwards compatibility.
+	// The entity column identifiers of the Kafka source.
+	EntityColumnIdentifiers []ColumnIdentifier `json:"entity_column_identifiers,omitempty"`
+	// The filter condition applied to the source data before aggregation.
+	FilterCondition string `json:"filter_condition,omitempty"`
+	// Name of the Kafka source, used to identify it. This is used to look up
+	// the corresponding KafkaConfig object. Can be distinct from topic name.
+	Name string `json:"name"`
+	// Deprecated: Use Feature.timeseries_column instead. Kept for backwards
+	// compatibility. The timeseries column identifier of the Kafka source.
+	TimeseriesColumnIdentifier *ColumnIdentifier `json:"timeseries_column_identifier,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *KafkaSource) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s KafkaSource) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+// Returns the last value.
+type LastFunction struct {
+	// The input column from which the last value is returned.
+	Input string `json:"input"`
+}
+
+// Lineage context information for tracking where an API was invoked. This will
+// allow us to track lineage, which currently uses caller entity information for
+// use across the Lineage Client and Observability in Lumberjack.
+type LineageContext struct {
+	// Job context information including job ID and run ID.
+	JobContext *JobContext `json:"job_context,omitempty"`
+	// The notebook ID where this API was invoked.
+	NotebookId int64 `json:"notebook_id,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *LineageContext) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s LineageContext) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
@@ -1911,6 +2255,78 @@ func (s *ListFeaturesResponse) UnmarshalJSON(b []byte) error {
 }
 
 func (s ListFeaturesResponse) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+type ListKafkaConfigsRequest struct {
+	// The maximum number of results to return.
+	PageSize int `json:"-" url:"page_size,omitempty"`
+	// Pagination token to go to the next page based on a previous query.
+	PageToken string `json:"-" url:"page_token,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *ListKafkaConfigsRequest) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s ListKafkaConfigsRequest) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+type ListKafkaConfigsResponse struct {
+	// List of Kafka configs. Schemas are not included in the response.
+	KafkaConfigs []KafkaConfig `json:"kafka_configs"`
+	// Pagination token to request the next page of results for this query.
+	NextPageToken string `json:"next_page_token,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *ListKafkaConfigsResponse) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s ListKafkaConfigsResponse) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+type ListMaterializedFeaturesRequest struct {
+	// Filter by feature name. If specified, only materialized features
+	// materialized from this feature will be returned.
+	FeatureName string `json:"-" url:"feature_name,omitempty"`
+	// The maximum number of results to return. Defaults to 100 if not
+	// specified. Cannot be greater than 1000.
+	PageSize int `json:"-" url:"page_size,omitempty"`
+	// Pagination token to go to the next page based on a previous query.
+	PageToken string `json:"-" url:"page_token,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *ListMaterializedFeaturesRequest) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s ListMaterializedFeaturesRequest) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+type ListMaterializedFeaturesResponse struct {
+	// List of materialized features.
+	MaterializedFeatures []MaterializedFeature `json:"materialized_features,omitempty"`
+	// Pagination token to request the next page of results for this query.
+	NextPageToken string `json:"next_page_token,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *ListMaterializedFeaturesResponse) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s ListMaterializedFeaturesResponse) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
@@ -2326,6 +2742,86 @@ func (s LoggedModelTag) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
+// A materialized feature represents a feature that is continuously computed and
+// stored.
+type MaterializedFeature struct {
+	// The quartz cron expression that defines the schedule of the
+	// materialization pipeline. The schedule is evaluated in the UTC timezone.
+	CronSchedule string `json:"cron_schedule,omitempty"`
+	// The full name of the feature in Unity Catalog.
+	FeatureName string `json:"feature_name"`
+	// The timestamp when the pipeline last ran and updated the materialized
+	// feature values. If the pipeline has not run yet, this field will be null.
+	LastMaterializationTime string `json:"last_materialization_time,omitempty"`
+	// Unique identifier for the materialized feature.
+	MaterializedFeatureId string `json:"materialized_feature_id,omitempty"`
+
+	OfflineStoreConfig *OfflineStoreConfig `json:"offline_store_config,omitempty"`
+
+	OnlineStoreConfig *OnlineStoreConfig `json:"online_store_config,omitempty"`
+	// The schedule state of the materialization pipeline.
+	PipelineScheduleState MaterializedFeaturePipelineScheduleState `json:"pipeline_schedule_state,omitempty"`
+	// The fully qualified Unity Catalog path to the table containing the
+	// materialized feature (Delta table or Lakebase table). Output only.
+	TableName string `json:"table_name,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *MaterializedFeature) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s MaterializedFeature) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+type MaterializedFeaturePipelineScheduleState string
+
+const MaterializedFeaturePipelineScheduleStateActive MaterializedFeaturePipelineScheduleState = `ACTIVE`
+
+const MaterializedFeaturePipelineScheduleStatePaused MaterializedFeaturePipelineScheduleState = `PAUSED`
+
+const MaterializedFeaturePipelineScheduleStateSnapshot MaterializedFeaturePipelineScheduleState = `SNAPSHOT`
+
+// String representation for [fmt.Print]
+func (f *MaterializedFeaturePipelineScheduleState) String() string {
+	return string(*f)
+}
+
+// Set raw string value and validate it against allowed values
+func (f *MaterializedFeaturePipelineScheduleState) Set(v string) error {
+	switch v {
+	case `ACTIVE`, `PAUSED`, `SNAPSHOT`:
+		*f = MaterializedFeaturePipelineScheduleState(v)
+		return nil
+	default:
+		return fmt.Errorf(`value "%s" is not one of "ACTIVE", "PAUSED", "SNAPSHOT"`, v)
+	}
+}
+
+// Values returns all possible values for MaterializedFeaturePipelineScheduleState.
+//
+// There is no guarantee on the order of the values in the slice.
+func (f *MaterializedFeaturePipelineScheduleState) Values() []MaterializedFeaturePipelineScheduleState {
+	return []MaterializedFeaturePipelineScheduleState{
+		MaterializedFeaturePipelineScheduleStateActive,
+		MaterializedFeaturePipelineScheduleStatePaused,
+		MaterializedFeaturePipelineScheduleStateSnapshot,
+	}
+}
+
+// Type always returns MaterializedFeaturePipelineScheduleState to satisfy [pflag.Value] interface
+func (f *MaterializedFeaturePipelineScheduleState) Type() string {
+	return "MaterializedFeaturePipelineScheduleState"
+}
+
+// Computes the maximum value.
+type MaxFunction struct {
+	// The input column from which the maximum is computed.
+	Input string `json:"input"`
+}
+
 // Metric associated with a run, represented as a key-value pair.
 type Metric struct {
 	// The dataset digest of the dataset associated with the metric, e.g. an md5
@@ -2358,6 +2854,12 @@ func (s *Metric) UnmarshalJSON(b []byte) error {
 
 func (s Metric) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
+}
+
+// Computes the minimum value.
+type MinFunction struct {
+	// The input column from which the minimum is computed.
+	Input string `json:"input"`
 }
 
 type Model struct {
@@ -2617,6 +3119,17 @@ func (s ModelVersionTag) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
+// Configuration for offline store destination.
+type OfflineStoreConfig struct {
+	// The Unity Catalog catalog name.
+	CatalogName string `json:"catalog_name"`
+	// The Unity Catalog schema name.
+	SchemaName string `json:"schema_name"`
+	// Prefix for Unity Catalog table name. The materialized feature will be
+	// stored in a table with this prefix and a generated postfix.
+	TableNamePrefix string `json:"table_name_prefix"`
+}
+
 // An OnlineStore is a logical database instance that stores and serves features
 // online.
 type OnlineStore struct {
@@ -2634,6 +3147,8 @@ type OnlineStore struct {
 	ReadReplicaCount int `json:"read_replica_count,omitempty"`
 	// The current state of the online store.
 	State OnlineStoreState `json:"state,omitempty"`
+	// The usage policy applied to the online store to track billing.
+	UsagePolicyId string `json:"usage_policy_id,omitempty"`
 
 	ForceSendFields []string `json:"-" url:"-"`
 }
@@ -2644,6 +3159,23 @@ func (s *OnlineStore) UnmarshalJSON(b []byte) error {
 
 func (s OnlineStore) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
+}
+
+// Configuration for online store destination.
+type OnlineStoreConfig struct {
+	// The Unity Catalog catalog name. This name is also used as the Lakebase
+	// logical database name. Quoting is handled by the backend where needed, do
+	// not pre-quote it.
+	CatalogName string `json:"catalog_name"`
+	// The name of the target online store.
+	OnlineStoreName string `json:"online_store_name"`
+	// The Unity Catalog schema name. This name is also used as the Lakebase
+	// schema name under the database. Quoting is handled by the backend where
+	// needed, do not pre-quote it.
+	SchemaName string `json:"schema_name"`
+	// Prefix for Unity Catalog table name. The materialized feature will be
+	// stored in a Lakebase table with this prefix and a generated postfix.
+	TableNamePrefix string `json:"table_name_prefix"`
 }
 
 type OnlineStoreState string
@@ -3458,6 +3990,22 @@ func (s RunTag) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
+type SchemaConfig struct {
+	// Schema of the JSON object in standard IETF JSON schema format
+	// (https://json-schema.org/)
+	JsonSchema string `json:"json_schema,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *SchemaConfig) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s SchemaConfig) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
 type SearchExperiments struct {
 	// String representing a SQL filter condition (e.g. "name ILIKE
 	// 'my-experiment%'")
@@ -3814,6 +4362,14 @@ func (s SetTag) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
 }
 
+type SlidingWindow struct {
+	// The slide duration (interval by which windows advance, must be positive
+	// and less than duration).
+	SlideDuration string `json:"slide_duration"`
+	// The duration of the sliding window.
+	WindowDuration string `json:"window_duration"`
+}
+
 // The status of the model version. Valid values are: * `PENDING_REGISTRATION`:
 // Request to register a new model version is pending as server performs
 // background tasks.
@@ -3865,6 +4421,48 @@ func (f *Status) Type() string {
 	return "Status"
 }
 
+// Computes the population standard deviation.
+type StddevPopFunction struct {
+	// The input column from which the population standard deviation is
+	// computed.
+	Input string `json:"input"`
+}
+
+// Computes the sample standard deviation.
+type StddevSampFunction struct {
+	// The input column from which the sample standard deviation is computed.
+	Input string `json:"input"`
+}
+
+type SubscriptionMode struct {
+	// A JSON string that contains the specific topic-partitions to consume
+	// from. For example, for '{"topicA":[0,1],"topicB":[2,4]}', topicA's 0'th
+	// and 1st partitions will be consumed from.
+	Assign string `json:"assign,omitempty"`
+	// A comma-separated list of Kafka topics to read from. For example,
+	// 'topicA,topicB,topicC'.
+	Subscribe string `json:"subscribe,omitempty"`
+	// A regular expression matching topics to subscribe to. For example,
+	// 'topic.*' will subscribe to all topics starting with 'topic'.
+	SubscribePattern string `json:"subscribe_pattern,omitempty"`
+
+	ForceSendFields []string `json:"-" url:"-"`
+}
+
+func (s *SubscriptionMode) UnmarshalJSON(b []byte) error {
+	return marshal.Unmarshal(b, s)
+}
+
+func (s SubscriptionMode) MarshalJSON() ([]byte, error) {
+	return marshal.Marshal(s)
+}
+
+// Computes the sum of values.
+type SumFunction struct {
+	// The input column from which the sum is computed.
+	Input string `json:"input"`
+}
+
 // Details required to test a registry webhook.
 type TestRegistryWebhookRequest struct {
 	// If `event` is specified, the test trigger uses the specified event. If
@@ -3893,20 +4491,16 @@ func (s TestRegistryWebhookResponse) MarshalJSON() ([]byte, error) {
 }
 
 type TimeWindow struct {
-	// The duration of the time window.
-	Duration string `json:"duration"`
-	// The offset of the time window.
-	Offset string `json:"offset,omitempty"`
+	Continuous *ContinuousWindow `json:"continuous,omitempty"`
 
-	ForceSendFields []string `json:"-" url:"-"`
+	Sliding *SlidingWindow `json:"sliding,omitempty"`
+
+	Tumbling *TumblingWindow `json:"tumbling,omitempty"`
 }
 
-func (s *TimeWindow) UnmarshalJSON(b []byte) error {
-	return marshal.Unmarshal(b, s)
-}
-
-func (s TimeWindow) MarshalJSON() ([]byte, error) {
-	return marshal.Marshal(s)
+type TimeseriesColumn struct {
+	// The name of the timeseries column.
+	Name string `json:"name"`
 }
 
 // Details required to transition a model version's stage.
@@ -3983,6 +4577,12 @@ type TransitionStageResponse struct {
 	ModelVersionDatabricks *ModelVersionDatabricks `json:"model_version_databricks,omitempty"`
 }
 
+type TumblingWindow struct {
+	// The duration of each tumbling window (non-overlapping, fixed-duration
+	// windows).
+	WindowDuration string `json:"window_duration"`
+}
+
 // Details required to edit a comment on a model version.
 type UpdateComment struct {
 	// User-provided comment on the action.
@@ -4043,6 +4643,27 @@ func (s *UpdateFeatureTagRequest) UnmarshalJSON(b []byte) error {
 
 func (s UpdateFeatureTagRequest) MarshalJSON() ([]byte, error) {
 	return marshal.Marshal(s)
+}
+
+type UpdateKafkaConfigRequest struct {
+	// The Kafka config to update.
+	KafkaConfig KafkaConfig `json:"kafka_config"`
+	// Name that uniquely identifies this Kafka config within the metastore.
+	// This will be the identifier used from the Feature object to reference
+	// these configs for a feature. Can be distinct from topic name.
+	Name string `json:"-" url:"-"`
+	// The list of fields to update.
+	UpdateMask fieldmask.FieldMask `json:"-" url:"update_mask"`
+}
+
+type UpdateMaterializedFeatureRequest struct {
+	// The materialized feature to update.
+	MaterializedFeature MaterializedFeature `json:"materialized_feature"`
+	// Unique identifier for the materialized feature.
+	MaterializedFeatureId string `json:"-" url:"-"`
+	// Provide the materialization feature fields which should be updated.
+	// Currently, only the pipeline_state field can be updated.
+	UpdateMask string `json:"-" url:"update_mask"`
 }
 
 type UpdateModelRequest struct {
@@ -4238,6 +4859,18 @@ func (f *UpdateRunStatus) Type() string {
 
 type UpdateWebhookResponse struct {
 	Webhook *RegistryWebhook `json:"webhook,omitempty"`
+}
+
+// Computes the population variance.
+type VarPopFunction struct {
+	// The input column from which the population variance is computed.
+	Input string `json:"input"`
+}
+
+// Computes the sample variance.
+type VarSampFunction struct {
+	// The input column from which the sample variance is computed.
+	Input string `json:"input"`
 }
 
 // Qualifier for the view type.

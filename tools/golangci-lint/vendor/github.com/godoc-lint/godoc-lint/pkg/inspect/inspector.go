@@ -42,7 +42,7 @@ func NewInspector(cb model.ConfigBuilder, exitFunc func(int, error)) *Inspector 
 			Name:       metaName,
 			Doc:        metaDoc,
 			URL:        metaURL,
-			ResultType: reflect.TypeOf(new(model.InspectorResult)),
+			ResultType: reflect.TypeFor[*model.InspectorResult](),
 		},
 	}
 	result.analyzer.Run = result.run
@@ -54,8 +54,10 @@ func (i *Inspector) GetAnalyzer() *analysis.Analyzer {
 	return i.analyzer
 }
 
-var topLevelOrphanCommentGroupPattern = regexp.MustCompile(`(?m)(?:^//.*\r?\n)+(?:\r?\n|\z)`)
-var disableDirectivePattern = regexp.MustCompile(`(?m)//godoclint:disable(?: *([^\r\n]+))?\r?$`)
+var (
+	topLevelOrphanCommentGroupPattern = regexp.MustCompile(`(?m)(?:^//.*\r?\n)+(?:\r?\n|\z)`)
+	disableDirectivePattern           = regexp.MustCompile(`(?m)//godoclint:disable(?: *([^\r\n]+))?\r?$`)
+)
 
 func (i *Inspector) run(pass *analysis.Pass) (any, error) {
 	if len(pass.Files) == 0 {
@@ -107,12 +109,24 @@ func (i *Inspector) run(pass *analysis.Pass) (any, error) {
 		for _, d := range f.Decls {
 			switch dt := d.(type) {
 			case *ast.FuncDecl:
+				var recvBaseTypeName string
+				var isMethod bool
+
+				if dt.Recv != nil {
+					isMethod = true
+					if len(dt.Recv.List) > 0 {
+						recvBaseTypeName = extractMethodRecvBaseTypeName(dt.Recv.List[0].Type)
+					}
+				}
+
 				decls = append(decls, model.SymbolDecl{
-					Decl:  d,
-					Kind:  model.SymbolDeclKindFunc,
-					Name:  dt.Name.Name,
-					Ident: dt.Name,
-					Doc:   i.extractCommentGroup(dt.Doc),
+					Decl:                   d,
+					Kind:                   model.SymbolDeclKindFunc,
+					Name:                   dt.Name.Name,
+					Ident:                  dt.Name,
+					IsMethod:               isMethod,
+					MethodRecvBaseTypeName: recvBaseTypeName,
+					Doc:                    i.extractCommentGroup(dt.Doc),
 				})
 			case *ast.BadDecl:
 				decls = append(decls, model.SymbolDecl{
@@ -309,4 +323,18 @@ func extractDisableDirectivesInComment(s string) model.InspectorResultDisableRul
 		}
 	}
 	return result
+}
+
+func extractMethodRecvBaseTypeName(expr ast.Expr) string {
+	switch tt := expr.(type) {
+	case *ast.Ident:
+		return tt.Name
+	case *ast.StarExpr:
+		return extractMethodRecvBaseTypeName(tt.X)
+	case *ast.IndexExpr:
+		return extractMethodRecvBaseTypeName(tt.X)
+	case *ast.IndexListExpr:
+		return extractMethodRecvBaseTypeName(tt.X)
+	}
+	return ""
 }

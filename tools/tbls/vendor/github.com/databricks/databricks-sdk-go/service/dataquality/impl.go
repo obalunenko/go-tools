@@ -24,6 +24,10 @@ func (a *dataQualityImpl) CancelRefresh(ctx context.Context, request CancelRefre
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request, &cancelRefreshResponse)
 	return &cancelRefreshResponse, err
 }
@@ -35,6 +39,10 @@ func (a *dataQualityImpl) CreateMonitor(ctx context.Context, request CreateMonit
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request.Monitor, &monitor)
 	return &monitor, err
 }
@@ -46,6 +54,10 @@ func (a *dataQualityImpl) CreateRefresh(ctx context.Context, request CreateRefre
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPost, path, headers, queryParams, request.Refresh, &refresh)
 	return &refresh, err
 }
@@ -55,6 +67,10 @@ func (a *dataQualityImpl) DeleteMonitor(ctx context.Context, request DeleteMonit
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodDelete, path, headers, queryParams, request, nil)
 	return err
 }
@@ -64,6 +80,10 @@ func (a *dataQualityImpl) DeleteRefresh(ctx context.Context, request DeleteRefre
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodDelete, path, headers, queryParams, request, nil)
 	return err
 }
@@ -74,6 +94,10 @@ func (a *dataQualityImpl) GetMonitor(ctx context.Context, request GetMonitorRequ
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &monitor)
 	return &monitor, err
 }
@@ -84,6 +108,10 @@ func (a *dataQualityImpl) GetRefresh(ctx context.Context, request GetRefreshRequ
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &refresh)
 	return &refresh, err
 }
@@ -125,17 +153,28 @@ func (a *dataQualityImpl) internalListMonitor(ctx context.Context, request ListM
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &listMonitorResponse)
 	return &listMonitorResponse, err
 }
 
-// List data quality monitor refreshes.
+// List data quality monitor refreshes. The call must be made in the same
+// workspace as where the monitor was created.
 //
-// For the `table` `object_type`, the caller must either: 1. be an owner of the
-// table's parent catalog 2. have **USE_CATALOG** on the table's parent catalog
-// and be an owner of the table's parent schema 3. have the following
-// permissions: - **USE_CATALOG** on the table's parent catalog - **USE_SCHEMA**
-// on the table's parent schema - **SELECT** privilege on the table.
+// For the `table` `object_type`, the caller must have either of the following
+// sets of permissions: 1. **MANAGE** and **USE_CATALOG** on the table's parent
+// catalog. 2. **USE_CATALOG** on the table's parent catalog, and **MANAGE** and
+// **USE_SCHEMA** on the table's parent schema. 3. **USE_CATALOG** on the
+// table's parent catalog, **USE_SCHEMA** on the table's parent schema, and
+// **SELECT** on the table.
+//
+// For the `schema` `object_type`, the caller must have either of the following
+// sets of permissions: 1. **MANAGE** and **USE_CATALOG** on the schema's parent
+// catalog. 2. **USE_CATALOG** on the schema's parent catalog, and
+// **USE_SCHEMA** on the schema.
 func (a *dataQualityImpl) ListRefresh(ctx context.Context, request ListRefreshRequest) listing.Iterator[Refresh] {
 
 	getNextPage := func(ctx context.Context, req ListRefreshRequest) (*ListRefreshResponse, error) {
@@ -160,13 +199,20 @@ func (a *dataQualityImpl) ListRefresh(ctx context.Context, request ListRefreshRe
 	return iterator
 }
 
-// List data quality monitor refreshes.
+// List data quality monitor refreshes. The call must be made in the same
+// workspace as where the monitor was created.
 //
-// For the `table` `object_type`, the caller must either: 1. be an owner of the
-// table's parent catalog 2. have **USE_CATALOG** on the table's parent catalog
-// and be an owner of the table's parent schema 3. have the following
-// permissions: - **USE_CATALOG** on the table's parent catalog - **USE_SCHEMA**
-// on the table's parent schema - **SELECT** privilege on the table.
+// For the `table` `object_type`, the caller must have either of the following
+// sets of permissions: 1. **MANAGE** and **USE_CATALOG** on the table's parent
+// catalog. 2. **USE_CATALOG** on the table's parent catalog, and **MANAGE** and
+// **USE_SCHEMA** on the table's parent schema. 3. **USE_CATALOG** on the
+// table's parent catalog, **USE_SCHEMA** on the table's parent schema, and
+// **SELECT** on the table.
+//
+// For the `schema` `object_type`, the caller must have either of the following
+// sets of permissions: 1. **MANAGE** and **USE_CATALOG** on the schema's parent
+// catalog. 2. **USE_CATALOG** on the schema's parent catalog, and
+// **USE_SCHEMA** on the schema.
 func (a *dataQualityImpl) ListRefreshAll(ctx context.Context, request ListRefreshRequest) ([]Refresh, error) {
 	iterator := a.ListRefresh(ctx, request)
 	return listing.ToSlice[Refresh](ctx, iterator)
@@ -178,6 +224,10 @@ func (a *dataQualityImpl) internalListRefresh(ctx context.Context, request ListR
 	queryParams := make(map[string]any)
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodGet, path, headers, queryParams, request, &listRefreshResponse)
 	return &listRefreshResponse, err
 }
@@ -193,6 +243,10 @@ func (a *dataQualityImpl) UpdateMonitor(ctx context.Context, request UpdateMonit
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPatch, path, headers, queryParams, request.Monitor, &monitor)
 	return &monitor, err
 }
@@ -208,6 +262,10 @@ func (a *dataQualityImpl) UpdateRefresh(ctx context.Context, request UpdateRefre
 	headers := make(map[string]string)
 	headers["Accept"] = "application/json"
 	headers["Content-Type"] = "application/json"
+	cfg := a.client.Config
+	if cfg.WorkspaceID != "" {
+		headers["X-Databricks-Org-Id"] = cfg.WorkspaceID
+	}
 	err := a.client.Do(ctx, http.MethodPatch, path, headers, queryParams, request.Refresh, &refresh)
 	return &refresh, err
 }

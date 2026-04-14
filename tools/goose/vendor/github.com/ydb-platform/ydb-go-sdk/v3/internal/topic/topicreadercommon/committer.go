@@ -131,7 +131,7 @@ func (c *Committer) pushCommitsLoop(ctx context.Context) {
 		var commits CommitRanges
 		c.m.WithLock(func() {
 			commits = c.commits
-			c.commits = NewCommitRangesWithCapacity(commits.Len() * 2) //nolint:gomnd
+			c.commits = NewCommitRangesWithCapacity(commits.Len() * 2) //nolint:mnd
 		})
 
 		if commits.Len() == 0 && c.backgroundWorker.Context().Err() != nil {
@@ -148,6 +148,7 @@ func (c *Committer) pushCommitsLoop(ctx context.Context) {
 
 		onDone := trace.TopicOnReaderSendCommitMessage(
 			c.tracer,
+			&ctx,
 			&commits,
 		)
 		err := c.send(commits.ToRawMessage())
@@ -227,7 +228,7 @@ func (c *Committer) waitCommitAck(ctx context.Context, waiter commitWaiter) erro
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-waiter.Session.Context().Done():
-		return PublicErrCommitSessionToExpiredSession
+		return ErrPublicCommitSessionToExpiredSession
 	case <-waiter.Committed:
 		return nil
 	}

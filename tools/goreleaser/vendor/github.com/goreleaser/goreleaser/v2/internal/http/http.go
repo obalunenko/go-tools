@@ -66,8 +66,17 @@ func assetOpenDefault(kind string, a *artifact.Artifact) (*asset, error) {
 		return nil, fmt.Errorf("%s: upload failed: the asset to upload can't be a directory", kind)
 	}
 	return &asset{
-		ReadCloser: f,
-		Size:       s.Size(),
+		// Wrap the file so it only exposes io.Reader and io.Closer.
+		// This prevents Go's HTTP client from detecting *os.File and
+		// using sendFile/TransmitFile on Windows, which has a known
+		// data race between the connection's readLoop and writeBody
+		// goroutines on the underlying TCP socket FD.
+		// See: https://github.com/golang/go/issues/78015
+		ReadCloser: struct {
+			io.Reader
+			io.Closer
+		}{Reader: f, Closer: f},
+		Size: s.Size(),
 	}, nil
 }
 
@@ -224,6 +233,7 @@ func uploadOne(ctx *context.Context, upload config.Upload, kind string, check Re
 			artifact.UploadableSourceArchive,
 			artifact.Makeself,
 			artifact.LinuxPackage,
+			artifact.Flatpak,
 			artifact.PySdist,
 			artifact.PyWheel,
 		)

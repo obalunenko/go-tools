@@ -13,6 +13,18 @@ dev-deps: ## Install the dev dependencies
 	@go install github.com/goreleaser/chglog/cmd/chglog@latest
 	@go install github.com/caarlos0/svu@v1.4.1
 
+OBJC_SRC := internal/testdata/test.m
+OBJC_BIN := internal/testdata/objc_fixture
+CLANG    := $(shell xcrun -f clang 2>/dev/null)
+SDK      := $(shell xcrun --sdk macosx --show-sdk-path 2>/dev/null)
+
+.PHONY: objc-fixture
+objc-fixture: ## Build the ObjC demo binary with protocol class properties (requires Xcode CLT)
+	@if [ "$(CLANG)" = "" ]; then echo "xcrun clang not found; install Xcode Command Line Tools"; exit 1; fi
+	@echo "Compiling $(OBJC_SRC) -> $(OBJC_BIN)"
+	@$(CLANG) -fobjc-arc -isysroot "$(SDK)" -framework Foundation -o "$(OBJC_BIN)" "$(OBJC_SRC)"
+	@echo "Built $(OBJC_BIN)"
+
 .PHONY: bump
 bump: ## Incriment version patch number
 	@echo " > Bumping VERSION"

@@ -148,6 +148,51 @@ type (
 		OnWriterReceiveGRPCMessage func(TopicWriterReceiveGRPCMessageInfo)
 		// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 		OnWriterReadUnknownGrpcMessage func(TopicOnWriterReadUnknownGrpcMessageInfo)
+
+		// TopicListenerEvents
+
+		// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+		OnListenerStart func(TopicListenerStartInfo)
+
+		// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+		OnListenerInit func(TopicListenerInitStartInfo) func(TopicListenerInitDoneInfo)
+
+		// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+		OnListenerReceiveMessage func(TopicListenerReceiveMessageInfo)
+
+		// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+		OnListenerRouteMessage func(TopicListenerRouteMessageInfo)
+
+		// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+		OnListenerSplitMessage func(TopicListenerSplitMessageInfo)
+
+		// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+		OnListenerError func(TopicListenerErrorInfo)
+
+		// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+		OnListenerClose func(TopicListenerCloseStartInfo) func(TopicListenerCloseDoneInfo)
+
+		// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+		OnPartitionWorkerStart func(TopicPartitionWorkerStartInfo)
+
+		// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+		OnPartitionWorkerProcessMessage func(TopicPartitionWorkerProcessMessageStartInfo) func(
+			TopicPartitionWorkerProcessMessageDoneInfo,
+		)
+
+		// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+		OnPartitionWorkerHandlerCall func(TopicPartitionWorkerHandlerCallStartInfo) func(
+			TopicPartitionWorkerHandlerCallDoneInfo,
+		)
+
+		// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+		OnPartitionWorkerStop func(TopicPartitionWorkerStopStartInfo) func(TopicPartitionWorkerStopDoneInfo)
+
+		// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+		OnListenerSendDataRequest func(TopicListenerSendDataRequestInfo)
+
+		// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+		OnListenerUnknownMessage func(TopicListenerUnknownMessageInfo)
 	}
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
@@ -161,6 +206,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicReaderStartInfo struct {
+		Context  *context.Context
 		ReaderID int64
 		Consumer string
 		Error    error
@@ -201,11 +247,13 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicReaderSendCommitMessageStartInfo struct {
+		Context     *context.Context
 		CommitsInfo TopicReaderStreamSendCommitMessageStartMessageInfo
 	}
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicReaderStreamCommitInfo struct {
+		Context            *context.Context
 		Topic              string
 		PartitionID        int64
 		PartitionSessionID int64
@@ -225,6 +273,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicReaderCommittedNotifyInfo struct {
+		Context            *context.Context
 		ReaderConnectionID string
 		Topic              string
 		PartitionID        int64
@@ -234,12 +283,14 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicReaderErrorInfo struct {
+		Context            *context.Context
 		ReaderConnectionID string
 		Error              error
 	}
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicReaderSentDataRequestInfo struct {
+		Context                  *context.Context
 		ReaderConnectionID       string
 		RequestBytes             int
 		LocalBufferSizeAfterSent int
@@ -247,6 +298,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicReaderReceiveDataResponseStartInfo struct {
+		Context                     *context.Context
 		ReaderConnectionID          string
 		LocalBufferSizeAfterReceive int
 		DataResponse                TopicReaderDataResponseInfo
@@ -265,7 +317,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicReaderReadMessagesStartInfo struct {
-		RequestContext     *context.Context
+		Context            *context.Context
 		MinCount           int
 		MaxCount           int
 		FreeBufferCapacity int
@@ -285,13 +337,15 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	OnReadUnknownGrpcMessageInfo struct {
+		Context            *context.Context
 		ReaderConnectionID string
 		Error              error
 	}
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicReaderReconnectStartInfo struct {
-		Reason error
+		Context *context.Context
+		Reason  error
 	}
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
@@ -301,13 +355,14 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicReaderReconnectRequestInfo struct {
+		Context *context.Context
 		Reason  error
 		WasSent bool
 	}
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicReaderCommitStartInfo struct {
-		RequestContext     *context.Context
+		Context            *context.Context
 		Topic              string
 		PartitionID        int64
 		PartitionSessionID int64
@@ -322,6 +377,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicReaderCloseStartInfo struct {
+		Context            *context.Context
 		ReaderConnectionID string
 		CloseReason        error
 	}
@@ -333,6 +389,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicReaderInitStartInfo struct {
+		Context                   *context.Context
 		PreInitReaderConnectionID string
 		InitRequestInfo           TopicReadStreamInitRequestInfo
 	}
@@ -351,11 +408,13 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	OnReadUpdateTokenStartInfo struct {
+		Context            *context.Context
 		ReaderConnectionID string
 	}
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	OnReadUpdateTokenMiddleTokenReceivedInfo struct {
+		Context  *context.Context
 		TokenLen int
 		Error    error
 	}
@@ -460,6 +519,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicWriterReconnectStartInfo struct {
+		Context          *context.Context
 		WriterInstanceID string
 		Topic            string
 		ProducerID       string
@@ -477,6 +537,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicWriterInitStreamStartInfo struct {
+		Context          *context.Context
 		WriterInstanceID string
 		Topic            string
 		ProducerID       string
@@ -490,6 +551,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicWriterCloseStartInfo struct {
+		Context          *context.Context
 		WriterInstanceID string
 		Reason           error
 	}
@@ -501,6 +563,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicWriterCompressMessagesStartInfo struct {
+		Context          *context.Context
 		WriterInstanceID string
 		SessionID        string
 		Codec            int32
@@ -516,6 +579,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicWriterSendMessagesStartInfo struct {
+		Context          *context.Context
 		WriterInstanceID string
 		SessionID        string
 		Codec            int32
@@ -530,6 +594,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicWriterResultMessagesInfo struct {
+		Context          *context.Context
 		WriterInstanceID string
 		SessionID        string
 		PartitionID      int64
@@ -552,7 +617,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicOnWriterBeforeCommitTransactionStartInfo struct {
-		Ctx            *context.Context
+		Context        *context.Context
 		KqpSessionID   string
 		TopicSessionID string
 		TransactionID  string
@@ -566,6 +631,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicOnWriterAfterFinishTransactionStartInfo struct {
+		Context       *context.Context
 		Error         error
 		SessionID     string
 		TransactionID string
@@ -578,6 +644,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicWriterSentGRPCMessageInfo struct {
+		Context               *context.Context
 		TopicStreamInternalID string
 		SessionID             string
 		MessageNumber         int
@@ -587,6 +654,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicWriterReceiveGRPCMessageInfo struct {
+		Context               *context.Context
 		TopicStreamInternalID string
 		SessionID             string
 		MessageNumber         int
@@ -596,6 +664,7 @@ type (
 
 	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
 	TopicOnWriterReadUnknownGrpcMessageInfo struct {
+		Context          *context.Context
 		WriterInstanceID string
 		SessionID        string
 		Error            error
@@ -618,3 +687,164 @@ const (
 func (r TopicWriterCompressMessagesReason) String() string {
 	return string(r)
 }
+
+type (
+	// TopicListener Events
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicListenerStartInfo struct {
+		Context    *context.Context
+		ListenerID string
+		Consumer   string
+		Error      error
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicListenerInitStartInfo struct {
+		Context        *context.Context
+		ListenerID     string
+		Consumer       string
+		TopicSelectors []string
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicListenerInitDoneInfo struct {
+		SessionID string
+		Error     error
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicListenerReceiveMessageInfo struct {
+		Context     *context.Context
+		ListenerID  string
+		SessionID   string
+		MessageType string
+		BytesSize   int
+		Error       error
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicListenerRouteMessageInfo struct {
+		Context            *context.Context
+		ListenerID         string
+		SessionID          string
+		MessageType        string
+		PartitionSessionID *int64
+		WorkerFound        bool
+		Error              error
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicListenerSplitMessageInfo struct {
+		Context         *context.Context
+		ListenerID      string
+		SessionID       string
+		MessageType     string
+		TotalBatches    int
+		TotalPartitions int
+		SplitBatches    int
+		RoutedBatches   int
+		Error           error
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicListenerErrorInfo struct {
+		Context    *context.Context
+		ListenerID string
+		SessionID  string
+		Error      error
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicListenerCloseStartInfo struct {
+		Context    *context.Context
+		ListenerID string
+		SessionID  string
+		Reason     error
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicListenerCloseDoneInfo struct {
+		WorkersClosed int
+		Error         error
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicPartitionWorkerStartInfo struct {
+		Context            *context.Context
+		ListenerID         string
+		SessionID          string
+		PartitionSessionID int64
+		PartitionID        int64
+		Topic              string
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicPartitionWorkerProcessMessageStartInfo struct {
+		Context            *context.Context
+		ListenerID         string
+		SessionID          string
+		PartitionSessionID int64
+		PartitionID        int64
+		Topic              string
+		MessageType        string
+		MessagesCount      int
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicPartitionWorkerProcessMessageDoneInfo struct {
+		ProcessedMessages int
+		Error             error
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicPartitionWorkerHandlerCallStartInfo struct {
+		Context            *context.Context
+		ListenerID         string
+		SessionID          string
+		PartitionSessionID int64
+		PartitionID        int64
+		Topic              string
+		HandlerType        string // "OnReadMessages", "OnStartPartition", "OnStopPartition"
+		MessagesCount      int
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicPartitionWorkerHandlerCallDoneInfo struct {
+		Error error
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicPartitionWorkerStopStartInfo struct {
+		Context            *context.Context
+		ListenerID         string
+		SessionID          string
+		PartitionSessionID int64
+		PartitionID        int64
+		Topic              string
+		Reason             error
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicPartitionWorkerStopDoneInfo struct {
+		Error error
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicListenerSendDataRequestInfo struct {
+		Context     *context.Context
+		ListenerID  string
+		SessionID   string
+		MessageType string
+		Error       error
+	}
+
+	// Internals: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#internals
+	TopicListenerUnknownMessageInfo struct {
+		Context     *context.Context
+		ListenerID  string
+		SessionID   string
+		MessageType string
+		Error       error
+	}
+)

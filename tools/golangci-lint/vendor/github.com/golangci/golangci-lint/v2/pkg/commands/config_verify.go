@@ -17,7 +17,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/golangci/golangci-lint/v2/pkg/exitcodes"
 )
@@ -37,6 +37,8 @@ func (c *configCommand) executeVerify(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("get JSON schema: %w", err)
 	}
+
+	c.log.Infof("Verifying the configuration file %q with the JSON Schema from %s", usedConfigFile, schemaURL)
 
 	err = validateConfiguration(schemaURL, usedConfigFile)
 	if err != nil {
@@ -108,8 +110,8 @@ func extractCommitHash(buildInfo BuildInfo) (string, error) {
 
 	commit := buildInfo.Commit
 
-	if strings.HasPrefix(commit, "(") {
-		c, _, ok := strings.Cut(strings.TrimPrefix(commit, "("), ",")
+	if after, ok := strings.CutPrefix(commit, "("); ok {
+		c, _, ok := strings.Cut(after, ",")
 		if !ok {
 			return "", errors.New("commit information not found")
 		}

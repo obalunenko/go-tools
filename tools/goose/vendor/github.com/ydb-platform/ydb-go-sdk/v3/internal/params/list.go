@@ -155,8 +155,20 @@ func (l *listItem) JSON(v string) *list {
 	return l.parent
 }
 
+func (l *listItem) JSONFromBytes(v []byte) *list {
+	l.parent.values = append(l.parent.values, value.JSONValueFromBytes(v))
+
+	return l.parent
+}
+
 func (l *listItem) JSONDocument(v string) *list {
 	l.parent.values = append(l.parent.values, value.JSONDocumentValue(v))
+
+	return l.parent
+}
+
+func (l *listItem) JSONDocumentFromBytes(v []byte) *list {
+	l.parent.values = append(l.parent.values, value.JSONDocumentValueFromBytes(v))
 
 	return l.parent
 }
@@ -177,7 +189,7 @@ func (l *listItem) YSON(v []byte) *list {
 //	return l.parent
 //}
 
-func (l *listItem) Uuid(v uuid.UUID) *list { //nolint:revive,stylecheck
+func (l *listItem) Uuid(v uuid.UUID) *list { //nolint:revive
 	l.parent.values = append(l.parent.values, value.Uuid(v))
 
 	return l.parent

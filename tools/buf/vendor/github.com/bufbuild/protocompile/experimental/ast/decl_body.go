@@ -15,10 +15,13 @@
 package ast
 
 import (
+	"iter"
+
 	"github.com/bufbuild/protocompile/experimental/id"
 	"github.com/bufbuild/protocompile/experimental/seq"
 	"github.com/bufbuild/protocompile/experimental/source"
 	"github.com/bufbuild/protocompile/experimental/token"
+	"github.com/bufbuild/protocompile/internal/ext/iterx"
 )
 
 // DeclBody is the body of a [DeclBody], or the whole contents of a [File]. The
@@ -105,8 +108,20 @@ func (d DeclBody) Decls() seq.Inserter[DeclAny] {
 			return id.WrapDyn(d.Context(), id.NewDyn(k, p))
 		},
 		func(_ int, d DeclAny) (DeclKind, id.ID[DeclAny]) {
-			d.Context().Nodes().panicIfNotOurs(d)
+			d.Context().Nodes().panicIfNotOurs(d.Context())
 			return d.ID().Kind(), d.ID().Value()
 		},
 	)
+}
+
+// Options returns an iterator over the option definitions in this body.
+func (d DeclBody) Options() iter.Seq[DefOption] {
+	return iterx.FilterMap(seq.Values(d.Decls()), func(d DeclAny) (DefOption, bool) {
+		if def := d.AsDef(); !def.IsZero() {
+			if def.Classify() == DefKindOption {
+				return def.AsOption(), true
+			}
+		}
+		return DefOption{}, false
+	})
 }

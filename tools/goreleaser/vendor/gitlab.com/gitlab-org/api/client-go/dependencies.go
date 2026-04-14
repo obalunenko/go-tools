@@ -73,7 +73,7 @@ type DependencyLicense struct {
 // https://docs.gitlab.com/api/dependencies/#list-project-dependencies
 type ListProjectDependenciesOptions struct {
 	ListOptions
-	PackageManager []*DependencyPackageManagerValue `url:"package_manager,omitempty" json:"package_manager,omitempty"`
+	PackageManager []*DependencyPackageManagerValue `url:"package_manager,comma,omitempty" json:"package_manager,omitempty"`
 }
 
 func (s *DependenciesService) ListProjectDependencies(pid any, opt *ListProjectDependenciesOptions, options ...RequestOptionFunc) ([]*Dependency, *Response, error) {

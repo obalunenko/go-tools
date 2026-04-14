@@ -2,8 +2,11 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/microsoft/go-mssqldb.svg)](https://pkg.go.dev/github.com/microsoft/go-mssqldb)
 [![Build status](https://ci.appveyor.com/api/projects/status/jrln8cs62wj9i0a2?svg=true)](https://ci.appveyor.com/project/microsoft/go-mssqldb)
-[![codecov](https://codecov.io/gh/microsoft/go-mssqldb/branch/master/graph/badge.svg)](https://codecov.io/gh/microsoft/go-mssqldb)
+[![codecov](https://codecov.io/gh/microsoft/go-mssqldb/branch/main/graph/badge.svg)](https://codecov.io/gh/microsoft/go-mssqldb)
 
+A pure Go database/sql driver for Microsoft SQL Server and Azure SQL Database. This is the recommended Go SQL Server driver for connecting Go applications to SQL Server, Azure SQL Database, Azure SQL Managed Instance, and Azure Synapse Analytics.
+
+**Keywords:** golang sql server driver, go mssql, azure sql go, go-mssqldb, sql server golang, mssql go driver
 
 ## Install
 
@@ -58,8 +61,9 @@ Other supported formats are listed below.
 * `TrustServerCertificate`
   * false - Server certificate is checked. Default is false if encrypt is specified.
   * true - Server certificate is not checked. Default is true if encrypt is not specified. If trust server certificate is true, driver accepts any certificate presented by the server and any host name in that certificate. In this mode, TLS is susceptible to man-in-the-middle attacks. This should be used only for testing.
-* `certificate` - The file that contains the public key certificate of the CA that signed the SQL Server certificate. The specified certificate overrides the go platform specific CA certificates. Currently, certificates of PEM type are supported.
-* `hostNameInCertificate` - Specifies the Common Name (CN) in the server certificate. Default value is the server host.
+* `certificate` - The file path to a certificate authority (CA) certificate or server certificate for traditional X.509 chain validation. The specified certificate overrides the go platform specific CA certificates. The driver validates the certificate chain, expiry, and hostname. Supports PEM and DER formats.
+* `serverCertificate` - The file path to a server certificate for byte-for-byte comparison validation (new in v1.9.6). The driver validates that the server's certificate exactly matches this file, skipping chain validation, expiry checks, and hostname validation. This matches Microsoft.Data.SqlClient behavior. Cannot be used with `certificate` or `hostnameincertificate`. Supports PEM and DER formats.
+* `hostNameInCertificate` - Specifies the Common Name (CN) in the server certificate. Default value is the server host. Used with the `certificate` parameter, not applicable for `serverCertificate`.
 * `tlsmin` - Specifies the minimum TLS version for negotiating encryption with the server. Recognized values are `1.0`, `1.1`, `1.2`, `1.3`. If not set to a recognized value the default value for the `tls` package will be used. The default is currently `1.2`. 
 * `ServerSPN` - The kerberos SPN (Service Principal Name) for the server. Default is MSSQLSvc/host:port.
 * `Workstation ID` - The workstation name (default is the host name)
@@ -203,6 +207,66 @@ For further information on usage:
     * `odbc:server=localhost;user id=sa;password={foo}}bar}` // Escaped `} with`}}`, password is "foo}bar"
     * `odbc:server=localhost;user id=sa;database=master;app name=MyAppName;krb5-configfile=path/to/file;krb5-credcachefile=path/to/cache;authenticator=krb5`
     * `odbc:server=localhost;user id=sa;database=master;app name=MyAppName;krb5-configfile=path/to/file;krb5-realm=domain.com;krb5-keytabfile=path/to/keytabfile;authenticator=krb5`
+
+### Using server certificates with encryption
+
+The driver supports two ways to validate server certificates:
+
+#### 1. `serverCertificate` - Byte-for-byte certificate comparison (New in v1.9.6)
+
+When you provide a `serverCertificate` parameter, the driver validates the server by comparing the certificate bytes exactly with the provided file. This:
+- Skips hostname validation (allows mismatched hostnames)
+- Skips certificate chain validation and expiry checks
+- Only accepts connections where the server's certificate exactly matches the provided file
+- Matches the behavior of Microsoft.Data.SqlClient
+
+This is useful when:
+- The server's DNS name doesn't match the certificate CN/SAN
+- You want to validate against a specific certificate without hostname validation
+- You're connecting through proxies or load balancers with different hostnames
+
+**Restrictions**: `serverCertificate` cannot be used with `certificate` or `hostnameincertificate` parameters.
+
+#### 2. `certificate` - Traditional chain validation (Backward compatible)
+
+The `certificate` parameter performs standard X.509 certificate chain validation:
+- Validates the certificate chain against the provided CA certificate(s)
+- Checks certificate expiry and validity
+- Enforces hostname validation (unless `hostnameincertificate` is used)
+
+#### Obtaining the server certificate
+
+You can obtain a copy of the server's certificate using OpenSSL:
+
+```bash
+openssl s_client -connect server:1433 -showcerts </dev/null 2>/dev/null | openssl x509 -outform PEM > cert.pem
+```
+
+#### Example connection strings
+
+Using `serverCertificate` for byte-comparison (skips hostname validation):
+
+URL format:
+```
+sqlserver://username:password@host:1433?database=master&encrypt=true&serverCertificate=/path/to/cert.pem
+```
+
+ADO format:
+```
+server=myserver;user id=sa;password=mypass;database=master;encrypt=true;serverCertificate=/path/to/cert.pem
+```
+
+Using `certificate` for traditional chain validation:
+
+URL format:
+```
+sqlserver://username:password@host:1433?database=master&encrypt=true&certificate=/path/to/ca.pem
+```
+
+ADO format:
+```
+server=myserver;user id=sa;password=mypass;database=master;encrypt=true;certificate=/path/to/ca.pem
+```
 
 ### Azure Active Directory authentication
 
@@ -438,6 +502,8 @@ are supported:
 * "github.com/golang-sql/civil".DateTime -> datetime2
 * "github.com/golang-sql/civil".Time -> time
 * mssql.TVP -> Table Value Parameter (TDS version dependent)
+* "github.com/shopspring/decimal".Decimal -> decimal
+* mssql.Money -> money
 
 Using an `int` parameter will send a 4 byte value (int) from a 32bit app and an 8 byte value (bigint) from a 64bit app. 
 To make sure your integer parameter matches the size of the SQL parameter, use the appropriate sized type like `int32` or `int8`.
@@ -588,6 +654,12 @@ More information: <http://support.microsoft.com/kb/2653857>
 This project is a fork of [https://github.com/denisenkom/go-mssqldb](https://github.com/denisenkom/go-mssqldb) and welcomes new and previous contributors. For more informaton on contributing to this project, please see [Contributing](./CONTRIBUTING.md).
 
 For more information on the roadmap for go-mssqldb, [project plans](https://github.com/microsoft/go-mssqldb/projects) are available for viewing and discussion.
+
+## Documentation
+
+- [Wiki](https://github.com/microsoft/go-mssqldb/wiki) - Additional guides and troubleshooting
+- [pkg.go.dev](https://pkg.go.dev/github.com/microsoft/go-mssqldb) - API reference documentation
+- [Examples](./examples) - Sample code for common scenarios
 
 
 # Microsoft Open Source Code of Conduct

@@ -16,10 +16,9 @@ import (
 // [more info]: https://docs.databricks.com/repos/get-access-tokens-from-git-provider.html
 type GitCredentialsService interface {
 
-	// Creates a Git credential entry for the user. Only one Git credential per
-	// user is supported, so any attempts to create credentials if an entry
-	// already exists will fail. Use the PATCH endpoint to update existing
-	// credentials, or the DELETE endpoint to delete existing credentials.
+	// Creates a Git credential entry for the user. Use the PATCH endpoint to
+	// update existing credentials, or the DELETE endpoint to delete existing
+	// credentials.
 	Create(ctx context.Context, request CreateCredentialsRequest) (*CreateCredentialsResponse, error)
 
 	// Deletes the specified Git credential.
@@ -28,9 +27,8 @@ type GitCredentialsService interface {
 	// Gets the Git credential with the specified credential ID.
 	Get(ctx context.Context, request GetCredentialsRequest) (*GetCredentialsResponse, error)
 
-	// Lists the calling user's Git credentials. One credential per user is
-	// supported.
-	List(ctx context.Context) (*ListCredentialsResponse, error)
+	// Lists the calling user's Git credentials.
+	List(ctx context.Context, request ListCredentialsRequest) (*ListCredentialsResponse, error)
 
 	// Updates the specified Git credential.
 	Update(ctx context.Context, request UpdateCredentialsRequest) error
@@ -397,7 +395,8 @@ type WorkspaceService interface {
 	// is set to `false`, this call returns an error `RESOURCE_ALREADY_EXISTS`.
 	// To import a directory, you can use either the `DBC` format or the
 	// `SOURCE` format with the `language` field unset. To import a single file
-	// as `SOURCE`, you must set the `language` field.
+	// as `SOURCE`, you must set the `language` field. Zip files within
+	// directories are not supported.
 	Import(ctx context.Context, request Import) error
 
 	// Lists the contents of a directory, or the object if it is not a

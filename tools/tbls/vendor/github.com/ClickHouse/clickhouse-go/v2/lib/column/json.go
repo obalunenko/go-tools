@@ -1,20 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 package column
 
 import (
@@ -287,6 +270,7 @@ func (c *JSON) scanRowObject(dest any, row int) error {
 		return nil
 	case **chcol.JSON:
 		obj := c.rowAsJSON(row)
+		*v = new(chcol.JSON)
 		**v = *obj
 		return nil
 	case chcol.JSONDeserializer:
@@ -322,7 +306,7 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 	case JSONStringSerializationVersion:
 		return c.appendString(v)
 	default:
-		// Unset serialization preference, try string first unless its specifically JSON
+		// Unset serialization preference, try object first unless it's specifically string
 		switch v.(type) {
 		case []chcol.JSON:
 			c.serializationVersion = JSONObjectSerializationVersion
@@ -333,14 +317,23 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 		case []chcol.JSONSerializer:
 			c.serializationVersion = JSONObjectSerializationVersion
 			return c.appendObject(v)
+		case string, []byte:
+			c.serializationVersion = JSONStringSerializationVersion
+			return c.appendString(v)
+		}
+
+		// Also route other []byte-compatible types (e.g. json.RawMessage) to string serialization
+		if rv := reflect.ValueOf(v); rv.IsValid() && rv.Kind() == reflect.Slice && rv.Type().Elem().Kind() == reflect.Uint8 {
+			c.serializationVersion = JSONStringSerializationVersion
+			return c.appendString(v)
 		}
 
 		var err error
-		if _, err = c.appendString(v); err == nil {
-			c.serializationVersion = JSONStringSerializationVersion
-			return nil, nil
-		} else if _, err = c.appendObject(v); err == nil {
+		if _, err = c.appendObject(v); err == nil {
 			c.serializationVersion = JSONObjectSerializationVersion
+			return nil, nil
+		} else if _, err = c.appendString(v); err == nil {
+			c.serializationVersion = JSONStringSerializationVersion
 			return nil, nil
 		}
 
@@ -414,7 +407,7 @@ func (c *JSON) AppendRow(v any) error {
 	case JSONStringSerializationVersion:
 		return c.appendRowString(v)
 	default:
-		// Unset serialization preference, try string first unless its specifically JSON
+		// Unset serialization preference, try object first unless it's specifically string
 		switch v.(type) {
 		case chcol.JSON:
 			c.serializationVersion = JSONObjectSerializationVersion
@@ -425,14 +418,23 @@ func (c *JSON) AppendRow(v any) error {
 		case chcol.JSONSerializer:
 			c.serializationVersion = JSONObjectSerializationVersion
 			return c.appendRowObject(v)
+		case string, []byte:
+			c.serializationVersion = JSONStringSerializationVersion
+			return c.appendRowString(v)
+		}
+
+		// Also route other []byte-compatible types (e.g. json.RawMessage) to string serialization
+		if rv := reflect.ValueOf(v); rv.IsValid() && rv.Kind() == reflect.Slice && rv.Type().Elem().Kind() == reflect.Uint8 {
+			c.serializationVersion = JSONStringSerializationVersion
+			return c.appendRowString(v)
 		}
 
 		var err error
-		if err = c.appendRowString(v); err == nil {
-			c.serializationVersion = JSONStringSerializationVersion
-			return nil
-		} else if err = c.appendRowObject(v); err == nil {
+		if err = c.appendRowObject(v); err == nil {
 			c.serializationVersion = JSONObjectSerializationVersion
+			return nil
+		} else if err = c.appendRowString(v); err == nil {
+			c.serializationVersion = JSONStringSerializationVersion
 			return nil
 		}
 

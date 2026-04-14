@@ -10,6 +10,7 @@ linters:
     - gocritic
     - godoclint
     - misspell
+    - modernize
     - noctx
     - nolintlint
     - perfsprint
@@ -39,6 +40,9 @@ linters:
     gocritic:
       disabled-checks:
         - appendAssign
+    modernize:
+      disable:
+        - omitzero
     perfsprint:
       int-conversion: false
       err-error: false
@@ -72,6 +76,10 @@ linters:
         - name: unused-parameter
         - name: var-declaration
         - name: var-naming
+          arguments:
+            - []
+            - []
+            - - skip-package-name-collision-with-go-std: true
         # we are not providing an API anyway... maybe someday...
         # - name: exported
         # - name: package-comments

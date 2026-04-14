@@ -118,10 +118,11 @@ func (ps *tagBaseFieldParserV3) CustomSchema() (*spec.RefOrSpec[spec.Schema], er
 // ComplementSchema complement schema with field properties
 func (ps *tagBaseFieldParserV3) ComplementSchema(schema *spec.RefOrSpec[spec.Schema]) error {
 	if schema.Spec == nil {
-		schema = ps.p.openAPI.Components.Spec.Schemas[strings.ReplaceAll(schema.Ref.Ref, "#/components/schemas/", "")]
-		if schema == nil {
+		componentSchema := ps.p.openAPI.Components.Spec.Schemas[strings.ReplaceAll(schema.Ref.Ref, "#/components/schemas/", "")]
+		if componentSchema == nil {
 			return fmt.Errorf("could not resolve schema for ref %s", schema.Ref.Ref)
 		}
+		schema = componentSchema
 	}
 
 	types := ps.p.GetSchemaTypePathV3(schema, 2)
@@ -376,7 +377,7 @@ func (ps *tagBaseFieldParserV3) complementSchema(schema *spec.Schema, types []st
 	elemSchema.MultipleOf = field.multipleOf
 	elemSchema.MaxLength = field.maxLength
 	elemSchema.MinLength = field.minLength
-	elemSchema.Enum = field.enums
+	elemSchema.Enum = append(elemSchema.Enum, field.enums...)
 	elemSchema.Pattern = field.pattern
 	elemSchema.OneOf = oneOfSchemas
 
@@ -395,48 +396,6 @@ func getIntTagV3(structTag reflect.StructTag, tagName string) (*int, error) {
 	}
 
 	return &value, nil
-}
-
-func parseValidTagsV3(validTag string, sf *structFieldV3) {
-
-	// `validate:"required,max=10,min=1"`
-	// ps. required checked by IsRequired().
-	for _, val := range strings.Split(validTag, ",") {
-		var (
-			valValue string
-			keyVal   = strings.Split(val, "=")
-		)
-
-		switch len(keyVal) {
-		case 1:
-		case 2:
-			valValue = strings.ReplaceAll(strings.ReplaceAll(keyVal[1], utf8HexComma, ","), utf8Pipe, "|")
-		default:
-			continue
-		}
-
-		switch keyVal[0] {
-		case "max", "lte":
-			sf.setMax(valValue)
-		case "min", "gte":
-			sf.setMin(valValue)
-		case "oneof":
-			if strings.Contains(validTag, "swaggerIgnore") {
-				continue
-			}
-
-			sf.setOneOf(valValue)
-		case "unique":
-			if sf.schemaType == ARRAY {
-				sf.unique = true
-			}
-		case "dive":
-			// ignore dive
-			return
-		default:
-			continue
-		}
-	}
 }
 
 func (sf *structFieldV3) parseValidTags(validTag string) {
@@ -517,8 +476,8 @@ func (ps *tagBaseFieldParserV3) ShouldSkip() bool {
 	}
 
 	// json:"tag,hoge"
-	name := strings.TrimSpace(strings.Split(ps.tag.Get(jsonTag), ",")[0])
-	if name == "-" {
+	name := ps.JsonName()
+	if name == "" {
 		return true
 	}
 
@@ -528,18 +487,16 @@ func (ps *tagBaseFieldParserV3) ShouldSkip() bool {
 func (ps *tagBaseFieldParserV3) FieldName() (string, error) {
 	var name string
 
-	if ps.field.Tag != nil {
-		// json:"tag,hoge"
-		name = strings.TrimSpace(strings.Split(ps.tag.Get(jsonTag), ",")[0])
-		if name != "" {
-			return name, nil
-		}
+	// json:"tag,hoge"
+	name = ps.JsonName()
+	if name != "" {
+		return name, nil
+	}
 
-		// use "form" tag over json tag
-		name = ps.FormName()
-		if name != "" {
-			return name, nil
-		}
+	// use "form" tag over json tag
+	name = ps.FormName()
+	if name != "" {
+		return name, nil
 	}
 
 	if ps.field.Names == nil {
@@ -558,7 +515,20 @@ func (ps *tagBaseFieldParserV3) FieldName() (string, error) {
 
 func (ps *tagBaseFieldParserV3) FormName() string {
 	if ps.field.Tag != nil {
-		return strings.TrimSpace(strings.Split(ps.tag.Get(formTag), ",")[0])
+		name := strings.TrimSpace(strings.Split(ps.tag.Get(formTag), ",")[0])
+		if name != "-" {
+			return name
+		}
+	}
+	return ""
+}
+
+func (ps *tagBaseFieldParserV3) JsonName() string {
+	if ps.field.Tag != nil {
+		name := strings.TrimSpace(strings.Split(ps.tag.Get(jsonTag), ",")[0])
+		if name != "-" {
+			return name
+		}
 	}
 	return ""
 }

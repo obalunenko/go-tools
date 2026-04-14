@@ -36,9 +36,9 @@ func IntervalToDuration(n int64) time.Duration {
 	return time.Duration(n) * time.Microsecond
 }
 
-// Interval64ToDuration returns time.Duration from given nanoseconds
+// Interval64ToDuration returns time.Duration from given microseconds
 func Interval64ToDuration(n int64) time.Duration {
-	return time.Duration(n) * time.Nanosecond
+	return time.Duration(n) * time.Microsecond
 }
 
 // durationToMicroseconds returns microseconds from given time.Duration
@@ -93,7 +93,7 @@ func Timestamp64ToTime(n int64) time.Time {
 
 func TzDateToTime(s string) (t time.Time, err error) {
 	ss := strings.Split(s, ",")
-	if len(ss) != 2 { //nolint:gomnd
+	if len(ss) != 2 { //nolint:mnd
 		return t, xerrors.WithStackTrace(fmt.Errorf("not found timezone location part in '%s'", s))
 	}
 	location, err := time.LoadLocation(ss[1])
@@ -110,7 +110,7 @@ func TzDateToTime(s string) (t time.Time, err error) {
 
 func TzDatetimeToTime(s string) (t time.Time, err error) {
 	ss := strings.Split(s, ",")
-	if len(ss) != 2 { //nolint:gomnd
+	if len(ss) != 2 { //nolint:mnd
 		return t, xerrors.WithStackTrace(fmt.Errorf("not found timezone location part in '%s'", s))
 	}
 	location, err := time.LoadLocation(ss[1])
@@ -127,7 +127,7 @@ func TzDatetimeToTime(s string) (t time.Time, err error) {
 
 func TzTimestampToTime(s string) (t time.Time, err error) {
 	ss := strings.Split(s, ",")
-	if len(ss) != 2 { //nolint:gomnd
+	if len(ss) != 2 { //nolint:mnd
 		return t, xerrors.WithStackTrace(fmt.Errorf("not found timezone location part in '%s'", s))
 	}
 	location, err := time.LoadLocation(ss[1])

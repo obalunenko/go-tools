@@ -399,7 +399,7 @@ func (p *EventDecoder) parseCsi(b []byte) (int, Event) {
 	case 'u' | '?'<<parser.PrefixShift:
 		// Kitty keyboard flags
 		flags, _, _ := pa.Param(0, -1)
-		return i, KittyEnhancementsEvent(flags)
+		return i, KeyboardEnhancementsEvent{flags}
 	case 'R' | '?'<<parser.PrefixShift:
 		// This report may return a third parameter representing the page
 		// number, but we don't really need it.
@@ -424,7 +424,7 @@ func (p *EventDecoder) parseCsi(b []byte) (int, Event) {
 		if !ok || val == -1 {
 			break
 		}
-		return i, ModifyOtherKeysEvent(val) //nolint:gosec
+		return i, ModifyOtherKeysEvent{val}
 	case 'n' | '?'<<parser.PrefixShift:
 		report, _, _ := pa.Param(0, -1)
 		darkLight, _, _ := pa.Param(1, -1)
@@ -642,7 +642,7 @@ func (p *EventDecoder) parseCsi(b []byte) (int, Event) {
 				if !hOk || !wOk {
 					break
 				}
-				return i, WindowPixelSizeEvent{Width: width, Height: height}
+				return i, PixelSizeEvent{Width: width, Height: height}
 			}
 		case 6: // Report Terminal character cell size.
 			if paramsLen == 3 {
@@ -673,7 +673,7 @@ func (p *EventDecoder) parseCsi(b []byte) (int, Event) {
 				}
 				return i, MultiEvent{
 					WindowSizeEvent{Width: cellWidth, Height: cellHeight},
-					WindowPixelSizeEvent{Width: pixelWidth, Height: pixelHeight},
+					PixelSizeEvent{Width: pixelWidth, Height: pixelHeight},
 				}
 			}
 		}
@@ -1046,7 +1046,7 @@ func (p *EventDecoder) parseDcs(b []byte) (int, Event) {
 		}
 	case '|' | '>'<<parser.PrefixShift:
 		// XTVersion response
-		return i, TerminalVersionEvent(b[start:end])
+		return i, TerminalVersionEvent{string(b[start:end])}
 	case '|' | '!'<<parser.IntermedShift:
 		// Teritary Device Attributes
 		return i, parseTertiaryDevAttrs(b[start:end])
@@ -1792,7 +1792,7 @@ func isDarkColor(c color.Color) bool {
 func parseTermcap(data []byte) CapabilityEvent {
 	// XTGETTCAP
 	if len(data) == 0 {
-		return CapabilityEvent("")
+		return CapabilityEvent{""}
 	}
 
 	var tc strings.Builder
@@ -1800,7 +1800,7 @@ func parseTermcap(data []byte) CapabilityEvent {
 	for _, s := range split {
 		parts := bytes.SplitN(s, []byte{'='}, 2)
 		if len(parts) == 0 {
-			return CapabilityEvent("")
+			return CapabilityEvent{""}
 		}
 
 		name, err := hex.DecodeString(string(parts[0]))
@@ -1826,7 +1826,7 @@ func parseTermcap(data []byte) CapabilityEvent {
 		}
 	}
 
-	return CapabilityEvent(tc.String())
+	return CapabilityEvent{tc.String()}
 }
 
 // parseWin32InputKeyEvent converts a Windows Input Record Key Event into a

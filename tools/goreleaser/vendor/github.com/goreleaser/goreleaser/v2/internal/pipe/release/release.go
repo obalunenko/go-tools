@@ -157,20 +157,7 @@ func doPublish(ctx *context.Context, client client.Client) error {
 		})
 	}
 
-	types := []artifact.Type{
-		artifact.UploadableArchive,
-		artifact.UploadableBinary,
-		artifact.UploadableSourceArchive,
-		artifact.Makeself,
-		artifact.UploadableFile,
-		artifact.Checksum,
-		artifact.Signature,
-		artifact.Certificate,
-		artifact.LinuxPackage,
-		artifact.SBOM,
-		artifact.PyWheel,
-		artifact.PySdist,
-	}
+	types := artifact.ReleaseUploadableTypes()
 	if ctx.Config.Release.IncludeMeta {
 		types = append(types, artifact.Metadata)
 	}
@@ -198,8 +185,7 @@ func doPublish(ctx *context.Context, client client.Client) error {
 func upload(ctx *context.Context, cli client.Client, releaseID string, artifact *artifact.Artifact) error {
 	return retry.Do(
 		func() error {
-			log.WithField("file", artifact.Path).
-				WithField("name", artifact.Name).
+			log.WithField("name", artifact.Name).
 				Info("uploading to release")
 			file, err := os.Open(artifact.Path)
 			if err != nil {

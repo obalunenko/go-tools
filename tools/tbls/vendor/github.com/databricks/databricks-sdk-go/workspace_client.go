@@ -16,15 +16,19 @@ import (
 	"github.com/databricks/databricks-sdk-go/service/compute"
 	"github.com/databricks/databricks-sdk-go/service/dashboards"
 	"github.com/databricks/databricks-sdk-go/service/database"
+	"github.com/databricks/databricks-sdk-go/service/dataclassification"
 	"github.com/databricks/databricks-sdk-go/service/dataquality"
+	"github.com/databricks/databricks-sdk-go/service/environments"
 	"github.com/databricks/databricks-sdk-go/service/files"
 	"github.com/databricks/databricks-sdk-go/service/iam"
 	"github.com/databricks/databricks-sdk-go/service/iamv2"
 	"github.com/databricks/databricks-sdk-go/service/jobs"
+	"github.com/databricks/databricks-sdk-go/service/knowledgeassistants"
 	"github.com/databricks/databricks-sdk-go/service/marketplace"
 	"github.com/databricks/databricks-sdk-go/service/ml"
 	"github.com/databricks/databricks-sdk-go/service/oauth2"
 	"github.com/databricks/databricks-sdk-go/service/pipelines"
+	"github.com/databricks/databricks-sdk-go/service/postgres"
 	"github.com/databricks/databricks-sdk-go/service/qualitymonitorv2"
 	"github.com/databricks/databricks-sdk-go/service/serving"
 	"github.com/databricks/databricks-sdk-go/service/settings"
@@ -68,8 +72,8 @@ type WorkspaceClient struct {
 	// scheduled using the `sql_task` type of the Jobs API, e.g.
 	// :method:jobs/create.
 	//
-	// **Note**: A new version of the Databricks SQL API is now available.
-	// Please see the latest version. [Learn more]
+	// **Warning**: This API is deprecated. Please see the latest version of the
+	// Databricks SQL API. [Learn more]
 	//
 	// [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 	AlertsLegacy sql.AlertsLegacyInterface
@@ -77,7 +81,7 @@ type WorkspaceClient struct {
 	// New version of SQL Alerts
 	AlertsV2 sql.AlertsV2Interface
 
-	// Apps run directly on a customer’s Databricks instance, integrate with
+	// Apps run directly on a customer's Databricks instance, integrate with
 	// their data, use and extend Databricks services, and enable users to
 	// interact through single sign-on.
 	Apps apps.AppsInterface
@@ -244,7 +248,18 @@ type WorkspaceClient struct {
 	// a GET request and then POST it to create a new one. Dashboards can be
 	// scheduled using the `sql_task` type of the Jobs API, e.g.
 	// :method:jobs/create.
+	//
+	// **Warning**: This API is deprecated. Please use the AI/BI Dashboards API
+	// instead. [Learn more]
+	//
+	// [Learn more]: https://docs.databricks.com/en/dashboards/
 	Dashboards sql.DashboardsInterface
+
+	// Manage data classification for Unity Catalog catalogs. Data
+	// classification automatically identifies and tags sensitive data (PII) in
+	// Unity Catalog tables. Each catalog can have at most one configuration
+	// resource that controls scanning behavior and auto-tagging rules.
+	DataClassification dataclassification.DataClassificationInterface
 
 	// Manage the data quality of Unity Catalog objects (currently support
 	// `schema` and `table`)
@@ -261,8 +276,8 @@ type WorkspaceClient struct {
 	// client, or `grep` to search the response from this API for the name of
 	// your SQL warehouse as it appears in Databricks SQL.
 	//
-	// **Note**: A new version of the Databricks SQL API is now available.
-	// [Learn more]
+	// **Warning**: This API is deprecated. Please see the latest version of the
+	// Databricks SQL API. [Learn more]
 	//
 	// [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 	DataSources sql.DataSourcesInterface
@@ -289,8 +304,8 @@ type WorkspaceClient struct {
 	// - `CAN_MANAGE`: Allows all actions: read, run, edit, delete, modify
 	// permissions (superset of `CAN_RUN`)
 	//
-	// **Note**: A new version of the Databricks SQL API is now available.
-	// [Learn more]
+	// **Warning**: This API is deprecated. Please see the latest version of the
+	// Databricks SQL API. [Learn more]
 	//
 	// [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 	DbsqlPermissions sql.DbsqlPermissionsInterface
@@ -301,6 +316,14 @@ type WorkspaceClient struct {
 	// columns, volumes. With these APIs, users can create, update, delete, and
 	// list tag assignments across Unity Catalog entities
 	EntityTagAssignments catalog.EntityTagAssignmentsInterface
+
+	// APIs to manage environment resources.
+	//
+	// The Environments API provides management capabilities for different types
+	// of environments including workspace-level base environments that define
+	// the environment version and dependencies to be used in serverless
+	// notebooks and jobs.
+	Environments environments.EnvironmentsInterface
 
 	// Experiments are the primary unit of organization in MLflow; all MLflow
 	// runs belong to an experiment. Each experiment lets you visualize, search,
@@ -506,7 +529,7 @@ type WorkspaceClient struct {
 	// management, monitoring, and error reporting for all of your jobs. You can
 	// run your jobs immediately or periodically through an easy-to-use
 	// scheduling system. You can implement job tasks using notebooks, JARS,
-	// Delta Live Tables pipelines, or Python, Scala, Spark submit, and Java
+	// Spark Declarative Pipelines, or Python, Scala, Spark submit, and Java
 	// applications.
 	//
 	// You should never hard code secrets or store them in plain text. Use the
@@ -517,6 +540,9 @@ type WorkspaceClient struct {
 	// [Secrets CLI]: https://docs.databricks.com/dev-tools/cli/secrets-cli.html
 	// [Secrets utility]: https://docs.databricks.com/dev-tools/databricks-utils.html#dbutils-secrets
 	Jobs jobs.JobsInterface
+
+	// Manage Knowledge Assistants and related resources.
+	KnowledgeAssistants knowledgeassistants.KnowledgeAssistantsInterface
 
 	// These APIs provide specific management operations for Lakeview
 	// dashboards. Generic resource management can be done with Workspace API
@@ -638,20 +664,21 @@ type WorkspaceClient struct {
 	// [Access Control]: https://docs.databricks.com/security/auth-authz/access-control/index.html
 	Permissions iam.PermissionsInterface
 
-	// The Delta Live Tables API allows you to create, edit, delete, start, and
-	// view details about pipelines.
+	// The Lakeflow Spark Declarative Pipelines API allows you to create, edit,
+	// delete, start, and view details about pipelines.
 	//
-	// Delta Live Tables is a framework for building reliable, maintainable, and
-	// testable data processing pipelines. You define the transformations to
-	// perform on your data, and Delta Live Tables manages task orchestration,
-	// cluster management, monitoring, data quality, and error handling.
+	// Spark Declarative Pipelines is a framework for building reliable,
+	// maintainable, and testable data processing pipelines. You define the
+	// transformations to perform on your data, and Spark Declarative Pipelines
+	// manages task orchestration, cluster management, monitoring, data quality,
+	// and error handling.
 	//
 	// Instead of defining your data pipelines using a series of separate Apache
-	// Spark tasks, Delta Live Tables manages how your data is transformed based
-	// on a target schema you define for each processing step. You can also
-	// enforce data quality with Delta Live Tables expectations. Expectations
-	// allow you to define expected data quality and specify how to handle
-	// records that fail those expectations.
+	// Spark tasks, Spark Declarative Pipelines manages how your data is
+	// transformed based on a target schema you define for each processing step.
+	// You can also enforce data quality with Spark Declarative Pipelines
+	// expectations. Expectations allow you to define expected data quality and
+	// specify how to handle records that fail those expectations.
 	Pipelines pipelines.PipelinesInterface
 
 	// Attribute-Based Access Control (ABAC) provides high leverage governance
@@ -703,6 +730,22 @@ type WorkspaceClient struct {
 	// using a policy family inherit the policy family's policy definition.
 	PolicyFamilies compute.PolicyFamiliesInterface
 
+	// Use the Postgres API to create and manage Lakebase Autoscaling Postgres
+	// infrastructure, including projects, branches, compute endpoints, and
+	// roles.
+	//
+	// This API manages database infrastructure only. To query or modify data,
+	// use the Data API or direct SQL connections.
+	//
+	// **About resource IDs and names**
+	//
+	// Resources are identified by hierarchical resource names like
+	// `projects/{project_id}/branches/{branch_id}/endpoints/{endpoint_id}`. The
+	// `name` field on each resource contains this full path and is output-only.
+	// Note that `name` refers to this resource path, not the user-visible
+	// `display_name`.
+	Postgres postgres.PostgresInterface
+
 	// Marketplace exchanges filters curate which groups can access an exchange.
 	ProviderExchangeFilters marketplace.ProviderExchangeFiltersInterface
 
@@ -733,9 +776,15 @@ type WorkspaceClient struct {
 	// contain the shared data.
 	Providers sharing.ProvidersInterface
 
-	// Manage data quality of UC objects (currently support `schema`)
+	// Deprecated: Please use the Data Quality Monitoring API instead (REST:
+	// /api/data-quality/v1/monitors). Manage data quality of UC objects
+	// (currently support `schema`).
 	QualityMonitorV2 qualitymonitorv2.QualityMonitorV2Interface
 
+	// Deprecated: Please use the Data Quality Monitors API instead (REST:
+	// /api/data-quality/v1/monitors), which manages both Data Profiling and
+	// Anomaly Detection.
+	//
 	// A monitor computes and monitors data or model quality metrics for a table
 	// over time. It generates metrics tables and a dashboard that you can use
 	// to monitor table health and set alerts. Most write operations require the
@@ -758,8 +807,8 @@ type WorkspaceClient struct {
 	// scheduled using the `sql_task` type of the Jobs API, e.g.
 	// :method:jobs/create.
 	//
-	// **Note**: A new version of the Databricks SQL API is now available.
-	// Please see the latest version. [Learn more]
+	// **Warning**: This API is deprecated. Please see the latest version of the
+	// Databricks SQL API. [Learn more]
 	//
 	// [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 	QueriesLegacy sql.QueriesLegacyInterface
@@ -777,8 +826,8 @@ type WorkspaceClient struct {
 	// vizualisations from existing queries within the Databricks Workspace.
 	// Data structures may change over time.
 	//
-	// **Note**: A new version of the Databricks SQL API is now available.
-	// Please see the latest version. [Learn more]
+	// **Warning**: This API is deprecated. Please see the latest version of the
+	// Databricks SQL API. [Learn more]
 	//
 	// [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 	QueryVisualizationsLegacy sql.QueryVisualizationsLegacyInterface
@@ -902,13 +951,11 @@ type WorkspaceClient struct {
 	// [Unity Catalog documentation]: https://docs.databricks.com/en/data-governance/unity-catalog/index.html#resource-quotas
 	ResourceQuotas catalog.ResourceQuotasInterface
 
-	// Request for Access enables customers to request access to and manage
-	// access request destinations for Unity Catalog securables.
+	// Request for Access enables users to request access for Unity Catalog
+	// securables.
 	//
-	// These APIs provide a standardized way to update, get, and request to
-	// access request destinations. Fine-grained authorization ensures that only
-	// users with appropriate permissions can manage access request
-	// destinations.
+	// These APIs provide a standardized way for securable owners (or users with
+	// MANAGE privileges) to manage access request destinations.
 	Rfa catalog.RfaInterface
 
 	// A schema (also called a database) is the second layer of Unity
@@ -1151,10 +1198,12 @@ type WorkspaceClient struct {
 	Tables catalog.TablesInterface
 
 	// The Tag Policy API allows you to manage policies for governed tags in
-	// Databricks. Permissions for tag policies can be managed using the
+	// Databricks. For Terraform usage, see the [Tag Policy Terraform
+	// documentation]. Permissions for tag policies can be managed using the
 	// [Account Access Control Proxy API].
 	//
 	// [Account Access Control Proxy API]: https://docs.databricks.com/api/workspace/accountaccesscontrolproxy
+	// [Tag Policy Terraform documentation]: https://registry.terraform.io/providers/databricks/databricks/latest/docs/resources/tag_policy
 	TagPolicies tags.TagPoliciesInterface
 
 	// Temporary Path Credentials refer to short-lived, downscoped credentials
@@ -1296,6 +1345,9 @@ type WorkspaceClient struct {
 	// This API allows updating known workspace settings for advanced users.
 	WorkspaceConf settings.WorkspaceConfInterface
 
+	// Manage tag assignments on workspace-scoped objects.
+	WorkspaceEntityTagAssignments tags.WorkspaceEntityTagAssignmentsInterface
+
 	// These APIs are used to manage identities and the workspace access of
 	// these identities in <Databricks>.
 	WorkspaceIamV2 iamv2.WorkspaceIamV2Interface
@@ -1342,7 +1394,10 @@ type WorkspaceClient struct {
 	Users iam.UsersInterface
 }
 
-var ErrNotWorkspaceClient = errors.New("invalid Databricks Workspace configuration")
+var (
+	ErrNotWorkspaceClient  = errors.New("invalid Databricks Workspace configuration - host is not a workspace host")
+	ErrWorkspaceIDRequired = errors.New("WorkspaceID must be set when using WorkspaceClient with unified host")
+)
 
 // NewWorkspaceClient creates new Databricks SDK client for Workspaces or
 // returns error in case configuration is wrong
@@ -1359,9 +1414,7 @@ func NewWorkspaceClient(c ...*Config) (*WorkspaceClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cfg.IsAccountClient() {
-		return nil, ErrNotWorkspaceClient
-	}
+
 	apiClient, err := cfg.NewApiClient()
 	if err != nil {
 		return nil, err
@@ -1405,12 +1458,14 @@ func NewWorkspaceClient(c ...*Config) (*WorkspaceClient, error) {
 		CurrentUser:                         iam.NewCurrentUser(databricksClient),
 		DashboardWidgets:                    sql.NewDashboardWidgets(databricksClient),
 		Dashboards:                          sql.NewDashboards(databricksClient),
+		DataClassification:                  dataclassification.NewDataClassification(databricksClient),
 		DataQuality:                         dataquality.NewDataQuality(databricksClient),
 		DataSources:                         sql.NewDataSources(databricksClient),
 		Database:                            database.NewDatabase(databricksClient),
 		Dbfs:                                files.NewDbfs(databricksClient),
 		DbsqlPermissions:                    sql.NewDbsqlPermissions(databricksClient),
 		EntityTagAssignments:                catalog.NewEntityTagAssignments(databricksClient),
+		Environments:                        environments.NewEnvironments(databricksClient),
 		Experiments:                         ml.NewExperiments(databricksClient),
 		ExternalLineage:                     catalog.NewExternalLineage(databricksClient),
 		ExternalLocations:                   catalog.NewExternalLocations(databricksClient),
@@ -1429,6 +1484,7 @@ func NewWorkspaceClient(c ...*Config) (*WorkspaceClient, error) {
 		InstanceProfiles:                    compute.NewInstanceProfiles(databricksClient),
 		IpAccessLists:                       settings.NewIpAccessLists(databricksClient),
 		Jobs:                                jobs.NewJobs(databricksClient),
+		KnowledgeAssistants:                 knowledgeassistants.NewKnowledgeAssistants(databricksClient),
 		Lakeview:                            dashboards.NewLakeview(databricksClient),
 		LakeviewEmbedded:                    dashboards.NewLakeviewEmbedded(databricksClient),
 		Libraries:                           compute.NewLibraries(databricksClient),
@@ -1445,6 +1501,7 @@ func NewWorkspaceClient(c ...*Config) (*WorkspaceClient, error) {
 		PolicyComplianceForClusters:         compute.NewPolicyComplianceForClusters(databricksClient),
 		PolicyComplianceForJobs:             jobs.NewPolicyComplianceForJobs(databricksClient),
 		PolicyFamilies:                      compute.NewPolicyFamilies(databricksClient),
+		Postgres:                            postgres.NewPostgres(databricksClient),
 		ProviderExchangeFilters:             marketplace.NewProviderExchangeFilters(databricksClient),
 		ProviderExchanges:                   marketplace.NewProviderExchanges(databricksClient),
 		ProviderFiles:                       marketplace.NewProviderFiles(databricksClient),
@@ -1494,6 +1551,7 @@ func NewWorkspaceClient(c ...*Config) (*WorkspaceClient, error) {
 		Workspace:                           workspace.NewWorkspace(databricksClient),
 		WorkspaceBindings:                   catalog.NewWorkspaceBindings(databricksClient),
 		WorkspaceConf:                       settings.NewWorkspaceConf(databricksClient),
+		WorkspaceEntityTagAssignments:       tags.NewWorkspaceEntityTagAssignments(databricksClient),
 		WorkspaceIamV2:                      iamv2.NewWorkspaceIamV2(databricksClient),
 		WorkspaceSettingsV2:                 settingsv2.NewWorkspaceSettingsV2(databricksClient),
 		Groups:                              iam.NewGroups(databricksClient),

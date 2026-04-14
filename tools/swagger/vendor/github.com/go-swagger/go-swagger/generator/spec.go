@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
+// SPDX-License-Identifier: Apache-2.0
+
 package generator
 
 import (
@@ -7,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-openapi/analysis"
 	swaggererrors "github.com/go-openapi/errors"
@@ -39,16 +43,23 @@ func (g *GenOpts) validateAndFlattenSpec() (*loads.Document, error) {
 		log.Printf("validating spec %v", g.Spec)
 		validationErrors := validate.Spec(specDoc, strfmt.Default)
 		if validationErrors != nil {
-			str := fmt.Sprintf("The swagger spec at %q is invalid against swagger specification %s. see errors :\n",
-				g.Spec, specDoc.Version())
+			var b strings.Builder
+
+			fmt.Fprintf(&b,
+				"The swagger spec at %q is invalid against the swagger specification %s. See errors :\n",
+				g.Spec, specDoc.Version(),
+			)
+
 			var cerr *swaggererrors.CompositeError
 			if errors.As(validationErrors, &cerr) {
 				for _, desc := range cerr.Errors {
-					str += fmt.Sprintf("- %s\n", desc)
+					fmt.Fprintf(&b, "- %s\n", desc)
 				}
 			}
-			return nil, errors.New(str)
+
+			return nil, errors.New(b.String())
 		}
+
 		// TODO(fredbi): due to uncontrolled $ref state in spec, we need to reload the spec atm, or flatten won't
 		// work properly (validate expansion alters the $ref cache in go-openapi/spec)
 		specDoc, _ = loads.Spec(g.Spec)
@@ -136,7 +147,7 @@ func (g *GenOpts) printFlattenOpts() {
 	log.Printf("preprocessing spec with option:  %s", preprocessingOption)
 }
 
-// findSwaggerSpec fetches a default swagger spec if none is provided
+// findSwaggerSpec fetches a default swagger spec if none is provided.
 func findSwaggerSpec(nm string) (string, error) {
 	specs := []string{"swagger.json", "swagger.yml", "swagger.yaml"}
 	if nm != "" {
@@ -165,6 +176,8 @@ func findSwaggerSpec(nm string) (string, error) {
 
 // WithAutoXOrder amends the spec to specify property order as they appear
 // in the spec (supports yaml documents only).
+//
+//nolint:gocognit // TODO(fredbi): refactor
 func WithAutoXOrder(specPath string) string {
 	lookFor := func(ele any, key string) (yamlv2.MapSlice, bool) {
 		if slice, ok := ele.(yamlv2.MapSlice); ok {
@@ -242,13 +255,13 @@ func WithAutoXOrder(specPath string) string {
 	}
 
 	tmpFile := filepath.Join(tmpDir, filepath.Base(specPath))
-	if err := os.WriteFile(tmpFile, out, 0o600); err != nil {
+	if err := os.WriteFile(tmpFile, out, readableFile); err != nil {
 		panic(err)
 	}
 	return tmpFile
 }
 
-// BytesToYAMLDoc converts a byte slice into a YAML document
+// BytesToYAMLv2Doc converts a byte slice into a YAML document.
 func BytesToYAMLv2Doc(data []byte) (any, error) {
 	var canary map[any]any // validate this is an object and not a different type
 	if err := yamlv2.Unmarshal(data, &canary); err != nil {

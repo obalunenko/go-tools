@@ -6,20 +6,22 @@ import (
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/stack"
 )
 
+const KeywordAt = "at"
+
 type withStackTraceOptions struct {
 	skipDepth int
 }
 
-type withStackTraceOption func(o *withStackTraceOptions)
+type WithStackTraceOption func(o *withStackTraceOptions)
 
-func WithSkipDepth(skipDepth int) withStackTraceOption {
+func WithSkipDepth(skipDepth int) WithStackTraceOption {
 	return func(o *withStackTraceOptions) {
 		o.skipDepth = skipDepth
 	}
 }
 
 // WithStackTrace is a wrapper over original err with file:line identification
-func WithStackTrace(err error, opts ...withStackTraceOption) error {
+func WithStackTrace(err error, opts ...WithStackTraceOption) error {
 	if err == nil {
 		return nil
 	}
@@ -51,7 +53,7 @@ type stackError struct {
 }
 
 func (e *stackError) Error() string {
-	return e.err.Error() + " at `" + e.stackRecord + "`"
+	return e.err.Error() + " " + KeywordAt + " `" + e.stackRecord + "`"
 }
 
 func (e *stackError) Unwrap() error {
@@ -60,6 +62,7 @@ func (e *stackError) Unwrap() error {
 
 type stackTransportError struct {
 	stackError
+
 	status *grpcStatus.Status
 }
 

@@ -658,17 +658,18 @@ SELECT
   ELSE pg_get_constraintdef(cons.oid)
   END AS def,
   cons.contype AS type,
-  fcls.relname,
+  fns.nspname || '.' || fcls.relname,
   (SELECT ARRAY_AGG(attr.attname ORDER BY ARRAY_POSITION(cons.conkey, attr.attnum)) FROM pg_attribute AS attr WHERE attr.attrelid = cons.conrelid AND attr.attnum = ANY(cons.conkey)),
   (SELECT ARRAY_AGG(fattr.attname ORDER BY ARRAY_POSITION(cons.confkey, fattr.attnum)) FROM pg_attribute AS fattr WHERE fattr.attrelid = cons.confrelid AND fattr.attnum = ANY(cons.confkey)),
   descr.description AS comment
 FROM pg_constraint AS cons
 LEFT JOIN pg_trigger AS trig ON trig.tgconstraint = cons.oid AND NOT trig.tgisinternal
 LEFT JOIN pg_class AS fcls ON cons.confrelid = fcls.oid
+LEFT JOIN pg_namespace AS fns ON fcls.relnamespace = fns.oid
 LEFT JOIN pg_description AS descr ON cons.oid = descr.objoid
 WHERE
 cons.conrelid = $1::oid
-GROUP BY cons.conindid, cons.conname, cons.contype, cons.oid, trig.oid, fcls.relname, descr.description, cons.conkey, cons.confkey, cons.conrelid, cons.confrelid
+GROUP BY cons.conindid, cons.conname, cons.contype, cons.oid, trig.oid, fns.nspname, fcls.relname, descr.description, cons.conkey, cons.confkey, cons.conrelid, cons.confrelid
 ORDER BY cons.conindid, cons.conname`
 }
 

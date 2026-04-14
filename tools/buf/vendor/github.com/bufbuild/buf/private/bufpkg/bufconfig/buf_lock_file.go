@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -353,7 +353,7 @@ func readBufLockFile(
 	case FileVersionV1Beta1, FileVersionV1:
 		var externalBufLockFile externalBufLockFileV1Beta1V1
 		if err := getUnmarshalStrict(allowJSON)(data, &externalBufLockFile); err != nil {
-			return nil, fmt.Errorf("invalid as version %v: %w", fileVersion, err)
+			return nil, err
 		}
 		depModuleKeys := make([]bufmodule.ModuleKey, len(externalBufLockFile.Deps))
 		for i, dep := range externalBufLockFile.Deps {
@@ -406,7 +406,7 @@ func readBufLockFile(
 	case FileVersionV2:
 		var externalBufLockFile externalBufLockFileV2
 		if err := getUnmarshalStrict(allowJSON)(data, &externalBufLockFile); err != nil {
-			return nil, fmt.Errorf("invalid as version %v: %w", fileVersion, err)
+			return nil, err
 		}
 		depModuleKeys := make([]bufmodule.ModuleKey, len(externalBufLockFile.Deps))
 		for i, dep := range externalBufLockFile.Deps {
@@ -816,7 +816,7 @@ type externalBufLockFileDepV1Beta1V1 struct {
 	// Dashless
 	Commit     string    `json:"commit,omitempty" yaml:"commit,omitempty"`
 	Digest     string    `json:"digest,omitempty" yaml:"digest,omitempty"`
-	CreateTime time.Time `json:"create_time,omitempty" yaml:"create_time,omitempty"`
+	CreateTime time.Time `json:"create_time" yaml:"create_time,omitempty"`
 }
 
 // externalBufLockFileV2 represents the v2 buf.lock file.

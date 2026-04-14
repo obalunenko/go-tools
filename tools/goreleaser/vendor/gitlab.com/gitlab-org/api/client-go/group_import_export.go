@@ -18,7 +18,7 @@ package gitlab
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -50,18 +50,13 @@ var _ GroupImportExportServiceInterface = (*GroupImportExportService)(nil)
 // GitLab API docs:
 // https://docs.gitlab.com/api/group_import_export/#schedule-new-export
 func (s *GroupImportExportService) ScheduleExport(gid any, options ...RequestOptionFunc) (*Response, error) {
-	group, err := parseID(gid)
-	if err != nil {
-		return nil, err
-	}
-	u := fmt.Sprintf("groups/%s/export", PathEscape(group))
-
-	req, err := s.client.NewRequest(http.MethodPost, u, nil, options)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.client.Do(req, nil)
+	_, resp, err := do[none](s.client,
+		withMethod(http.MethodPost),
+		withPath("groups/%s/export", GroupID{gid}),
+		withAPIOpts(nil),
+		withRequestOpts(options...),
+	)
+	return resp, err
 }
 
 // ExportDownload downloads the finished export.
@@ -69,24 +64,14 @@ func (s *GroupImportExportService) ScheduleExport(gid any, options ...RequestOpt
 // GitLab API docs:
 // https://docs.gitlab.com/api/group_import_export/#export-download
 func (s *GroupImportExportService) ExportDownload(gid any, options ...RequestOptionFunc) (*bytes.Reader, *Response, error) {
-	group, err := parseID(gid)
-	if err != nil {
-		return nil, nil, err
-	}
-	u := fmt.Sprintf("groups/%s/export/download", PathEscape(group))
-
-	req, err := s.client.NewRequest(http.MethodGet, u, nil, options)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	exportDownload := new(bytes.Buffer)
-	resp, err := s.client.Do(req, exportDownload)
+	buf, resp, err := do[bytes.Buffer](s.client,
+		withPath("groups/%s/export/download", GroupID{gid}),
+		withRequestOpts(options...),
+	)
 	if err != nil {
 		return nil, resp, err
 	}
-
-	return bytes.NewReader(exportDownload.Bytes()), resp, err
+	return bytes.NewReader(buf.Bytes()), resp, nil
 }
 
 // GroupImportFileOptions represents the available ImportFile() options.
@@ -107,13 +92,13 @@ type GroupImportFileOptions struct {
 func (s *GroupImportExportService) ImportFile(opt *GroupImportFileOptions, options ...RequestOptionFunc) (*Response, error) {
 	// First check if we got all required options.
 	if opt.Name == nil || *opt.Name == "" {
-		return nil, fmt.Errorf("missing required option: Name")
+		return nil, errors.New("missing required option: Name")
 	}
 	if opt.Path == nil || *opt.Path == "" {
-		return nil, fmt.Errorf("missing required option: Path")
+		return nil, errors.New("missing required option: Path")
 	}
 	if opt.File == nil || *opt.File == "" {
-		return nil, fmt.Errorf("missing required option: File")
+		return nil, errors.New("missing required option: File")
 	}
 
 	f, err := os.Open(*opt.File)

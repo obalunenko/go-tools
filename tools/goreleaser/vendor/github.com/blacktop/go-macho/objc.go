@@ -39,6 +39,25 @@ func (f *File) rebasePtr(ptr uint64) uint64 {
 	}
 }
 
+func (f *File) getCStringWithFallback(addr uint64, label string, allowSwift bool) (string, error) {
+	str, err := f.GetCString(addr)
+	if err == nil {
+		return str, nil
+	}
+	if errors.Is(err, io.EOF) ||
+		errors.Is(err, ErrCStringNoTerminator) ||
+		errors.Is(err, ErrCStringNotFound) {
+		if allowSwift {
+			if swiftStr, swiftErr := f.swiftSymbolicName(addr); swiftErr == nil {
+				return swiftStr, nil
+			}
+			return fmt.Sprintf("@\"SwiftUnresolved_0x%x\"", addr), nil
+		}
+		return fmt.Sprintf("/* unresolved %s at %#x */", label, addr), nil
+	}
+	return "", err
+}
+
 // HasObjC returns true if MachO contains a __objc_imageinfo section
 func (f *File) HasObjC() bool {
 	for _, s := range f.Segments() {
@@ -271,11 +290,11 @@ func (f *File) GetObjCClasses() ([]objc.Class, error) {
 						class, err := f.GetObjCClass2(f.vma.Convert(ptr))
 						if err != nil {
 							if f.HasFixups() {
-								bindName, err := f.GetBindName(ptr)
-								if err == nil {
+								bindName, bindErr := f.GetBindName(ptr)
+								if bindErr == nil {
 									class = &objc.Class{Name: strings.TrimPrefix(bindName, "_OBJC_CLASS_$_")}
 								} else {
-									return nil, fmt.Errorf("failed to read objc_class_t at vmaddr %#x: %v", ptr, err)
+									return nil, fmt.Errorf("failed to read objc_class_t at vmaddr %#x: %w", ptr, errors.Join(err, bindErr))
 								}
 							} else {
 								return nil, fmt.Errorf("failed to read objc_class_t at vmaddr %#x: %v", ptr, err)
@@ -417,11 +436,22 @@ func (f *File) GetObjCClass(vmaddr uint64) (*objc.Class, error) {
 		}
 	}
 
+	isSwiftClass := (classPtr.DataVMAddrAndFastFlags&objc.FAST_IS_SWIFT_LEGACY != 0) || (classPtr.DataVMAddrAndFastFlags&objc.FAST_IS_SWIFT_STABLE != 0)
+
 	var ivars []objc.Ivar
 	if info.IvarsVMAddr > 0 {
-		ivars, err = f.GetObjCIvars(info.IvarsVMAddr)
+		ivars, err = f.getObjCIvarsWithSwift(info.IvarsVMAddr, isSwiftClass)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get ivars at vmaddr: %#x; %v", info.IvarsVMAddr, err)
+		}
+		if isSwiftClass {
+			if fieldMap, ferr := f.swiftFieldTypesForClass(name); ferr == nil && len(fieldMap) > 0 {
+				for idx := range ivars {
+					if typ, ok := matchSwiftFieldType(ivars[idx].Name, fieldMap); ok {
+						ivars[idx].Type = typ
+					}
+				}
+			}
 		}
 	}
 
@@ -431,7 +461,7 @@ func (f *File) GetObjCClass(vmaddr uint64) (*objc.Class, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to disable preattached categories: %v", err)
 		}
-		props, err = f.GetObjCProperties(info.BasePropertiesVMAddr)
+		props, err = f.getObjCPropertiesWithSwift(info.BasePropertiesVMAddr, isSwiftClass)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get props at vmaddr: %#x; %v", info.BasePropertiesVMAddr, err)
 		}
@@ -451,11 +481,11 @@ func (f *File) GetObjCClass(vmaddr uint64) (*objc.Class, error) {
 				superClass, err = f.GetObjCClass(classPtr.SuperclassVMAddr)
 				if err != nil {
 					if f.HasFixups() {
-						bindName, err := f.GetBindName(classPtr.SuperclassVMAddr)
-						if err == nil {
+						bindName, bindErr := f.GetBindName(classPtr.SuperclassVMAddr)
+						if bindErr == nil {
 							superClass = &objc.Class{Name: strings.TrimPrefix(bindName, "_OBJC_CLASS_$_")}
 						} else {
-							return nil, fmt.Errorf("failed to read super class objc_class_t at vmaddr: %#x; %v", vmaddr, err)
+							return nil, fmt.Errorf("failed to read super class objc_class_t at vmaddr: %#x; %w", vmaddr, errors.Join(err, bindErr))
 						}
 					} else {
 						superClass = &objc.Class{}
@@ -488,11 +518,11 @@ func (f *File) GetObjCClass(vmaddr uint64) (*objc.Class, error) {
 				isaClass, err = f.GetObjCClass(classPtr.IsaVMAddr)
 				if err != nil {
 					if f.HasFixups() {
-						bindName, err := f.GetBindName(classPtr.IsaVMAddr)
-						if err == nil {
+						bindName, bindErr := f.GetBindName(classPtr.IsaVMAddr)
+						if bindErr == nil {
 							isaClass = &objc.Class{Name: strings.TrimPrefix(bindName, "_OBJC_CLASS_$_")}
 						} else {
-							return nil, fmt.Errorf("failed to read super class objc_class_t at vmaddr: %#x; %v", vmaddr, err)
+							return nil, fmt.Errorf("failed to read super class objc_class_t at vmaddr: %#x; %w", vmaddr, errors.Join(err, bindErr))
 						}
 					} else {
 						isaClass = &objc.Class{}
@@ -598,11 +628,22 @@ func (f *File) GetObjCClass2(vmaddr uint64) (*objc.Class, error) {
 		}
 	}
 
+	isSwiftClass := (classPtr.DataVMAddrAndFastFlags&objc.FAST_IS_SWIFT_LEGACY != 0) || (classPtr.DataVMAddrAndFastFlags&objc.FAST_IS_SWIFT_STABLE != 0)
+
 	var ivars []objc.Ivar
 	if info.IvarsVMAddr > 0 {
-		ivars, err = f.GetObjCIvars(info.IvarsVMAddr)
+		ivars, err = f.getObjCIvarsWithSwift(info.IvarsVMAddr, isSwiftClass)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get ivars at vmaddr: %#x; %v", info.IvarsVMAddr, err)
+		}
+		if isSwiftClass {
+			if fieldMap, ferr := f.swiftFieldTypesForClass(name); ferr == nil && len(fieldMap) > 0 {
+				for idx := range ivars {
+					if typ, ok := matchSwiftFieldType(ivars[idx].Name, fieldMap); ok {
+						ivars[idx].Type = typ
+					}
+				}
+			}
 		}
 	}
 
@@ -612,7 +653,7 @@ func (f *File) GetObjCClass2(vmaddr uint64) (*objc.Class, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to disable preattached categories: %v", err)
 		}
-		props, err = f.GetObjCProperties(info.BasePropertiesVMAddr)
+		props, err = f.getObjCPropertiesWithSwift(info.BasePropertiesVMAddr, isSwiftClass)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get props at vmaddr: %#x; %v", info.BasePropertiesVMAddr, err)
 		}
@@ -632,11 +673,11 @@ func (f *File) GetObjCClass2(vmaddr uint64) (*objc.Class, error) {
 				superClass, err = f.GetObjCClass2(classPtr.SuperclassVMAddr)
 				if err != nil {
 					if f.HasFixups() {
-						bindName, err := f.GetBindName(classPtr.SuperclassVMAddr)
-						if err == nil {
+						bindName, bindErr := f.GetBindName(classPtr.SuperclassVMAddr)
+						if bindErr == nil {
 							superClass = &objc.Class{Name: strings.TrimPrefix(bindName, "_OBJC_CLASS_$_")}
 						} else {
-							return nil, fmt.Errorf("failed to read super class objc_class_t at vmaddr: %#x; %v", vmaddr, err)
+							return nil, fmt.Errorf("failed to read super class objc_class_t at vmaddr: %#x; %w", vmaddr, errors.Join(err, bindErr))
 						}
 					} else {
 						superClass = &objc.Class{}
@@ -669,11 +710,11 @@ func (f *File) GetObjCClass2(vmaddr uint64) (*objc.Class, error) {
 				isaClass, err = f.GetObjCClass(classPtr.IsaVMAddr)
 				if err != nil {
 					if f.HasFixups() {
-						bindName, err := f.GetBindName(classPtr.IsaVMAddr)
-						if err == nil {
+						bindName, bindErr := f.GetBindName(classPtr.IsaVMAddr)
+						if bindErr == nil {
 							isaClass = &objc.Class{Name: strings.TrimPrefix(bindName, "_OBJC_CLASS_$_")}
 						} else {
-							return nil, fmt.Errorf("failed to read super class objc_class_t at vmaddr: %#x; %v", vmaddr, err)
+							return nil, fmt.Errorf("failed to read super class objc_class_t at vmaddr: %#x; %w", vmaddr, errors.Join(err, bindErr))
 						}
 					} else {
 						isaClass = &objc.Class{}
@@ -769,10 +810,10 @@ func (f *File) GetObjCCategories() ([]objc.Category, error) {
 							category.Class, err = f.GetObjCClass(categoryPtr.ClsVMAddr)
 							if err != nil {
 								if f.HasFixups() {
-									bindName, err := f.GetBindName(categoryPtr.ClsVMAddr)
-									if err != nil {
-										if !errors.Is(err, ErrMachONoBindInfo) {
-											return nil, fmt.Errorf("failed to read super class objc_class_t at vmaddr: %#x; %v", categoryPtr.ClsVMAddr, err)
+									bindName, bindErr := f.GetBindName(categoryPtr.ClsVMAddr)
+									if bindErr != nil {
+										if !errors.Is(bindErr, ErrMachONoBindInfo) {
+											return nil, fmt.Errorf("failed to read super class objc_class_t at vmaddr: %#x; %w", categoryPtr.ClsVMAddr, errors.Join(err, bindErr))
 										}
 									} else {
 										category.Class = &objc.Class{Name: strings.TrimPrefix(bindName, "_OBJC_CLASS_$_")}
@@ -820,7 +861,8 @@ func (f *File) GetObjCCategories() ([]objc.Category, error) {
 					}
 					if categoryPtr.InstancePropertiesVMAddr > 0 {
 						categoryPtr.InstancePropertiesVMAddr = f.vma.Convert(categoryPtr.InstancePropertiesVMAddr)
-						category.Properties, err = f.GetObjCProperties(categoryPtr.InstancePropertiesVMAddr)
+						allowSwiftProps := category.Class != nil && category.Class.IsSwift()
+						category.Properties, err = f.getObjCPropertiesWithSwift(categoryPtr.InstancePropertiesVMAddr, allowSwiftProps)
 						if err != nil {
 							return nil, fmt.Errorf("failed to get class methods at vmaddr: %#x; %v", categoryPtr.ClassMethodsVMAddr, err)
 						}
@@ -1004,34 +1046,49 @@ func (f *File) getObjcProtocol(vmaddr uint64) (proto *objc.Protocol, err error) 
 	}
 	if protoPtr.InstancePropertiesVMAddr > 0 {
 		protoPtr.InstancePropertiesVMAddr = f.vma.Convert(protoPtr.InstancePropertiesVMAddr)
-		proto.InstanceProperties, err = f.GetObjCProperties(protoPtr.InstancePropertiesVMAddr)
+		proto.InstanceProperties, err = f.getObjCPropertiesWithSwift(protoPtr.InstancePropertiesVMAddr, false)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read instance property vmaddr: %v", err)
 		}
 	}
-	if protoPtr.ExtendedMethodTypesVMAddr > 0 {
-		protoPtr.ExtendedMethodTypesVMAddr = f.vma.Convert(protoPtr.ExtendedMethodTypesVMAddr)
-		off, err := f.vma.GetOffset(protoPtr.ExtendedMethodTypesVMAddr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert vmaddr: %v", err)
-		}
-		f.cr.Seek(int64(off), io.SeekStart)
+	if protoPtr.HasExtendedMethodTypes() {
+		if protoPtr.ExtendedMethodTypesVMAddr > 0 {
+			protoPtr.ExtendedMethodTypesVMAddr = f.vma.Convert(protoPtr.ExtendedMethodTypesVMAddr)
+			off, err := f.vma.GetOffset(protoPtr.ExtendedMethodTypesVMAddr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert vmaddr: %v", err)
+			}
+			f.cr.Seek(int64(off), io.SeekStart)
 
-		var extMPtr uint64
-		if err := binary.Read(f.cr, f.ByteOrder, &extMPtr); err != nil {
-			return nil, fmt.Errorf("failed to read ExtendedMethodTypesVMAddr: %v", err)
-		}
+			var extMPtr uint64
+			if err := binary.Read(f.cr, f.ByteOrder, &extMPtr); err != nil {
+				return nil, fmt.Errorf("failed to read ExtendedMethodTypesVMAddr: %v", err)
+			}
 
-		proto.ExtendedMethodTypes, err = f.GetCString(f.vma.Convert(extMPtr))
-		if err != nil {
-			return nil, fmt.Errorf("failed to read proto extended method types cstring: %v", err)
+			proto.ExtendedMethodTypes, err = f.GetCString(f.vma.Convert(extMPtr))
+			if err != nil {
+				return nil, fmt.Errorf("failed to read proto extended method types cstring: %v", err)
+			}
 		}
 	}
-	if protoPtr.DemangledNameVMAddr > 0 {
-		protoPtr.DemangledNameVMAddr = f.vma.Convert(protoPtr.DemangledNameVMAddr)
-		proto.DemangledName, err = f.GetCString(protoPtr.DemangledNameVMAddr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read proto demangled name cstring: %v", err)
+	if protoPtr.HasDemangledName() {
+		if protoPtr.DemangledNameVMAddr > 0 {
+			protoPtr.DemangledNameVMAddr = f.vma.Convert(protoPtr.DemangledNameVMAddr)
+			proto.DemangledName, err = f.GetCString(protoPtr.DemangledNameVMAddr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read proto demangled name cstring: %v", err)
+			}
+		}
+	}
+
+	// Optional class properties (newer ABI)
+	if protoPtr.HasClassProperties() {
+		if protoPtr.ClassPropertiesVMAddr > 0 {
+			protoPtr.ClassPropertiesVMAddr = f.vma.Convert(protoPtr.ClassPropertiesVMAddr)
+			proto.ClassProperties, err = f.getObjCPropertiesWithSwift(protoPtr.ClassPropertiesVMAddr, false)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read class property vmaddr: %v", err)
+			}
 		}
 	}
 
@@ -1183,22 +1240,29 @@ func (f *File) forEachObjCMethod(methodListVMAddr uint64, handler func(uint64, o
 					method.NameVMAddr = uint64(methodVMAddr + int64(m.NameOffset))
 				}
 			} else {
-				nameVMAddr := uint64(methodVMAddr + int64(m.NameOffset))
-				method.NameVMAddr, err = f.GetPointerAtAddress(nameVMAddr)
+				// RelativePointer offsets are relative to the field address, not the struct base
+				nameFieldAddr := uint64(methodVMAddr + int64(unsafe.Offsetof(m.NameOffset)))
+				nameIndirectAddr := uint64(int64(nameFieldAddr) + int64(m.NameOffset))
+				method.NameVMAddr, err = f.GetPointerAtAddress(nameIndirectAddr)
 				if err != nil {
 					return fmt.Errorf("failed to read relative_method_t name pointer: %v", err)
 				}
 			}
 
-			method.NameLocationVMAddr = uint64(methodVMAddr+int64(m.NameOffset)) + uint64(unsafe.Offsetof(m.NameOffset))
-			method.TypesVMAddr = uint64(methodVMAddr+int64(m.TypesOffset)) + uint64(unsafe.Offsetof(m.TypesOffset))
-			method.ImpVMAddr = uint64(methodVMAddr+int64(m.ImpOffset)) + uint64(unsafe.Offsetof(m.ImpOffset))
+			method.NameLocationVMAddr = uint64(methodVMAddr + int64(unsafe.Offsetof(m.NameOffset)))
 
-			method.Name, err = f.GetCString(method.NameVMAddr)
+			// RelativePointer offsets are relative to the field address, not the struct base
+			// This matches Apple's objc4 RelativePointer implementation: actual_address = &offset_field + offset
+			typesFieldAddr := methodVMAddr + int64(unsafe.Offsetof(m.TypesOffset))
+			impFieldAddr := methodVMAddr + int64(unsafe.Offsetof(m.ImpOffset))
+			method.TypesVMAddr = uint64(typesFieldAddr + int64(m.TypesOffset))
+			method.ImpVMAddr = uint64(impFieldAddr + int64(m.ImpOffset))
+
+			method.Name, err = f.getCStringWithFallback(method.NameVMAddr, "selector", false)
 			if err != nil {
 				return fmt.Errorf("failed to read relative_method_t name cstring: %v", err)
 			}
-			method.Types, err = f.GetCString(method.TypesVMAddr)
+			method.Types, err = f.getCStringWithFallback(method.TypesVMAddr, "method types", false)
 			if err != nil {
 				return fmt.Errorf("failed to read relative_method_t types cstring: %v", err)
 			}
@@ -1219,11 +1283,11 @@ func (f *File) forEachObjCMethod(methodListVMAddr uint64, handler func(uint64, o
 			m.NameVMAddr = f.vma.Convert(m.NameVMAddr)
 			m.TypesVMAddr = f.vma.Convert(m.TypesVMAddr)
 			m.ImpVMAddr = f.vma.Convert(m.ImpVMAddr)
-			n, err := f.GetCString(m.NameVMAddr)
+			n, err := f.getCStringWithFallback(m.NameVMAddr, "selector", false)
 			if err != nil {
 				return fmt.Errorf("failed to read method_t name cstring: %v", err)
 			}
-			t, err := f.GetCString(m.TypesVMAddr)
+			t, err := f.getCStringWithFallback(m.TypesVMAddr, "method types", false)
 			if err != nil {
 				return fmt.Errorf("failed to read method_t types cstring: %v", err)
 			}
@@ -1246,6 +1310,10 @@ func (f *File) forEachObjCMethod(methodListVMAddr uint64, handler func(uint64, o
 
 // GetObjCIvars returns the Objective-C instance variables
 func (f *File) GetObjCIvars(vmaddr uint64) ([]objc.Ivar, error) {
+	return f.getObjCIvarsWithSwift(vmaddr, false)
+}
+
+func (f *File) getObjCIvarsWithSwift(vmaddr uint64, allowSwift bool) ([]objc.Ivar, error) {
 
 	var ivarsList objc.IvarList
 	var ivars []objc.Ivar
@@ -1263,8 +1331,23 @@ func (f *File) GetObjCIvars(vmaddr uint64) ([]objc.Ivar, error) {
 		return nil, fmt.Errorf("failed to read objc_ivar_list_t: %v", err)
 	}
 
+	// FIXME: what ARE these alignments ?
+	// var maxAlignment uint32
+	// for _, ivar := range ivs {
+	// 	if ivar.Alignment() > maxAlignment {
+	// 		maxAlignment = ivar.Alignment()
+	// 	}
+	// }
+
+	// var diff uint32
+	// if maxAlignment > 0 {
+	// 	alignMask := maxAlignment - 1
+	// 	diff = (diff + alignMask) &^ alignMask
+	// }
+
 	for _, ivar := range ivs {
 		ivar.Offset = f.vma.Convert(ivar.Offset)
+		// ivar.Offset += uint64(diff) // align ivar offsets to max alignment
 		ivar.NameVMAddr = f.vma.Convert(ivar.NameVMAddr)
 		ivar.TypesVMAddr = f.vma.Convert(ivar.TypesVMAddr)
 
@@ -1286,9 +1369,17 @@ func (f *File) GetObjCIvars(vmaddr uint64) ([]objc.Ivar, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read ivar name cstring: %v", err)
 		}
-		t, err := f.GetCString(ivar.TypesVMAddr)
+		// if diff > 0 {
+		// 	ivar.TypesVMAddr += uint64(diff) // align ivar types to max alignment
+		// }
+		t, err := f.getCStringWithFallback(ivar.TypesVMAddr, "ivar type", allowSwift)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read ivar types cstring: %v", err)
+		}
+		if allowSwift && t == "" {
+			if guess, ok := f.swiftASCIITypeGuess(ivar.TypesVMAddr); ok {
+				t = guess
+			}
 		}
 		ivars = append(ivars, objc.Ivar{
 			Name:   n,
@@ -1303,6 +1394,10 @@ func (f *File) GetObjCIvars(vmaddr uint64) ([]objc.Ivar, error) {
 
 // GetObjCProperties returns the Objective-C properties
 func (f *File) GetObjCProperties(vmaddr uint64) ([]objc.Property, error) {
+	return f.getObjCPropertiesWithSwift(vmaddr, false)
+}
+
+func (f *File) getObjCPropertiesWithSwift(vmaddr uint64, allowSwift bool) ([]objc.Property, error) {
 
 	var propList objc.PropertyList
 	var objcProperties []objc.Property
@@ -1324,11 +1419,11 @@ func (f *File) GetObjCProperties(vmaddr uint64) ([]objc.Property, error) {
 		prop.NameVMAddr = f.vma.Convert(prop.NameVMAddr)
 		prop.AttributesVMAddr = f.vma.Convert(prop.AttributesVMAddr)
 
-		name, err := f.GetCString(prop.NameVMAddr)
+		name, err := f.getCStringWithFallback(prop.NameVMAddr, "property name", allowSwift)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read prop name cstring: %v", err)
 		}
-		attrib, err := f.GetCString(prop.AttributesVMAddr)
+		attrib, err := f.getCStringWithFallback(prop.AttributesVMAddr, "property attributes", allowSwift)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read prop attributes cstring: %v", err)
 		}
@@ -1370,13 +1465,12 @@ func (f *File) GetObjCClassReferences() (map[uint64]*objc.Class, error) {
 					} else {
 						if cls, err := f.GetObjCClass(ptr); err != nil {
 							if f.HasFixups() {
-								if bindName, err := f.GetBindName(ptr); err == nil {
+								if bindName, bindErr := f.GetBindName(ptr); bindErr == nil {
 									clsRefs[sec.Addr+uint64(idx*sizeOfInt64)] = &objc.Class{Name: strings.TrimPrefix(bindName, "_OBJC_CLASS_$_")}
 								} else {
-									return nil, fmt.Errorf("failed to read objc_class_t at classref ptr: %#x; %v", ptr, err)
+									return nil, fmt.Errorf("failed to read objc_class_t at classref ptr: %#x; %w", ptr, errors.Join(err, bindErr))
 								}
 							}
-							// TODO: don't swallow error here
 						} else {
 							clsRefs[sec.Addr+uint64(idx*sizeOfInt64)] = cls
 							f.PutObjC(ptr, cls)
@@ -1418,13 +1512,12 @@ func (f *File) GetObjCSuperReferences() (map[uint64]*objc.Class, error) {
 					} else {
 						if cls, err := f.GetObjCClass(ptr); err != nil {
 							if f.HasFixups() {
-								if bindName, err := f.GetBindName(ptr); err == nil {
+								if bindName, bindErr := f.GetBindName(ptr); bindErr == nil {
 									clsRefs[sec.Addr+uint64(idx*sizeOfInt64)] = &objc.Class{Name: strings.TrimPrefix(bindName, "_OBJC_CLASS_$_")}
 								} else {
-									return nil, fmt.Errorf("failed to read objc_class_t at superref ptr: %#x; %v", ptr, err)
+									return nil, fmt.Errorf("failed to read objc_class_t at superref ptr: %#x; %w", ptr, errors.Join(err, bindErr))
 								}
 							}
-							// TODO: don't swallow error here
 						} else {
 							clsRefs[sec.Addr+uint64(idx*sizeOfInt64)] = cls
 							f.PutObjC(ptr, cls)
@@ -1552,9 +1645,14 @@ func (f *File) GetCFStrings() ([]objc.CFString, error) {
 					//   return nullptr;
 					// cfs_characters = n_value;
 				}
-				cfstrings[idx].Name, err = f.GetCString(cfstrings[idx].Data)
+				// Check encoding from Info field and use appropriate string reader
+				if cfstrings[idx].CFString64Type.IsUTF16() {
+					cfstrings[idx].Name, err = f.getUTF16String(cfstrings[idx].Data, cfstrings[idx].Length)
+				} else {
+					cfstrings[idx].Name, err = f.GetCString(cfstrings[idx].Data)
+				}
 				if err != nil {
-					return nil, fmt.Errorf("failed to read cstring: %v", err)
+					return nil, fmt.Errorf("failed to read cfstring: %v", err)
 				}
 				if c, ok := f.objc[cfstrings[idx].IsaVMAddr]; ok {
 					cfstrings[idx].Class = c.(*objc.Class)

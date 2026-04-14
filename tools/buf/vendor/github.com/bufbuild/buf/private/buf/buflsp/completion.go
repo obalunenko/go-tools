@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Buf Technologies, Inc.
+// Copyright 2020-2026 Buf Technologies, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"log/slog"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/bufbuild/buf/private/pkg/normalpath"
@@ -35,7 +36,14 @@ import (
 	"github.com/bufbuild/protocompile/experimental/token"
 	"github.com/bufbuild/protocompile/experimental/token/keyword"
 	"go.lsp.dev/protocol"
+	"google.golang.org/protobuf/encoding/protowire"
 )
+
+// numberRange represents a range of numbers (inclusive) used for field/enum number completion.
+type numberRange[T int32 | uint64] struct {
+	start T
+	end   T
+}
 
 // getCompletionItems returns completion items for the given position in the file.
 //
@@ -251,7 +259,7 @@ func completionItemsForDef(ctx context.Context, file *file, declPath []ast.DeclA
 		return nil
 	case ast.DefKindOption:
 		return completionItemsForOptions(ctx, file, parentDef, def, offset)
-	case ast.DefKindField, ast.DefKindMethod, ast.DefKindInvalid:
+	case ast.DefKindField, ast.DefKindMethod, ast.DefKindInvalid, ast.DefKindEnumValue:
 		// Use these kinds as completion starts.
 		// An invalid kind is caused from partial values, which may be any kind.
 	default:
@@ -274,6 +282,7 @@ func completionItemsForDef(ctx context.Context, file *file, declPath []ast.DeclA
 	hasStart := false // Start is a newline or open parenthesis for the start of a definition
 	hasTypeModifier := false
 	hasDeclaration := false
+	hasVisibilityModifier := false
 	typeSpan := extractAroundOffset(file, offset,
 		func(tok token.Token) bool {
 			if isTokenTypeDelimiter(tok) {
@@ -288,6 +297,8 @@ func completionItemsForDef(ctx context.Context, file *file, declPath []ast.DeclA
 					hasDeclaration = hasDeclaration || isDeclaration
 					_, isFieldModifier := typeModifierSet[tok.Keyword()]
 					hasTypeModifier = hasTypeModifier || isFieldModifier
+					_, isVisibilityMod := visibilityModifierSet[tok.Keyword()]
+					hasVisibilityModifier = hasVisibilityModifier || isVisibilityMod
 				}
 			}
 			if isTokenSpace(tok) {
@@ -312,6 +323,13 @@ func completionItemsForDef(ctx context.Context, file *file, declPath []ast.DeclA
 		},
 	)
 	typePrefix, typeSuffix := splitSpan(typeSpan, offset)
+
+	// Check if cursor is inside map type parameters (e.g., map<int32, |>)
+	insideMapType, isMapKeyPosition := isInsideMapType(file, def, offset)
+	file.lsp.logger.DebugContext(ctx, "completion: map type detection",
+		slog.Bool("inside_map", insideMapType),
+		slog.Bool("is_key_pos", isMapKeyPosition))
+
 	file.lsp.logger.DebugContext(
 		ctx, "completion: definition value",
 		slog.String("token", tokenSpan.Text()),
@@ -325,8 +343,45 @@ func completionItemsForDef(ctx context.Context, file *file, declPath []ast.DeclA
 		slog.Bool("has_start", hasStart),
 		slog.Bool("has_field_modifier", hasTypeModifier),
 		slog.Bool("has_declaration", hasDeclaration),
+		slog.Bool("has_visibility_modifier", hasVisibilityModifier),
+		slog.Bool("inside_map_type", insideMapType),
+		slog.Bool("is_map_key_position", isMapKeyPosition),
 	)
-	if !hasStart {
+	// Special case: field number completion
+	if !hasStart && parentDef.Classify() == ast.DefKindMessage {
+		// Case 1: Valid field definition with type and name but no tag
+		// e.g., `string name = |;\n`
+		if def.Classify() == ast.DefKindField {
+			field := def.AsField()
+			if !field.Type.IsZero() && !field.Name.IsZero() && field.Tag.IsZero() {
+				return completionItemsForFieldNumber(file, parentDef)
+			}
+		}
+		// Case 2: Invalid definition (e.g., missing semicolon) but cursor is after equals sign
+		// e.g., `string name = |`
+		if def.Classify() == ast.DefKindInvalid && isAfterEqualsSign(file, offset) {
+			return completionItemsForFieldNumber(file, parentDef)
+		}
+	}
+	// Special case: enum value number completion
+	if !hasStart && parentDef.Classify() == ast.DefKindEnum {
+		// Case 1: Valid enum value definition with name but no tag
+		// e.g., `STATUS_ACTIVE = |;\n`
+		if def.Classify() == ast.DefKindEnumValue {
+			enumValue := def.AsEnumValue()
+			if !enumValue.Name.IsZero() && enumValue.Tag.IsZero() {
+				return completionItemsForEnumNumber(file, parentDef, enumValue)
+			}
+		}
+		// Case 2: Invalid definition (e.g., missing semicolon) but cursor is after equals sign
+		// e.g., `STATUS_ACTIVE = |`
+		if def.Classify() == ast.DefKindInvalid && isAfterEqualsSign(file, offset) {
+			return completionItemsForEnumNumber(file, parentDef, ast.DefEnumValue{})
+		}
+	}
+	// Allow completions when inside map types even if hasStart is false
+	// (this handles completion after comma, e.g., "map<int32, |")
+	if !hasStart && !insideMapType {
 		file.lsp.logger.DebugContext(
 			ctx,
 			"completion: ignoring definition type unable to find start",
@@ -349,13 +404,29 @@ func completionItemsForDef(ctx context.Context, file *file, declPath []ast.DeclA
 		return completionItemsForOptions(ctx, file, parentDef, def, offset)
 	}
 
-	// If at the top level, and on the first item, return top level keywords.
+	// If at the top level, return top level keywords.
 	if parentDef.IsZero() {
-		showKeywords := beforeCount == 0
-		if showKeywords {
+		editions := isEditions(file)
+		switch {
+		case beforeCount == 0:
+			// At the start of a definition: show all top-level keywords, plus
+			// visibility modifiers in edition 2024+ files.
 			file.lsp.logger.DebugContext(ctx, "completion: definition returning top-level keywords")
+			kws := topLevelKeywords()
+			if editions {
+				kws = joinSequences(kws, visibilityModifierKeywords())
+			}
 			return slices.Collect(keywordToCompletionItem(
-				topLevelKeywords(),
+				kws,
+				protocol.CompletionItemKindKeyword,
+				tokenSpan,
+				offset,
+			))
+		case editions && beforeCount == 1 && hasVisibilityModifier:
+			// After export/local, only type declaration keywords are valid.
+			file.lsp.logger.DebugContext(ctx, "completion: definition returning top-level type declaration keywords after visibility modifier")
+			return slices.Collect(keywordToCompletionItem(
+				topLevelTypeDeclarationKeywords(),
 				protocol.CompletionItemKindKeyword,
 				tokenSpan,
 				offset,
@@ -368,15 +439,16 @@ func completionItemsForDef(ctx context.Context, file *file, declPath []ast.DeclA
 	switch parentDef.Classify() {
 	case ast.DefKindMessage:
 		// Limit completions based on the following heuristics:
-		// - Show keywords for the first values
+		// - Show keywords for the first values (but not when inside map key position)
 		// - Show types if no type declaration and at first, or second position with field modifier.
-		showKeywords := beforeCount == 0
-		showTypes := !hasDeclaration && (beforeCount == 0 || (hasTypeModifier && beforeCount == 1))
+		// - Always show types if cursor is inside map<...> angle brackets
+		editions := isEditions(file)
+		showKeywords := beforeCount == 0 && !(insideMapType && isMapKeyPosition)
+		showTypes := insideMapType || (!hasDeclaration && (beforeCount == 0 || (hasTypeModifier && beforeCount == 1)))
 		if showKeywords {
-			isProto2 := isProto2(file)
 			iters = append(iters,
 				keywordToCompletionItem(
-					messageLevelKeywords(isProto2),
+					messageLevelKeywords(isProto2(file)),
 					protocol.CompletionItemKindKeyword,
 					tokenSpan,
 					offset,
@@ -388,23 +460,68 @@ func completionItemsForDef(ctx context.Context, file *file, declPath []ast.DeclA
 					offset,
 				),
 			)
-		}
-		if showTypes {
-			iters = append(iters,
-				keywordToCompletionItem(
-					predeclaredTypeKeywords(),
+			if editions {
+				iters = append(iters, keywordToCompletionItem(
+					visibilityModifierKeywords(),
 					protocol.CompletionItemKindKeyword,
 					tokenSpan,
 					offset,
-				),
-				typeReferencesToCompletionItems(
-					file,
-					findTypeFullName(file, parentDef),
-					tokenSpan,
-					offset,
-					true, // Allow enums.
-				),
-			)
+				))
+			}
+		} else if editions && beforeCount == 1 && hasVisibilityModifier {
+			// After export/local inside a message, only nested type declarations are valid.
+			iters = append(iters, keywordToCompletionItem(
+				messageLevelTypeDeclarationKeywords(),
+				protocol.CompletionItemKindKeyword,
+				tokenSpan,
+				offset,
+			))
+		}
+		if showTypes {
+			// When inside map angle brackets, use only the prefix of the tokenSpan for filtering
+			completionSpan := tokenSpan
+			if insideMapType {
+				// Use only the prefix part for filtering when inside map<>
+				completionSpan = source.Span{
+					File:  tokenSpan.File,
+					Start: tokenSpan.Start,
+					End:   offset,
+				}
+			}
+
+			// For map key position, only show valid map key types
+			if insideMapType && isMapKeyPosition {
+				file.lsp.logger.DebugContext(ctx, "completion: map key position detected, showing only valid map key types")
+				iters = append(iters,
+					keywordToCompletionItem(
+						mapKeyTypeKeywords(),
+						protocol.CompletionItemKindKeyword,
+						completionSpan,
+						offset,
+					),
+				)
+			} else {
+				file.lsp.logger.DebugContext(ctx, "completion: showing all types",
+					slog.Bool("inside_map", insideMapType),
+					slog.Bool("is_key_pos", isMapKeyPosition),
+				)
+				// Regular type completions or map value position
+				iters = append(iters,
+					keywordToCompletionItem(
+						predeclaredTypeKeywords(),
+						protocol.CompletionItemKindKeyword,
+						completionSpan,
+						offset,
+					),
+					typeReferencesToCompletionItems(
+						file,
+						findTypeFullName(file, parentDef),
+						completionSpan,
+						offset,
+						true, // Allow enums.
+					),
+				)
+			}
 		}
 	case ast.DefKindService:
 		// Method types are only shown within args of the method definition.
@@ -631,13 +748,7 @@ func completionItemsForOptions(
 	}
 	// Complete options within the value or the path.
 	if offsetInSpan(offset, def.Value().Span()) == 0 {
-		var parentType ir.Type
-		for irType := range seq.Values(file.ir.AllTypes()) {
-			if irType.AST().Span() == parentDef.Span() {
-				parentType = irType
-				break
-			}
-		}
+		parentType := findTypeBySpan(file, parentDef.Span())
 		optionType, isOptionType := getOptionValueType(file, ctx, parentType.Options(), offset)
 		if !isOptionType {
 			file.lsp.logger.DebugContext(
@@ -685,22 +796,16 @@ func completionItemsForCompactOptions(
 	}
 	// Search for the option message in the IR.
 	optionMessage := defToOptionMessage(file, def)
-	if optionMessage.IsZero() {
-		file.lsp.logger.DebugContext(
-			ctx,
-			"completion: unable to find containing option message",
-			slog.String("kind", def.Classify().String()),
-		)
-		return nil
-	}
-	// Check the position within the option value.
-	if optionValueType, isOptionValue := getOptionValueType(file, ctx, optionMessage, offset); isOptionValue {
-		if optionValueType.IsZero() {
-			file.lsp.logger.DebugContext(ctx, "completion: unknown option value type")
-			return nil
+	if !optionMessage.IsZero() {
+		// Check the position within the option value.
+		if optionValueType, isOptionValue := getOptionValueType(file, ctx, optionMessage, offset); isOptionValue {
+			if optionValueType.IsZero() {
+				file.lsp.logger.DebugContext(ctx, "completion: unknown option value type")
+				return nil
+			}
+			// Generate completions for fields in the options value at this position.
+			return slices.Collect(messageFieldCompletionItems(file, optionValueType, optionSpan, offset, true))
 		}
-		// Generate completions for fields in the options value at this position.
-		return slices.Collect(messageFieldCompletionItems(file, optionValueType, optionSpan, offset, true))
 	}
 	// Find the options message type in the workspace by looking through all types.
 	var optionsType ir.Type
@@ -749,6 +854,15 @@ var typeModifierSet = func() map[keyword.Keyword]struct{} {
 	return m
 }()
 
+// visibilityModifierSet is the set of edition 2024+ visibility modifier keywords.
+var visibilityModifierSet = func() map[keyword.Keyword]struct{} {
+	m := make(map[keyword.Keyword]struct{})
+	for kw := range visibilityModifierKeywords() {
+		m[kw] = struct{}{}
+	}
+	return m
+}()
+
 // topLevelKeywords returns keywords for the top-level.
 func topLevelKeywords() iter.Seq[keyword.Keyword] {
 	return func(yield func(keyword.Keyword) bool) {
@@ -764,7 +878,34 @@ func topLevelKeywords() iter.Seq[keyword.Keyword] {
 	}
 }
 
-// messageLevelFieldKeywords returns keywords for messages.
+// topLevelTypeDeclarationKeywords returns the type declaration keywords that can
+// follow a visibility modifier (export/local) at the top level in edition 2024+.
+func topLevelTypeDeclarationKeywords() iter.Seq[keyword.Keyword] {
+	return func(yield func(keyword.Keyword) bool) {
+		_ = yield(keyword.Message) &&
+			yield(keyword.Enum) &&
+			yield(keyword.Service)
+	}
+}
+
+// messageLevelTypeDeclarationKeywords returns the type declaration keywords that can
+// follow a visibility modifier (export/local) inside a message in edition 2024+.
+func messageLevelTypeDeclarationKeywords() iter.Seq[keyword.Keyword] {
+	return func(yield func(keyword.Keyword) bool) {
+		_ = yield(keyword.Message) &&
+			yield(keyword.Enum)
+	}
+}
+
+// visibilityModifierKeywords returns the visibility modifier keywords for edition 2024+.
+func visibilityModifierKeywords() iter.Seq[keyword.Keyword] {
+	return func(yield func(keyword.Keyword) bool) {
+		_ = yield(keyword.Export) &&
+			yield(keyword.Local)
+	}
+}
+
+// messageLevelKeywords returns keywords for messages.
 func messageLevelKeywords(isProto2 bool) iter.Seq[keyword.Keyword] {
 	return func(yield func(keyword.Keyword) bool) {
 		ok := yield(keyword.Message) &&
@@ -773,7 +914,8 @@ func messageLevelKeywords(isProto2 bool) iter.Seq[keyword.Keyword] {
 			yield(keyword.Extend) &&
 			yield(keyword.Oneof) &&
 			yield(keyword.Extensions) &&
-			yield(keyword.Reserved)
+			yield(keyword.Reserved) &&
+			yield(keyword.Map)
 		_ = ok && isProto2 &&
 			yield(keyword.Group)
 	}
@@ -793,19 +935,39 @@ func predeclaredTypeKeywords() iter.Seq[keyword.Keyword] {
 	return func(yield func(keyword.Keyword) bool) {
 		_ = yield(keyword.Int32) &&
 			yield(keyword.Int64) &&
-			yield(keyword.UInt32) &&
-			yield(keyword.UInt64) &&
-			yield(keyword.SInt32) &&
-			yield(keyword.SInt64) &&
+			yield(keyword.Uint32) &&
+			yield(keyword.Uint64) &&
+			yield(keyword.Sint32) &&
+			yield(keyword.Sint64) &&
 			yield(keyword.Fixed32) &&
 			yield(keyword.Fixed64) &&
-			yield(keyword.SFixed32) &&
-			yield(keyword.SFixed64) &&
+			yield(keyword.Sfixed32) &&
+			yield(keyword.Sfixed64) &&
 			yield(keyword.Float) &&
 			yield(keyword.Double) &&
 			yield(keyword.Bool) &&
 			yield(keyword.String) &&
 			yield(keyword.Bytes)
+	}
+}
+
+// mapKeyTypeKeywords returns keywords for valid map key types.
+// Map keys can only be integral types, bool, or string (not floating point or bytes).
+// See https://protobuf.com/docs/language-spec#maps
+func mapKeyTypeKeywords() iter.Seq[keyword.Keyword] {
+	return func(yield func(keyword.Keyword) bool) {
+		_ = yield(keyword.Int32) &&
+			yield(keyword.Int64) &&
+			yield(keyword.Uint32) &&
+			yield(keyword.Uint64) &&
+			yield(keyword.Sint32) &&
+			yield(keyword.Sint64) &&
+			yield(keyword.Fixed32) &&
+			yield(keyword.Fixed64) &&
+			yield(keyword.Sfixed32) &&
+			yield(keyword.Sfixed64) &&
+			yield(keyword.Bool) &&
+			yield(keyword.String)
 	}
 }
 
@@ -911,11 +1073,16 @@ func typeReferencesToCompletionItems(
 	}
 	parentPrefix := string(parentFullName) + "."
 	packagePrefix := string(current.ir.Package()) + "."
+	// Check if we're completing an absolute type reference (starting with '.').
+	isAbsoluteReference := strings.HasPrefix(span.Text(), ".")
 	return func(yield func(protocol.CompletionItem) bool) {
 		editRange := reportSpanToProtocolRange(span)
 		prefix, _ := splitSpan(span, offset)
-		// Prefix filter on the trigger character '.', if present.
-		prefix = prefix[:strings.LastIndexByte(prefix, '.')+1]
+		// For relative references, filter on the trigger character '.' if present.
+		// For absolute references, use the full prefix to match (e.g., ".goo" matches ".google").
+		if !isAbsoluteReference {
+			prefix = prefix[:strings.LastIndexByte(prefix, '.')+1]
+		}
 		for _, symbol := range fileSymbolTypesIter {
 			// We only support types in this completion instance, and not scalar values, which leaves us
 			// with messages and enums.
@@ -932,10 +1099,16 @@ func typeReferencesToCompletionItems(
 				continue // Unsupported kind, skip it.
 			}
 			label := string(symbol.ir.FullName())
-			if len(parentFullName) > 0 && strings.HasPrefix(label, parentPrefix) {
-				label = label[len(parentPrefix):]
-			} else if strings.HasPrefix(label, packagePrefix) {
-				label = label[len(packagePrefix):]
+			if isAbsoluteReference {
+				// For absolute references, prepend '.' to make the label fully qualified.
+				label = "." + label
+			} else {
+				// For relative references, strip parent or package prefix to suggest short names.
+				if len(parentFullName) > 0 && strings.HasPrefix(label, parentPrefix) {
+					label = label[len(parentPrefix):]
+				} else if strings.HasPrefix(label, packagePrefix) {
+					label = label[len(packagePrefix):]
+				}
 			}
 			if !strings.HasPrefix(label, prefix) {
 				continue
@@ -1353,22 +1526,23 @@ func parseOptionSpan(file *file, offset int) (source.Span, []source.Span) {
 	typeSpan := extractAroundOffset(
 		file, offset,
 		func(tok token.Token) bool {
-			// A gap is only allowed if the preceding token is the "option" token.
-			// This is the start of an option declaration.
-			if hasGap {
-				hasStart = tok.Keyword() == keyword.Option
-				return false
-			}
-			if isTokenSpace(tok) {
-				hasGap = true
-				return true
-			}
-			if isTokenTypeDelimiter(tok) {
+			switch {
+			case isTokenTypeDelimiter(tok):
 				hasStart = true
 				return false
+			case isTokenSpace(tok):
+				hasGap = true
+				return true
+			default:
+				// A gap is only allowed if the preceding token is the "option" token.
+				// This is the start of an option declaration.
+				if hasGap {
+					hasStart = tok.Keyword() == keyword.Option
+					return false
+				}
+				tokens = append(tokens, tok)
+				return isTokenType(tok) || isTokenParen(tok)
 			}
-			tokens = append(tokens, tok)
-			return isTokenType(tok) || isTokenParen(tok)
 		},
 		isTokenType,
 	)
@@ -1403,7 +1577,7 @@ func parseOptionSpan(file *file, offset int) (source.Span, []source.Span) {
 	// Append an empty span on trailing "." token at it's position.
 	if (len(tokens)-1)%2 != 0 {
 		lastToken := tokens[len(tokens)-1]
-		if lastToken.Kind() == token.Punct && lastToken.Text() == "." {
+		if lastToken.Kind() == token.Keyword && lastToken.Text() == "." {
 			lastSpan := lastToken.Span()
 			lastSpan.Start = lastSpan.End
 			pathSpans = append(pathSpans, lastSpan)
@@ -1415,6 +1589,8 @@ func parseOptionSpan(file *file, offset int) (source.Span, []source.Span) {
 // defKindToOptionType returns the option type associated with the decl.
 func defKindToOptionType(kind ast.DefKind) (ir.FullName, ir.OptionTarget) {
 	switch kind {
+	case ast.DefKindInvalid:
+		return "google.protobuf.FileOptions", ir.OptionTargetFile
 	case ast.DefKindMessage:
 		return "google.protobuf.MessageOptions", ir.OptionTargetMessage
 	case ast.DefKindEnum:
@@ -1439,16 +1615,14 @@ func defToOptionMessage(file *file, def ast.DeclDef) ir.MessageValue {
 	defSpan := def.Span()
 	switch kind := def.Classify(); kind {
 	case ast.DefKindMessage:
-		for irType := range seq.Values(file.ir.AllTypes()) {
-			if irType.AST().Span() == defSpan {
-				return irType.Options()
-			}
+		irType := findTypeBySpan(file, defSpan)
+		if !irType.IsZero() {
+			return irType.Options()
 		}
 	case ast.DefKindEnum:
-		for irType := range seq.Values(file.ir.AllTypes()) {
-			if irType.AST().Span() == defSpan {
-				return irType.Options()
-			}
+		irType := findTypeBySpan(file, defSpan)
+		if !irType.IsZero() {
+			return irType.Options()
 		}
 	case ast.DefKindField:
 		for irType := range seq.Values(file.ir.AllTypes()) {
@@ -1497,26 +1671,119 @@ func defToOptionMessage(file *file, def ast.DeclDef) ir.MessageValue {
 	return ir.MessageValue{}
 }
 
-func isTokenType(tok token.Token) bool {
-	kind := tok.Kind()
-	return kind == token.Ident || (kind == token.Punct && tok.Text() == ".")
+// isAfterEqualsSign checks if the cursor offset is positioned after an equals sign,
+// which would indicate we're completing a field number.
+func isAfterEqualsSign(file *file, offset int) bool {
+	if file.ir.AST() == nil || file.ir.AST().Stream() == nil {
+		return false
+	}
+
+	before, _ := file.ir.AST().Stream().Around(offset)
+	cursor := token.NewCursorAt(before)
+
+	if isTokenSpace(before) {
+		before = cursor.PrevSkippable()
+	}
+	return isTokenEqual(before)
 }
 
+// isTokenType returns true if the tokens are valid for a type declaration e.g "buf.registry.Type".
+func isTokenType(tok token.Token) bool {
+	kind := tok.Kind()
+	return kind == token.Ident || (kind == token.Keyword && tok.Text() == ".")
+}
+
+// isTokenSpace returns true for spaces, excluding newlines.
 func isTokenSpace(tok token.Token) bool {
 	return tok.Kind() == token.Space && strings.IndexByte(tok.Text(), '\n') == -1
 }
 
+// isTokenNewline returns true if tok is a newline.
+func isTokenNewline(tok token.Token) bool {
+	return tok.Kind() == token.Space && strings.Count(tok.Text(), "\n") == 1
+}
+
+// isTokenParen returns true for '(' or ')' tokens.
 func isTokenParen(tok token.Token) bool {
-	return tok.Kind() == token.Punct &&
+	return tok.Kind() == token.Keyword &&
 		(strings.HasPrefix(tok.Text(), "(") ||
 			strings.HasSuffix(tok.Text(), ")"))
 }
 
+// isTokenEqual returns true for '=' tokens.
+func isTokenEqual(tok token.Token) bool {
+	return tok.Kind() == token.Keyword && tok.Keyword() == keyword.Assign
+}
+
+// isTokenTypeDelimiter returns true if the token represents a delimiter for completion.
+// A delimiter is a newline or start of stream. This handles invalid partial declarations.
 func isTokenTypeDelimiter(tok token.Token) bool {
 	kind := tok.Kind()
 	return (kind == token.Unrecognized && tok.IsZero()) ||
 		(kind == token.Space && strings.IndexByte(tok.Text(), '\n') != -1) ||
-		(kind == token.Comment)
+		(kind == token.Comment && strings.HasSuffix(tok.Text(), "\n"))
+}
+
+// isInsideMapType checks if the cursor is inside map type parameters (e.g., map<int32, |>).
+// Returns (insideMap, isKeyPosition) where isKeyPosition is true if before the comma.
+func isInsideMapType(file *file, def ast.DeclDef, offset int) (bool, bool) {
+	// Try AST-based detection first for valid field declarations
+	if def.Classify() == ast.DefKindField {
+		field := def.AsField()
+		genericType := field.Type.RemovePrefixes().AsGeneric()
+		if !genericType.IsZero() {
+			keyType, valueType := genericType.AsMap()
+			// Only use AST-based detection when both key and value types are valid
+			// For incomplete syntax (missing key or value), fall through to character scanning
+			if !keyType.IsZero() && !valueType.IsZero() {
+				span := genericType.Span()
+				if offset > span.Start && offset <= span.End {
+					keySpan := keyType.Span()
+					valueSpan := valueType.Span()
+
+					// Determine position based on key/value spans
+					if offset <= keySpan.End {
+						return true, true // In key type
+					}
+					if offset >= valueSpan.Start {
+						return true, false // In value type
+					}
+					// Between key and value (after comma, before value start)
+					return true, false
+				}
+			}
+		}
+	}
+
+	// Fall back to character scanning for incomplete/invalid field declarations
+	sourceText := file.file.Text()
+	if offset <= 0 || offset > len(sourceText) {
+		return false, false
+	}
+
+	angleDepth := 0
+	commaFound := false
+
+	for i := offset - 1; i >= 0; i-- {
+		ch := sourceText[i]
+		switch ch {
+		case '>':
+			angleDepth++
+		case '<':
+			if angleDepth == 0 {
+				return true, !commaFound
+			}
+			angleDepth--
+		case ',':
+			if angleDepth == 0 {
+				commaFound = true
+			}
+		case '\n', ';':
+			return false, false
+		}
+	}
+
+	return false, false
 }
 
 // extractAroundOffset extracts the value around the offset by querying the token stream.
@@ -1570,7 +1837,7 @@ func offsetInSpan(offset int, span source.Span) int {
 	if offset < span.Start {
 		return -1
 	} else if offset > span.End {
-		// End is inclusive for completions	_
+		// End is inclusive for completions
 		return 1
 	}
 	return 0
@@ -1587,18 +1854,35 @@ func isProto2(file *file) bool {
 	return file.ir.Syntax() == syntax.Proto2
 }
 
+// isEditions returns true if the file uses editions syntax.
+func isEditions(file *file) bool {
+	return file.ir.Syntax().IsEdition()
+}
+
+// findTypeBySpan returns the IR Type that corresponds to the given AST span.
+// Returns a zero Type if no matching type is found.
+func findTypeBySpan(file *file, span source.Span) ir.Type {
+	if span.IsZero() {
+		return ir.Type{}
+	}
+	for t := range seq.Values(file.ir.AllTypes()) {
+		if t.AST().Span() == span {
+			return t
+		}
+	}
+	return ir.Type{}
+}
+
 // findTypeFullName simply loops through and finds the type definition name.
 func findTypeFullName(file *file, declDef ast.DeclDef) ir.FullName {
 	declDefSpan := declDef.Span()
 	if declDefSpan.IsZero() {
 		return ""
 	}
-	for irType := range seq.Values(file.ir.AllTypes()) {
-		typeSpan := irType.AST().Span()
-		if typeSpan.Start == declDefSpan.Start && typeSpan.End == declDefSpan.End {
-			file.lsp.logger.Debug("completion: found parent type", slog.String("parent", string(irType.FullName())))
-			return irType.FullName()
-		}
+	irType := findTypeBySpan(file, declDefSpan)
+	if !irType.IsZero() {
+		file.lsp.logger.Debug("completion: found parent type", slog.String("parent", string(irType.FullName())))
+		return irType.FullName()
 	}
 	return ""
 }
@@ -1629,11 +1913,197 @@ func getOptionValueType(file *file, ctx context.Context, optionValue ir.MessageV
 	return ir.Type{}, false
 }
 
+func completionItemsForFieldNumber(
+	file *file,
+	parentDef ast.DeclDef,
+) []protocol.CompletionItem {
+	// Find the IR Type corresponding to this AST definition
+	irType := findTypeBySpan(file, parentDef.Span())
+
+	var ranges []numberRange[uint64]
+
+	// Add protobuf reserved range
+	ranges = append(ranges, numberRange[uint64]{
+		start: uint64(protowire.FirstReservedNumber),
+		end:   uint64(protowire.LastReservedNumber),
+	})
+
+	if !irType.IsZero() {
+		// Add each member as a range of one
+		for member := range seq.Values(irType.Members()) {
+			num := uint64(member.Number())
+			if num > 0 {
+				ranges = append(ranges, numberRange[uint64]{start: num, end: num})
+			}
+		}
+
+		// Add reserved ranges
+		for reservedRange := range seq.Values(irType.ReservedRanges()) {
+			start, end := reservedRange.Range()
+			if end == math.MaxInt32 {
+				// Can't allocate beyond open-ended range
+				return nil
+			}
+			if start > 0 {
+				ranges = append(ranges, numberRange[uint64]{
+					start: uint64(start),
+					end:   uint64(end),
+				})
+			}
+		}
+	}
+
+	// Sort by start position
+	slices.SortFunc(ranges, func(a, b numberRange[uint64]) int {
+		if a.start < b.start {
+			return -1
+		} else if a.start > b.start {
+			return 1
+		}
+		return 0
+	})
+
+	// Find first gap starting from 1
+	nextNumber := uint64(1)
+	for _, r := range ranges {
+		if nextNumber < r.start {
+			// Found a gap before this range
+			return []protocol.CompletionItem{
+				{
+					Label: strconv.FormatUint(nextNumber, 10),
+					Kind:  protocol.CompletionItemKindValue,
+				},
+			}
+		}
+		// Move past this range
+		if r.end >= nextNumber {
+			nextNumber = r.end + 1
+		}
+	}
+
+	// Check if we're still within valid range
+	if nextNumber <= uint64(protowire.MaxValidNumber) {
+		return []protocol.CompletionItem{
+			{
+				Label: strconv.FormatUint(nextNumber, 10),
+				Kind:  protocol.CompletionItemKindValue,
+			},
+		}
+	}
+
+	return nil
+}
+
+// completionItemsForEnumNumber suggests the next available, non-reserved enum number in the enum
+// for completion.
+//
+// Enum values are _any_ int32 value, but we make the assumption here that the user is using the
+// "typical" incrementing from 0 approach and suggest the next available positive int32 value.
+//
+// Ref: https://protobuf.com/docs/language-spec#enum-values
+func completionItemsForEnumNumber(
+	file *file,
+	parentDef ast.DeclDef,
+	currentEnumValue ast.DefEnumValue,
+) []protocol.CompletionItem {
+	// Find the IR Type corresponding to this AST definition
+	irType := findTypeBySpan(file, parentDef.Span())
+
+	if irType.IsZero() {
+		return []protocol.CompletionItem{
+			{
+				Label: "0",
+				Kind:  protocol.CompletionItemKindValue,
+			},
+		}
+	}
+
+	// Get the span of the current enum value we're completing, if any
+	var currentEnumValueNameSpan source.Span
+	if !currentEnumValue.Name.IsZero() {
+		currentEnumValueNameSpan = currentEnumValue.Name.Span()
+	}
+
+	var ranges []numberRange[int32]
+
+	// Add each member as a range of one
+	// Exclude the current enum value being completed, as it may have a default value in the IR
+	for member := range seq.Values(irType.Members()) {
+		// Skip the member if it's the one we're currently completing
+		// Compare the AST definition spans to identify the same enum value
+		if !currentEnumValueNameSpan.IsZero() {
+			memberAST := member.AST()
+			if memberAST.Classify() == ast.DefKindEnumValue {
+				memberEnumValue := memberAST.AsEnumValue()
+				if !memberEnumValue.Name.IsZero() && memberEnumValue.Name.Span() == currentEnumValueNameSpan {
+					continue
+				}
+			}
+		}
+		num := member.Number()
+		ranges = append(ranges, numberRange[int32]{start: num, end: num})
+	}
+
+	// Add reserved ranges
+	for reservedRange := range seq.Values(irType.ReservedRanges()) {
+		start, end := reservedRange.Range()
+		if end == math.MaxInt32 {
+			// Can't allocate beyond open-ended range
+			return nil
+		}
+		ranges = append(ranges, numberRange[int32]{
+			start: start,
+			end:   end,
+		})
+	}
+
+	// Sort by start position
+	slices.SortFunc(ranges, func(a, b numberRange[int32]) int {
+		if a.start < b.start {
+			return -1
+		} else if a.start > b.start {
+			return 1
+		}
+		return 0
+	})
+
+	// Find first gap starting from 0
+	// Enum values typically start at 0 and increment, but can be any int32 value
+	var nextNumber int32
+	for _, r := range ranges {
+		if nextNumber < r.start {
+			// Found a gap before this range
+			return []protocol.CompletionItem{
+				{
+					Label: strconv.FormatInt(int64(nextNumber), 10),
+					Kind:  protocol.CompletionItemKindValue,
+				},
+			}
+		}
+		// Move past this range
+		if r.end >= nextNumber {
+			if r.end == math.MaxInt32 {
+				// Can't find next value after MaxInt32
+				return nil
+			}
+			nextNumber = r.end + 1
+		}
+	}
+
+	// If we've checked all ranges and still have a valid number, return it
+	return []protocol.CompletionItem{
+		{
+			Label: strconv.FormatInt(int64(nextNumber), 10),
+			Kind:  protocol.CompletionItemKindValue,
+		},
+	}
+}
+
 // resolveCompletionItem resolves additional details for a completion item.
 //
 // This function is called by the CompletionResolve handler in server.go.
 func resolveCompletionItem(
-	ctx context.Context,
+	_ context.Context,
 	item *protocol.CompletionItem,
 ) (*protocol.CompletionItem, error) {
 	// TODO: Implement completion resolution logic.

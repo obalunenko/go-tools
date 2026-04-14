@@ -18,7 +18,6 @@ import (
 	typeindexanalyzer "golang.org/x/tools/internal/analysis/typeindex"
 	"golang.org/x/tools/internal/astutil"
 	"golang.org/x/tools/internal/goplsexport"
-	"golang.org/x/tools/internal/refactor"
 	"golang.org/x/tools/internal/stdlib"
 	"golang.org/x/tools/internal/typesinternal/typeindex"
 )
@@ -43,23 +42,29 @@ func init() {
 // iter.Seq.
 var stditeratorsTable = [...]struct {
 	pkgpath, typename, lenmethod, atmethod, itermethod, elemname string
+
+	seqn int // 1 or 2 => "for x" or "for _, x"
 }{
 	// Example: in go/types, (*Tuple).Variables returns an
 	// iterator that replaces a loop over (*Tuple).{Len,At}.
 	// The loop variable is named "v".
-	{"go/types", "Interface", "NumEmbeddeds", "EmbeddedType", "EmbeddedTypes", "etyp"},
-	{"go/types", "Interface", "NumExplicitMethods", "ExplicitMethod", "ExplicitMethods", "method"},
-	{"go/types", "Interface", "NumMethods", "Method", "Methods", "method"},
-	{"go/types", "MethodSet", "Len", "At", "Methods", "method"},
-	{"go/types", "Named", "NumMethods", "Method", "Methods", "method"},
-	{"go/types", "Scope", "NumChildren", "Child", "Children", "child"},
-	{"go/types", "Struct", "NumFields", "Field", "Fields", "field"},
-	{"go/types", "Tuple", "Len", "At", "Variables", "v"},
-	{"go/types", "TypeList", "Len", "At", "Types", "t"},
-	{"go/types", "TypeParamList", "Len", "At", "TypeParams", "tparam"},
-	{"go/types", "Union", "Len", "Term", "Terms", "term"},
-	// TODO(adonovan): support Seq2. Bonus: transform uses of both key and value.
-	// {"reflect", "Value", "NumFields", "Field", "Fields", "field"},
+	{"go/types", "Interface", "NumEmbeddeds", "EmbeddedType", "EmbeddedTypes", "etyp", 1},
+	{"go/types", "Interface", "NumExplicitMethods", "ExplicitMethod", "ExplicitMethods", "method", 1},
+	{"go/types", "Interface", "NumMethods", "Method", "Methods", "method", 1},
+	{"go/types", "MethodSet", "Len", "At", "Methods", "method", 1},
+	{"go/types", "Named", "NumMethods", "Method", "Methods", "method", 1},
+	{"go/types", "Scope", "NumChildren", "Child", "Children", "child", 1},
+	{"go/types", "Struct", "NumFields", "Field", "Fields", "field", 1},
+	{"go/types", "Tuple", "Len", "At", "Variables", "v", 1},
+	{"go/types", "TypeList", "Len", "At", "Types", "t", 1},
+	{"go/types", "TypeParamList", "Len", "At", "TypeParams", "tparam", 1},
+	{"go/types", "Union", "Len", "Term", "Terms", "term", 1},
+	{"reflect", "Type", "NumField", "Field", "Fields", "field", 1},
+	{"reflect", "Type", "NumMethod", "Method", "Methods", "method", 1},
+	{"reflect", "Type", "NumIn", "In", "Ins", "in", 1},
+	{"reflect", "Type", "NumOut", "Out", "Outs", "out", 1},
+	{"reflect", "Value", "NumField", "Field", "Fields", "field", 2},
+	{"reflect", "Value", "NumMethod", "Method", "Methods", "method", 2},
 }
 
 // stditerators suggests fixes to replace loops using Len/At-style
@@ -86,6 +91,19 @@ var stditeratorsTable = [...]struct {
 // the user hasn't intentionally chosen not to use an
 // iterator for that reason? We don't want to go fix to
 // undo optimizations. Do we need a suppression mechanism?
+//
+// TODO(adonovan): recognize the more complex patterns that
+// could make full use of both components of an iter.Seq2, e.g.
+//
+//	for i := 0; i < v.NumField(); i++ {
+//		use(v.Field(i), v.Type().Field(i))
+//	}
+//
+// =>
+//
+//	for structField, field := range v.Fields() {
+//		use(structField, field)
+//	}
 func stditerators(pass *analysis.Pass) (any, error) {
 	var (
 		index = pass.ResultOf[typeindexanalyzer.Analyzer].(*typeindex.Index)
@@ -163,22 +181,9 @@ func stditerators(pass *analysis.Pass) (any, error) {
 			}
 
 			loop := curBody.Parent().Node()
-
-			// Choose a fresh name only if
-			// (a) the preferred name is already declared here, and
-			// (b) there are references to it from the loop body.
-			// TODO(adonovan): this pattern also appears in errorsastype,
-			// and is wanted elsewhere; factor.
-			name := row.elemname
-			if v := lookup(info, curBody, name); v != nil {
-				// is it free in body?
-				for curUse := range index.Uses(v) {
-					if curBody.Contains(curUse) {
-						name = refactor.FreshName(info.Scopes[loop], loop.Pos(), name)
-						break
-					}
-				}
-			}
+			// We generate a new name only if the preferred name is already declared here
+			// and is used within the loop body.
+			name := freshName(info, index, info.Scopes[loop], loop.Pos(), curBody, curBody, token.NoPos, row.elemname)
 			return name, nil
 		}
 
@@ -201,7 +206,7 @@ func stditerators(pass *analysis.Pass) (any, error) {
 			)
 
 			// Analyze enclosing loop.
-			switch ek, _ := curLenCall.ParentEdge(); ek {
+			switch curLenCall.ParentEdgeKind() {
 			case edge.BinaryExpr_Y:
 				// pattern 1: for i := 0; i < x.Len(); i++ { ... }
 				var (
@@ -209,7 +214,7 @@ func stditerators(pass *analysis.Pass) (any, error) {
 					cmp    = curCmp.Node().(*ast.BinaryExpr)
 				)
 				if cmp.Op != token.LSS ||
-					!astutil.IsChildOf(curCmp, edge.ForStmt_Cond) {
+					curCmp.ParentEdgeKind() != edge.ForStmt_Cond {
 					continue
 				}
 				if id, ok := cmp.X.(*ast.Ident); ok {
@@ -228,15 +233,17 @@ func stditerators(pass *analysis.Pass) (any, error) {
 					indexVar = v
 					curBody = curFor.ChildAt(edge.ForStmt_Body, -1)
 					elem, elemVar = chooseName(curBody, lenSel.X, indexVar)
+					elemPrefix := cond(row.seqn == 2, "_, ", "")
 
-					//	for i    := 0; i < x.Len(); i++ {
-					//          ----    -------  ---  -----
-					//	for elem := range  x.All()      {
+					//	for i       := 0; i < x.Len(); i++ {
+					//          ----       -------  ---  -----
+					//	for elem    := range  x.All()      {
+					// or   for _, elem := ...
 					edits = []analysis.TextEdit{
 						{
 							Pos:     v.Pos(),
 							End:     v.Pos() + token.Pos(len(v.Name())),
-							NewText: []byte(elem),
+							NewText: []byte(elemPrefix + elem),
 						},
 						{
 							Pos:     loop.Init.(*ast.AssignStmt).Rhs[0].Pos(),
@@ -271,6 +278,7 @@ func stditerators(pass *analysis.Pass) (any, error) {
 					indexVar = info.Defs[id].(*types.Var)
 					curBody = curRange.ChildAt(edge.RangeStmt_Body, -1)
 					elem, elemVar = chooseName(curBody, lenSel.X, indexVar)
+					elemPrefix := cond(row.seqn == 2, "_, ", "")
 
 					//	for i    := range x.Len() {
 					//          ----            ---
@@ -279,7 +287,7 @@ func stditerators(pass *analysis.Pass) (any, error) {
 						{
 							Pos:     loop.Key.Pos(),
 							End:     loop.Key.End(),
-							NewText: []byte(elem),
+							NewText: []byte(elemPrefix + elem),
 						},
 						{
 							Pos:     lenSel.Sel.Pos(),
@@ -344,8 +352,8 @@ func stditerators(pass *analysis.Pass) (any, error) {
 			// (In the long run, version filters are not highly selective,
 			// so there's no need to do them first, especially as this check
 			// may be somewhat expensive.)
-			if v, ok := methodGoVersion(row.pkgpath, row.typename, row.itermethod); !ok {
-				panic("no version found")
+			if v, err := methodGoVersion(row.pkgpath, row.typename, row.itermethod); err != nil {
+				panic(err)
 			} else if !analyzerutil.FileUsesGoVersion(pass, astutil.EnclosingFile(curLenCall), v.String()) {
 				continue nextCall
 			}
@@ -371,7 +379,7 @@ func stditerators(pass *analysis.Pass) (any, error) {
 
 // methodGoVersion reports the version at which the method
 // (pkgpath.recvtype).method appeared in the standard library.
-func methodGoVersion(pkgpath, recvtype, method string) (stdlib.Version, bool) {
+func methodGoVersion(pkgpath, recvtype, method string) (stdlib.Version, error) {
 	// TODO(adonovan): opt: this might be inefficient for large packages
 	// like go/types. If so, memoize using a map (and kill two birds with
 	// one stone by also memoizing the 'within' check above).
@@ -379,9 +387,9 @@ func methodGoVersion(pkgpath, recvtype, method string) (stdlib.Version, bool) {
 		if sym.Kind == stdlib.Method {
 			_, recv, name := sym.SplitMethod()
 			if recv == recvtype && name == method {
-				return sym.Version, true
+				return sym.Version, nil
 			}
 		}
 	}
-	return 0, false
+	return 0, fmt.Errorf("methodGoVersion: %s.%s.%s missing from stdlib manifest", pkgpath, recvtype, method)
 }

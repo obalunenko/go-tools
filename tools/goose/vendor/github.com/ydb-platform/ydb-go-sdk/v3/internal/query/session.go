@@ -2,9 +2,12 @@ package query
 
 import (
 	"context"
+	"time"
 
 	"github.com/ydb-platform/ydb-go-genproto/Ydb_Query_V1"
+	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb"
 
+	"github.com/ydb-platform/ydb-go-sdk/v3/internal/query/arrow"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/query/options"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/query/result"
 	"github.com/ydb-platform/ydb-go-sdk/v3/internal/stack"
@@ -21,22 +24,29 @@ type (
 	Session struct {
 		Core
 
-		client Ydb_Query_V1.QueryServiceClient
-		trace  *trace.Query
-		lazyTx bool
+		client                   Ydb_Query_V1.QueryServiceClient
+		trace                    *trace.Query
+		lazyTx                   bool
+		streamResultCloseTimeout time.Duration
 	}
 )
 
 func (s *Session) QueryResultSet(
 	ctx context.Context, q string, opts ...options.Execute,
 ) (rs result.ClosableResultSet, finalErr error) {
+	settings := options.ExecuteSettings(opts...)
+
+	if err := validateTxControl(settings); err != nil {
+		return nil, err
+	}
+
 	onDone := trace.QueryOnSessionQueryResultSet(s.trace, &ctx,
 		stack.FunctionID("github.com/ydb-platform/ydb-go-sdk/v3/internal/query.(*Session).QueryResultSet"), s, q)
 	defer func() {
 		onDone(finalErr)
 	}()
 
-	r, err := s.execute(ctx, q, options.ExecuteSettings(opts...), withTrace(s.trace))
+	r, err := s.execute(ctx, q, settings, withStreamResultTrace(s.trace))
 	if err != nil {
 		return nil, xerrors.WithStackTrace(err)
 	}
@@ -69,13 +79,19 @@ func (s *Session) queryRow(
 }
 
 func (s *Session) QueryRow(ctx context.Context, q string, opts ...options.Execute) (_ query.Row, finalErr error) {
+	settings := options.ExecuteSettings(opts...)
+
+	if err := validateTxControl(settings); err != nil {
+		return nil, err
+	}
+
 	onDone := trace.QueryOnSessionQueryRow(s.trace, &ctx,
 		stack.FunctionID("github.com/ydb-platform/ydb-go-sdk/v3/internal/query.(*Session).QueryRow"), s, q)
 	defer func() {
 		onDone(finalErr)
 	}()
 
-	row, err := s.queryRow(ctx, q, options.ExecuteSettings(opts...), withTrace(s.trace))
+	row, err := s.queryRow(ctx, q, settings, withStreamResultTrace(s.trace))
 	if err != nil {
 		return nil, xerrors.WithStackTrace(err)
 	}
@@ -92,9 +108,10 @@ func createSession(
 	}
 
 	return &Session{
-		Core:   core,
-		trace:  core.Trace,
-		client: core.Client,
+		Core:                     core,
+		trace:                    core.Trace,
+		client:                   core.Client,
+		streamResultCloseTimeout: core.deleteTimeout,
 	}, nil
 }
 
@@ -115,7 +132,7 @@ func (s *Session) Begin(
 		}
 	}()
 
-	if s.lazyTx {
+	if lazyTx := baseTx.LazyTxFromContext(ctx, s.lazyTx); lazyTx {
 		return &Transaction{
 			s:          s,
 			txSettings: txSettings,
@@ -128,8 +145,9 @@ func (s *Session) Begin(
 	}
 
 	return &Transaction{
-		LazyID: baseTx.ID(txID),
-		s:      s,
+		LazyID:     baseTx.ID(txID),
+		txSettings: txSettings,
+		s:          s,
 	}, nil
 }
 
@@ -144,7 +162,10 @@ func (s *Session) execute(
 		}
 	}()
 
-	r, err := execute(ctx, s.ID(), s.client, q, settings, append(opts, withOnClose(cancel))...)
+	r, err := execute(ctx, s.ID(), s.client, q, settings, append(opts,
+		withStreamResultOnClose(cancel),
+		withStreamResultCloseTimeout(s.streamResultCloseTimeout),
+	)...)
 	if err != nil {
 		return nil, xerrors.WithStackTrace(err)
 	}
@@ -154,6 +175,11 @@ func (s *Session) execute(
 
 func (s *Session) Exec(ctx context.Context, q string, opts ...options.Execute) (finalErr error) {
 	settings := options.ExecuteSettings(opts...)
+
+	if err := validateTxControl(settings); err != nil {
+		return err
+	}
+
 	onDone := trace.QueryOnSessionExec(s.trace, &ctx,
 		stack.FunctionID("github.com/ydb-platform/ydb-go-sdk/v3/internal/query.(*Session).Exec"),
 		s,
@@ -164,7 +190,7 @@ func (s *Session) Exec(ctx context.Context, q string, opts ...options.Execute) (
 		onDone(finalErr)
 	}()
 
-	r, err := s.execute(ctx, q, options.ExecuteSettings(opts...), withTrace(s.trace))
+	r, err := s.execute(ctx, q, settings, withStreamResultTrace(s.trace))
 	if err != nil {
 		return xerrors.WithStackTrace(err)
 	}
@@ -182,6 +208,11 @@ func (s *Session) Exec(ctx context.Context, q string, opts ...options.Execute) (
 
 func (s *Session) Query(ctx context.Context, q string, opts ...options.Execute) (_ query.Result, finalErr error) {
 	settings := options.ExecuteSettings(opts...)
+
+	if err := validateTxControl(settings); err != nil {
+		return nil, err
+	}
+
 	onDone := trace.QueryOnSessionQuery(s.trace, &ctx,
 		stack.FunctionID("github.com/ydb-platform/ydb-go-sdk/v3/internal/query.(*Session).Query"),
 		s,
@@ -192,10 +223,49 @@ func (s *Session) Query(ctx context.Context, q string, opts ...options.Execute) 
 		onDone(finalErr)
 	}()
 
-	r, err := s.execute(ctx, q, options.ExecuteSettings(opts...), withTrace(s.trace))
+	r, err := s.execute(ctx, q, settings, withStreamResultTrace(s.trace))
 	if err != nil {
 		return nil, xerrors.WithStackTrace(err)
 	}
 
 	return r, nil
+}
+
+// QueryArrow like [*Session.Query] but returns results in [Apache Arrow] format.
+// Each part of the result implements io.Reader and contains the data in Arrow IPC format.
+//
+// Experimental: https://github.com/ydb-platform/ydb-go-sdk/blob/master/VERSIONING.md#experimental
+//
+// [Apache Arrow]: https://arrow.apache.org/
+func (s *Session) QueryArrow(ctx context.Context, q string, opts ...options.Execute) (_ arrow.Result, finalErr error) {
+	settings := options.ExecuteSettings(opts...)
+
+	ctx, cancel := xcontext.WithDone(ctx, s.Done())
+	defer func() {
+		if finalErr != nil {
+			cancel()
+			applyStatusByError(s, finalErr)
+		}
+	}()
+
+	request, callOptions, err := executeQueryRequest(s.ID(), q, settings)
+	if err != nil {
+		return nil, xerrors.WithStackTrace(err)
+	}
+
+	request.ResultSetFormat = Ydb.ResultSet_FORMAT_ARROW
+
+	executeCtx, executeCancel := xcontext.WithCancel(xcontext.ValueOnly(ctx))
+	defer func() {
+		if finalErr != nil {
+			executeCancel()
+		}
+	}()
+
+	stream, err := s.client.ExecuteQuery(executeCtx, request, callOptions...)
+	if err != nil {
+		return nil, xerrors.WithStackTrace(err)
+	}
+
+	return &arrowResult{stream: stream, close: executeCancel}, nil
 }

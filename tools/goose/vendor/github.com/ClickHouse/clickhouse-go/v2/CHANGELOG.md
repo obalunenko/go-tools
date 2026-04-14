@@ -1,3 +1,145 @@
+# v2.43.0, 2026-01-29 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements :tada: 
+* Implement Unwrap() on BlockError by @ilidemi in https://github.com/ClickHouse/clickhouse-go/pull/1741
+* Feat: Add clickhouse cluster mode setup via docker compose by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1749
+* Feat: support LineString and MultiLineString by @imkonsowa in https://github.com/ClickHouse/clickhouse-go/pull/1751
+* feat: support BFloat16 datatype by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1755
+* feat(slog): add support for structured and leveled logger by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1756
+* feat: support `QBit` column type by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1761
+
+### Bug fixes :bug: 
+* fix: Fixes the failure againt HEAD of CH server by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1752
+* fix(time/time64): fix the ScanType of both time and time64 by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1758
+
+### Other Changes 🛠
+* update `UseContext` example to handle `rows.Err()` correct by @ehsansouri23 in https://github.com/ClickHouse/clickhouse-go/pull/1726
+* chore(deps): bump golang.org/x/net from 0.48.0 to 0.49.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1750
+* doc(pooling): Clarify connection pooling is enabled on both protocols by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1753
+* add codeowners by @mshustov in https://github.com/ClickHouse/clickhouse-go/pull/1754
+
+## New Contributors
+* @ehsansouri23 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1726
+* @ilidemi made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1741
+* @imkonsowa made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1751
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.42.0...v2.43.0
+
+# v2.42.0, 2025-12-12 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+
+### Enhancements 🎉
+* Add context option to append more ClientInfo to the system.query_log by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1736
+* refactor: idle pool and fix non-deterministic teardown of idle cleanup goroutine by @GeorgeMac in https://github.com/ClickHouse/clickhouse-go/pull/1687
+* chore: Improve EOF error messages. by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1723
+* feat: Add support for proper exception handling by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1694
+
+### Bug Fixes :bug: 
+* bug: Fix `formatTime` escaping by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1727
+
+### Other Changes 🛠
+* chore(release): Workflow Authentication by @juliojimenez in https://github.com/ClickHouse/clickhouse-go/pull/1718
+* Bump golang.org/x/crypto from 0.44.0 to 0.45.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1717
+* Fix #1719: Fix invalid links and add link checking for PRs by @tsics in https://github.com/ClickHouse/clickhouse-go/pull/1720
+* fix: restore minimal Go version to 1.24 by @vincentbernat in https://github.com/ClickHouse/clickhouse-go/pull/172
+* chore(deps): bump golang.org/x/net from 0.47.0 to 0.48.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1733
+* chore(deps): bump go.opentelemetry.io/otel/trace from 1.38.0 to 1.39.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1734
+
+## New Contributors
+* @juliojimenez made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1718
+* @tsics made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1720
+* @GeorgeMac made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1687
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.41.0...v2.42.0
+
+# v2.41.0, 2025-11-20 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+
+### Enhancements :tada:  
+* feat: add custom http transport by @r0bobo in https://github.com/ClickHouse/clickhouse-go/pull/1656
+* Support interface typed NamedValue binding by @crisismaple in https://github.com/ClickHouse/clickhouse-go/pull/1633
+* remove deprecated Object('json') column by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1674
+* feat: OpenDB api now sets few configs passed via options by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1675
+* chore: Async inserts docs and example updates by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1690
+* Set HttpUrlPath from DSN to resolve missing path in HTTP requests by @RokibulHasan7 in https://github.com/ClickHouse/clickhouse-go/pull/1692
+* Add support to `time` and `time64` datatypes by @kavirajk @shivanshuraj1333  in https://github.com/ClickHouse/clickhouse-go/pull/1669
+* fix: Don't scan profile events if listener is not set by @erezrokah in https://github.com/ClickHouse/clickhouse-go/pull/1686
+* Allow oneline comment in insert query by @luckyevildev in https://github.com/ClickHouse/clickhouse-go/pull/1693
+* Update cloud version matrix (25.10) by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1704
+* Disable default transport layer gzip compression by default by @kavirajk https://github.com/ClickHouse/clickhouse-go/pull/1704/commits/5c8c388b7e19b6be4ca101624d7ae3b02bf15a05 and https://github.com/ClickHouse/clickhouse-go/pull/1704#issuecomment-3502818316
+* Add some examples for ephemeral column by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1710
+
+
+### Bug fixes :bug: 
+* Fix potential Divide by Zero panic by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1665
+* fix: SimpleAggregateFunction(anyLast, JSON) by @bripkens in https://github.com/ClickHouse/clickhouse-go/pull/1645
+* bug: Fix Nullable(JSON) with `nil` map by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1667
+* bug: Fixes some correctness bug with ContextWatchdog by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1688
+
+### Other Changes 🛠
+* chore: Remove unused bash script by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1663
+* chore: Remove license header from each go file by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1662
+* Bump github.com/paulmach/orb from 0.11.1 to 0.12.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1664
+* Bump github.com/testcontainers/testcontainers-go from 0.38.0 to 0.39.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1666
+* Bump github.com/docker/docker from 28.4.0+incompatible to 28.5.0+incompatible by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1676
+* Bump github.com/docker/docker from 28.5.0+incompatible to 28.5.1+incompatible by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1679
+* Bump golang.org/x/net from 0.44.0 to 0.46.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1683
+* Bump github.com/ClickHouse/ch-go from 0.68.0 to 0.69.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1678
+* chore: Update contributing guide and docker compose stack by @erezrokah in https://github.com/ClickHouse/clickhouse-go/pull/1684
+* chore: Upgrade Go toolchain to 1.25.x by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1689
+* Bump github.com/docker/docker from 28.5.1+incompatible to 28.5.2+incompatible by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1706
+* Bump github.com/testcontainers/testcontainers-go from 0.39.0 to 0.40.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1705
+* Bump golang.org/x/net from 0.46.0 to 0.47.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1711
+
+## New Contributors
+* @kavirajk made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1663
+* @bripkens made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1645
+* @erezrokah made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1684
+* @RokibulHasan7 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1692
+* @luckyevildev made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1693
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.40.3...v2.41.0
+
+# v2.40.3, 2025-09-13 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Add option to set custom http transport @r0bobo in https://github.com/ClickHouse/clickhouse-go/pull/1656
+
+### Other Changes 🛠
+* bug: deserializing into nullable field by @rbroggi in https://github.com/ClickHouse/clickhouse-go/pull/1649
+* Fixes for #1649 by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1654
+* bug: Fix potential Divide by Zero panic by @artemseleznev and @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1665
+* bug: Fix `Nullable(JSON)` with `nil` map. Inserting Null into a Nullable(JSON) column via a batch insert non-null value before by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1667
+
+## New Contributors
+* @rbroggi made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1649
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.40.2...v2.40.3
+
+# v2.40.2, 2025-09-13 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Other Changes 🛠
+* Bump golang.org/x/net from 0.42.0 to 0.43.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1634
+* Bump github.com/ClickHouse/ch-go from 0.67.0 to 0.68.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1639
+* Bump github.com/stretchr/testify from 1.10.0 to 1.11.1 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1641
+* Bump go.opentelemetry.io/otel/trace from 1.37.0 to 1.38.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1642
+* Bump github.com/docker/docker from 28.3.3+incompatible to 28.4.0+incompatible by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1646
+* Bump golang.org/x/net from 0.43.0 to 0.44.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1647
+* chore: migrate to maintained YAML library by @joschi in https://github.com/ClickHouse/clickhouse-go/pull/1651
+* skip random tests on Go 1.25 by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1652
+* bug: headers map can be nil by @r0bobo in https://github.com/ClickHouse/clickhouse-go/pull/1650
+
+## New Contributors
+* @joschi made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1651
+* @r0bobo made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1650
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.40.1...v2.40.2
+
 # v2.40.1, 2025-07-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
@@ -254,7 +396,7 @@ HTTP still has some limitations to be aware of for things like batch flushing an
 ## New Contributors
 * @serprex made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1493
 
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.30.3...2.31.0
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.30.3...v2.31.0
 
 # v2.30.3, 2025-02-03 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
@@ -722,7 +864,7 @@ v2.25.0 was released with a breaking change in https://github.com/ClickHouse/cli
 * @alrs made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1081
 * @testwill made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1080
 
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.13.4...v2.14
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.13.4...v2.14.0
 
 # v2.13.4, 2023-08-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
 

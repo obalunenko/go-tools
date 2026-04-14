@@ -17,7 +17,6 @@ import (
 	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/caarlos0/log"
 	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
-	cerrdefs "github.com/containerd/errdefs"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/crane"
@@ -218,11 +217,8 @@ func (o *buildOptions) makeBuilder(ctx *context.Context) (*build.Caching, error)
 			if cached, found := baseImages.Load(o.baseImage); found {
 				return ref, cached.(build.Result), nil
 			}
-			localImage, err := daemon.Image(ref)
-			if err != nil && !cerrdefs.IsNotFound(err) {
-				return nil, nil, err
-			}
-			if localImage != nil {
+
+			if localImage, _ := daemon.Image(ref); localImage != nil {
 				baseImages.Store(o.baseImage, localImage)
 				return ref, localImage, err
 			}
@@ -548,11 +544,11 @@ func copyImage(src, dst string) (string, error) {
 		WithField("dst", dst).
 		Info("copying manifest")
 	if err := crane.Copy(src, dst, crane.WithAuthFromKeychain(keychain)); err != nil {
-		return "", fmt.Errorf("ko: could not copy %q to %q: %w", src, dst, err)
+		return "", fmt.Errorf("could not copy %q to %q: %w", src, dst, err)
 	}
 	digest, err := crane.Digest(dst, crane.WithAuthFromKeychain(keychain))
 	if err != nil {
-		return "", fmt.Errorf("ko: could not get digest of %q: %w", dst, err)
+		return "", fmt.Errorf("could not get digest of %q: %w", dst, err)
 	}
 	return digest, nil
 }

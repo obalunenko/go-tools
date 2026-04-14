@@ -23,10 +23,10 @@ So I created nFPM: a simpler, 0-dependency, as-little-assumptions-as-possible al
 
 ## Getting started
 
-- [Getting Started](https://nfpm.goreleaser.com)
-- [Install](https://nfpm.goreleaser.com/install/)
-- [Usage](https://nfpm.goreleaser.com/usage/)
-- [Configuration reference](https://nfpm.goreleaser.com/configuration/)
+- [Documentation](https://nfpm.goreleaser.com/)
+- [Getting Started](https://nfpm.goreleaser.com/docs/quick-start/)
+- [Install](https://nfpm.goreleaser.com/docs/install/)
+- [Configuration reference](https://nfpm.goreleaser.com/docs/configuration/)
 
 ## Used and supported by
 
