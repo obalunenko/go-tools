@@ -58,4 +58,4 @@ This container is available at
 
 ## Development
 
-All tool modules under `tools/` commit their `vendor/` trees so Docker builds can run fully offline. When bumping a tool version, run `make sync-vendor` to refresh the vendored sources before committing. The installer (`scripts/install/vendored-tools.sh`) requires these directories by default (override with `REQUIRE_VENDOR=0` only when experimenting locally).
+Tool modules under `tools/` are built in module mode. Use `make install-tools` to build and install tool binaries, and `make list-tool-updates` to check whether dependencies have newer versions available.

@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd -P)"
 TOOLS_DIR="${TOOLS_DIR:-${REPO_ROOT}/tools}"
 
-echo "[$SCRIPT_NAME]: checking vendored tools for updates..."
+echo "[$SCRIPT_NAME]: checking tools for updates..."
 
 if [[ ! -d "$TOOLS_DIR" ]]; then
   echo "[FATAL]: tools directory not found: $TOOLS_DIR"
@@ -83,7 +83,7 @@ if [[ ! -s "$tmp_results" ]]; then
     fi
     exit 1
   fi
-  echo "[OK]: all vendored tools are up to date."
+  echo "[OK]: all tools are up to date."
   exit 0
 fi
 
