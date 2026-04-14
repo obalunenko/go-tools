@@ -29,7 +29,7 @@ jobs:
           bash ./scripts/update-readme-versions.sh
 
       - name: Create Pull Request if changed
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: 'chore(readme): sync tool versions from go.mod and Dockerfile'
           title: 'chore(readme): sync tool versions'
