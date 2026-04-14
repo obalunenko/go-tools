@@ -21,3 +21,5 @@ coverage/
 .DS_Store
 tests-report.json
 tools_list.txt
+.vscode/
+.cashe/

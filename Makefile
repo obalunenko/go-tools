@@ -10,7 +10,7 @@ SHELL := env RELEASE_BRANCH=$(RELEASE_BRANCH) $(SHELL)
 # Go versions
 # GOVERSION controls go.mod language version (major.minor)
 # GOIMAGEVERSION controls the base image tag (major.minor[.patch]); defaults to GOVERSION
-GOVERSION?=1.25
+GOVERSION?=1.26.2
 GOIMAGEVERSION?=$(GOVERSION)
 
 TARGET_MAX_CHAR_NUM=20
@@ -52,6 +52,11 @@ check-tools:
 	./scripts/test/installed-tools.sh
 .PHONY: check-tools
 
+## List vendored tools with available updates.
+list-tool-updates:
+	./scripts/test/outdated-tools.sh
+.PHONY: list-tool-updates
+
 ## Issue new release.
 new-version: install-tools build check-releaser
 	./scripts/release/new-version.sh
@@ -81,4 +86,3 @@ update-readme-versions:
 .PHONY: update-readme-versions
 
 .DEFAULT_GOAL := help
-
