@@ -38,24 +38,24 @@ build:
 	IMAGE_DESCRIPTION="$$(cat README.md)" docker buildx bake
 .PHONY: build
 
-## Sync vendor.
-sync-vendor:
-	./scripts/sync-vendor.sh
-.PHONY: sync-vendor
-
-## Install vendored tools.
+## Install tools.
 install-tools:
-	./scripts/install/vendored-tools.sh
+	./scripts/install/tools.sh
 .PHONY: install-tools
 
 check-tools:
 	./scripts/test/installed-tools.sh
 .PHONY: check-tools
 
-## List vendored tools with available updates.
+## List tools with available updates.
 list-tool-updates:
 	./scripts/test/outdated-tools.sh
 .PHONY: list-tool-updates
+
+## Run go mod tidy for all tools modules.
+tidy-tools:
+	GOVERSION=$(GOVERSION) ./scripts/tidy-tools.sh
+.PHONY: tidy-tools
 
 ## Issue new release.
 new-version: install-tools build check-releaser

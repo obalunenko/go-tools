@@ -3,14 +3,9 @@ updates:
   - package-ecosystem: "gomod"
     directories:
       - /tools/buf
-      - /tools/coverbadger
-      - /tools/enumer
-      - /tools/envdoc
       - /tools/fiximports
-      - /tools/go-enum
       - /tools/gocov
       - /tools/gocov-html
-      - /tools/gofumpt
       - /tools/goimports
       - /tools/golangci-lint
       - /tools/goose
@@ -29,7 +24,6 @@ updates:
       - /tools/svu
       - /tools/swag
       - /tools/swagger
-      - /tools/tparse
       - /tools/tbls
     schedule:
       interval: "daily"

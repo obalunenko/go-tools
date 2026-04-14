@@ -96,19 +96,17 @@ build_one() {
 
   (
     cd "$tool_dir"
-    local mod_flag="-mod=mod"
-    [[ -d vendor ]] && mod_flag="-mod=vendor"
 
     local name out
     name="$(bin_name "$dep")"
     out="${BIN_DIR}/${name}"
 
     local modver
-    modver="$(go list $mod_flag -f '{{with .Module}}{{.Path}}@{{.Version}}{{end}}' "$dep" 2>/dev/null || true)"
+    modver="$(go list -mod=mod -f '{{with .Module}}{{.Path}}@{{.Version}}{{end}}' "$dep" 2>/dev/null || true)"
 
     echo "[INFO]: $(basename "$tool_dir"): building ${dep}${modver:+ (${modver})} -> ${out}"
 
-    if ! go build $mod_flag -p "${GO_BUILD_P}" -o "$out" "$dep"; then
+    if ! go build -mod=mod -p "${GO_BUILD_P}" -o "$out" "$dep"; then
       echo "[ERROR]: $(basename "$tool_dir"): build failed for ${dep}"
       exit 255
     fi
@@ -126,6 +124,7 @@ trap 'rm -f "$tmp_jobs"' EXIT
 
 while IFS= read -r -d '' d; do
   [[ -f "$d/go.mod" ]] || { echo "[WARN]: skipping $(basename "$d") (no go.mod)"; continue; }
+
   if imports="$(cd "$d" && go list -mod=mod -e -f '{{ join .Imports "\n" }}' -tags=tools . 2>/dev/null | sed '/^$/d' | sort -u)"; then
     while IFS= read -r dep; do
       printf '%s\t%s\n' "$d" "$dep" >> "$tmp_jobs"

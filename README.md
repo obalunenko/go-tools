@@ -22,14 +22,9 @@ The base image is built on top of the official image [golang:1.26.2-alpine3.22](
 | Tool                                                         | Version                            | Description                                                                                                                                                                       |
 |--------------------------------------------------------------|------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [buf](https://github.com/bufbuild/buf)                       | v1.68.0 | The buf CLI is the best tool for working with Protocol Buffers                                                                                                                    |
-| [coverbadger](https://github.com/obalunenko/coverbadger)     | v1.4.0 | Generate coverage badge images for Markdown files using Go                                                                                                                        |
-| [enumer](https://github.com/alvaroloes/enumer)               | v1.1.2 | A Go tool to auto generate methods for your enums                                                                                                                                 |
-| [envdoc](https://github.com/g4s8/envdoc)                     | v1.10.0 | Go tool to generate documentation for environment variables                                                                                                                       |
 | [fiximports](https://golang.org/x/tools/cmd/fiximports)      | v0.36.0                            | The fiximports command fixes import declarations to use the canonical import path for packages that have an "import comment" as defined by <https://golang.org/s/go14customimport>. |
-| [go-enum](https://github.com/abice/go-enum)                  | v0.9.2 | An enum generator for go                                                                                                                                                          |
 | [gocov](https://github.com/axw/gocov)                        | v1.2.1 | Coverage testing tool for The Go Programming Language                                                                                                                             |
 | [gocov-html](https://github.com/matm/gocov-html)             | v1.4.0 | Make pretty HTML output from gocov, a coverage testing tool for Go                                                                                                                |
-| [gofumpt](https://mvdan.cc/gofumpt)                          | v0.9.2 | A stricter gofmt                                                                                                                                                                  |
 | [goimports](https://golang.org/x/tools/cmd/goimports)        | v0.36.0                            | Command goimports updates your Go import lines, adding missing ones and removing unreferenced ones                                                                                |
 | [golangci-lint](https://github.com/golangci/golangci-lint)   | v2.11.4 | Fast linters Runner for Go                                                                                                                                                        |
 | [goose](https://github.com/pressly/goose/v3/cmd/goose)       | v3.24.2                            | A database migration tool                                                                                                                                                         |
@@ -39,9 +34,9 @@ The base image is built on top of the official image [golang:1.26.2-alpine3.22](
 | [goveralls](https://github.com/mattn/goveralls)              | v0.0.12 | Go integration for Coveralls.io continuous code coverage tracking system.                                                                                                         |
 | [govulncheck](https://golang.org/x/vuln/cmd/govulncheck)     | v1.1.4                             | Govulncheck reports known vulnerabilities that affect Go code.                                                                                                                    |
 | [gowrap](https://github.com/hexdigest/gowrap)                | v1.4.3 | GoWrap is a command line tool for generating decorators for Go interfaces                                                                                                         |
-| [mockery](https://github.com/vektra/mockery)                 | v3.7.0 | A mock code autogenerator for Go                                                                                                                                                  |
+| [mockery](https://github.com/vektra/mockery)                 | v3.6.1 | A mock code autogenerator for Go                                                                                                                                                  |
+| [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) | v2.5.1 | Generate Go client and server boilerplate from OpenAPI 3 specifications                                                                                                           |
 | [mockgen](https://github.com/uber-go/mock)                   | v0.6.0 | GoMock is a mocking framework for the Go programming language.                                                                                                                    |
-| [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) | v2.6.0 | Generate Go client and server boilerplate from OpenAPI 3 specifications                                                                                                           |
 | [pp](https://github.com/maruel/panicparse/v2)          | v2.5.0 | Panicparse Parses panic stack traces, densifies and deduplicates goroutines with similar stack traces. Helps debugging crashes and deadlocks in heavily parallelized processes.                                               |
 | [sqlc](https://github.com/sqlc-dev/sqlc)                     | v1.30.0 | Generate type-safe code from SQL                                                                                                                                                  |
 | [stringer](https://golang.org/x/tools/cmd/stringer)          | v0.36.0                            | Stringer is a tool to automate the creation of methods that satisfy the fmt.Stringer interface.                                                                                   |
@@ -49,7 +44,6 @@ The base image is built on top of the official image [golang:1.26.2-alpine3.22](
 | [swag](github.com/swaggo/swag/cmd/swag)                      | v2.0.0-rc4                         | Automatically generate RESTful API documentation with Swagger 2.0 for Go                                                                                                          |
 | [swagger](https://github.com/go-swagger/go-swagger)          | v0.33.2 | Client/Server from OpenAPI docs generation tool                                                                                                                                   |
 | [tbls](https://github.com/k1LoW/tbls)                 | v1.94.4 | tbls is a CI-Friendly tool to document a database, written in Go.                                                                                                           |
-| [tparse](https://github.com/mfridman/tparse)                 | v0.18.0 | CLI tool for summarizing go test output. Pipe friendly. CI/CD friendly.                                                                                                           |
 
 ## How to Use
 
@@ -61,3 +55,7 @@ The go-tools Docker image is engineered to allow for seamless implementation wit
 
 This container is available at
 [go-tools container on GitHub Packages](https://github.com/obalunenko/go-tools/pkgs/container/go-tools)
+
+## Development
+
+Tool modules under `tools/` are built in module mode. Use `make install-tools` to build and install tool binaries, and `make list-tool-updates` to check whether dependencies have newer versions available.

@@ -32,8 +32,6 @@ ENV GOBIN=${PROJECT_DIR}/bin
 RUN mkdir -p "${PROJECT_DIR}"
 WORKDIR "${PROJECT_DIR}"
 
-RUN echo "I am running on ${BUILDPLATFORM}, building for ${TARGETPLATFORM}" > ./log_build.txt
-
 ARG TARGETOS
 ARG TARGETARCH
 RUN --mount=type=bind,source=./scripts,target=./scripts \
