@@ -21,7 +21,7 @@ The base image is built on top of the official image [golang:1.26.2-alpine3.22](
 
 | Tool                                                         | Version                            | Description                                                                                                                                                                       |
 |--------------------------------------------------------------|------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [buf](https://github.com/bufbuild/buf)                       | v1.68.4 | The buf CLI is the best tool for working with Protocol Buffers                                                                                                                    |
+| [buf](https://github.com/bufbuild/buf)                       | v1.69.0 | The buf CLI is the best tool for working with Protocol Buffers                                                                                                                    |
 | [fiximports](https://golang.org/x/tools/cmd/fiximports)      | v0.36.0                            | The fiximports command fixes import declarations to use the canonical import path for packages that have an "import comment" as defined by <https://golang.org/s/go14customimport>. |
 | [gocov](https://github.com/axw/gocov)                        | v1.2.1 | Coverage testing tool for The Go Programming Language                                                                                                                             |
 | [gocov-html](https://github.com/matm/gocov-html)             | v1.4.0 | Make pretty HTML output from gocov, a coverage testing tool for Go                                                                                                                |
@@ -43,7 +43,7 @@ The base image is built on top of the official image [golang:1.26.2-alpine3.22](
 | [svu](https://github.com/caarlos0/svu)                       | v3.4.0 | Semantic Version Util                                                                                                                                                             |
 | [swag](github.com/swaggo/swag/cmd/swag)                      | v2.0.0-rc4                         | Automatically generate RESTful API documentation with Swagger 2.0 for Go                                                                                                          |
 | [swagger](https://github.com/go-swagger/go-swagger)          | v0.33.2 | Client/Server from OpenAPI docs generation tool                                                                                                                                   |
-| [tbls](https://github.com/k1LoW/tbls)                 | v1.94.4 | tbls is a CI-Friendly tool to document a database, written in Go.                                                                                                           |
+| [tbls](https://github.com/k1LoW/tbls)                 | v1.94.5 | tbls is a CI-Friendly tool to document a database, written in Go.                                                                                                           |
 
 ## How to Use
 
