@@ -2,12 +2,12 @@ module svu
 
 go 1.26.2
 
-require github.com/caarlos0/svu/v3 v3.4.0
+require github.com/caarlos0/svu/v3 v3.4.1
 
 require (
-	charm.land/fang/v2 v2.0.0-20260228140200-f3b5a0bf202d // indirect
-	charm.land/lipgloss/v2 v2.0.0 // indirect
-	github.com/Masterminds/semver/v3 v3.4.0 // indirect
+	charm.land/fang/v2 v2.0.1 // indirect
+	charm.land/lipgloss/v2 v2.0.1 // indirect
+	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/caarlos0/go-version v0.2.2 // indirect
 	github.com/charmbracelet/colorprofile v0.4.2 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260205113103-524a6607adb8 // indirect
@@ -42,6 +42,6 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 )
