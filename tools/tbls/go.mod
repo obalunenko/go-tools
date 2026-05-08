@@ -1,6 +1,6 @@
 module tbls
 
-go 1.26.2
+go 1.26.3
 
 require github.com/k1LoW/tbls v1.94.5
 

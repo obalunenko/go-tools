@@ -10,7 +10,7 @@ SHELL := env RELEASE_BRANCH=$(RELEASE_BRANCH) $(SHELL)
 # Go versions
 # GOVERSION controls go.mod language version (major.minor)
 # GOIMAGEVERSION controls the base image tag (major.minor[.patch]); defaults to GOVERSION
-GOVERSION?=1.26.2
+GOVERSION?=1.26.3
 GOIMAGEVERSION?=$(GOVERSION)
 
 TARGET_MAX_CHAR_NUM=20
