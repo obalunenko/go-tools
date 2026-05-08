@@ -1,6 +1,6 @@
 module gowrap
 
-go 1.26.2
+go 1.26.3
 
 require github.com/hexdigest/gowrap v1.4.3
 
