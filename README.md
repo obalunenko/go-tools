@@ -42,7 +42,7 @@ The base image is built on top of the official image [golang:1.26.4-alpine3.23](
 | [stringer](https://golang.org/x/tools/cmd/stringer)          | v0.36.0                            | Stringer is a tool to automate the creation of methods that satisfy the fmt.Stringer interface.                                                                                   |
 | [svu](https://github.com/caarlos0/svu)                       | v3.4.1 | Semantic Version Util                                                                                                                                                             |
 | [swag](github.com/swaggo/swag/cmd/swag)                      | v2.0.0-rc4                         | Automatically generate RESTful API documentation with Swagger 2.0 for Go                                                                                                          |
-| [swagger](https://github.com/go-swagger/go-swagger)          | v0.34.1 | Client/Server from OpenAPI docs generation tool                                                                                                                                   |
+| [swagger](https://github.com/go-swagger/go-swagger)          | v0.35.0 | Client/Server from OpenAPI docs generation tool                                                                                                                                   |
 | [tbls](https://github.com/k1LoW/tbls)                 | v1.94.5 | tbls is a CI-Friendly tool to document a database, written in Go.                                                                                                           |
 
 ## How to Use
