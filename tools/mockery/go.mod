@@ -2,7 +2,7 @@ module mockery
 
 go 1.26.4
 
-require github.com/vektra/mockery/v3 v3.7.1
+require github.com/vektra/mockery/v3 v3.7.2
 
 require (
 	github.com/brunoga/deep v1.3.1 // indirect
