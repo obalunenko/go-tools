@@ -2,7 +2,7 @@ module swagger
 
 go 1.26.4
 
-require github.com/go-swagger/go-swagger v0.36.0
+require github.com/go-swagger/go-swagger v0.36.1
 
 require (
 	dario.cat/mergo v1.0.2 // indirect
@@ -14,7 +14,7 @@ require (
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/go-openapi/analysis v0.25.5 // indirect
-	github.com/go-openapi/codescan v0.36.0 // indirect
+	github.com/go-openapi/codescan v0.36.2 // indirect
 	github.com/go-openapi/errors v0.22.8 // indirect
 	github.com/go-openapi/inflect v1.0.0 // indirect
 	github.com/go-openapi/jsonpointer v1.0.0 // indirect
