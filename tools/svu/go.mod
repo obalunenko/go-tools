@@ -1,6 +1,6 @@
 module svu
 
-go 1.26.4
+go 1.26.5
 
 require github.com/caarlos0/svu/v3 v3.4.1
 
