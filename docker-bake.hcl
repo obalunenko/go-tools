@@ -35,8 +35,8 @@ target "gotools-latest" {
         "linux/arm64"
     ]
     args = {
-        GO_VERSION = "1.26.4"
-        ALPINE_VERSION = "3.22"
+        GO_VERSION = "1.26.5"
+        ALPINE_VERSION = "3.24"
     }
     labels = {
         "org.opencontainers.image.title"       = "${IMAGE_TITLE}"

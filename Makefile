@@ -10,7 +10,9 @@ SHELL := env RELEASE_BRANCH=$(RELEASE_BRANCH) $(SHELL)
 # Go versions
 # GOVERSION controls go.mod language version (major.minor)
 # GOIMAGEVERSION controls the base image tag (major.minor[.patch]); defaults to GOVERSION
-GOVERSION?=1.26.4
+# ALPINE_VERSION controls the Alpine version in the base image tag
+GOVERSION?=1.26.5
+ALPINE_VERSION?=3.24
 GOIMAGEVERSION?=$(GOVERSION)
 
 TARGET_MAX_CHAR_NUM=20
@@ -79,6 +81,13 @@ check-releaser:
 bump-go-version:
 	./scripts/bump-go.sh $(GOVERSION) $(GOIMAGEVERSION)
 .PHONY: bump-go-version
+
+## Bump Alpine version across the repo (Dockerfile, bake)
+# Usage example:
+#   make bump-alpine-version ALPINE_VERSION=3.24
+bump-alpine-version:
+	./scripts/bump-alpine.sh $(ALPINE_VERSION)
+.PHONY: bump-alpine-version
 
 ## Update versions in README from go.mod and Dockerfile
 update-readme-versions:
