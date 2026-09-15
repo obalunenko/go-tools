@@ -29,7 +29,7 @@ The base image is built on top of the official image [golang:1.26.5-alpine3.24](
 | [golangci-lint](https://github.com/golangci/golangci-lint)   | v2.13.2 | Fast linters Runner for Go                                                                                                                                                        |
 | [goose](https://github.com/pressly/goose/v3/cmd/goose)       | v3.24.2                            | A database migration tool                                                                                                                                                         |
 | [goreadme](https://github.com/posener/goreadme)              | v1.4.2 | Generate readme file from Go doc                                                                                                                                                  |
-| [goreleaser](https://github.com/goreleaser/goreleaser)       | v2.18.0 | Deliver Go binaries as fast and easily as possible                                                                                                                                |
+| [goreleaser](https://github.com/goreleaser/goreleaser)       | v2.18.1 | Deliver Go binaries as fast and easily as possible                                                                                                                                |
 | [gotestsum](https://gotest.tools/gotestsum)                  | v1.13.0 | 'go test' runner with output optimized for humans, JUnit XML for CI integration, and a summary of the test results.                                                               |
 | [goveralls](https://github.com/mattn/goveralls)              | v0.0.12 | Go integration for Coveralls.io continuous code coverage tracking system.                                                                                                         |
 | [govulncheck](https://golang.org/x/vuln/cmd/govulncheck)     | v1.1.4                             | Govulncheck reports known vulnerabilities that affect Go code.                                                                                                                    |
@@ -43,7 +43,7 @@ The base image is built on top of the official image [golang:1.26.5-alpine3.24](
 | [svu](https://github.com/caarlos0/svu)                       | v3.4.1 | Semantic Version Util                                                                                                                                                             |
 | [swag](github.com/swaggo/swag/cmd/swag)                      | v2.0.0-rc4                         | Automatically generate RESTful API documentation with Swagger 2.0 for Go                                                                                                          |
 | [swagger](https://github.com/go-swagger/go-swagger)          | v0.36.5 | Client/Server from OpenAPI docs generation tool                                                                                                                                   |
-| [tbls](https://github.com/k1LoW/tbls)                 | v1.95.0 | tbls is a CI-Friendly tool to document a database, written in Go.                                                                                                           |
+| [tbls](https://github.com/k1LoW/tbls)                 | v1.96.0 | tbls is a CI-Friendly tool to document a database, written in Go.                                                                                                           |
 
 ## How to Use
 
