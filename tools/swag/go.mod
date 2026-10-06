@@ -2,7 +2,7 @@ module swag
 
 go 1.26.5
 
-require github.com/swaggo/swag/v2 v2.0.0-rc5
+require github.com/swaggo/swag/v2 v2.0.0-rc6
 
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
