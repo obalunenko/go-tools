@@ -125,7 +125,7 @@ require (
 	github.com/k1LoW/ghfs v1.5.3 // indirect
 	github.com/k1LoW/go-github-client/v67 v67.0.23 // indirect
 	github.com/klauspost/asmfmt v1.3.2 // indirect
-	github.com/klauspost/compress v1.19.1 // indirect
+	github.com/klauspost/compress v1.20.3 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/labstack/gommon v0.5.0 // indirect
