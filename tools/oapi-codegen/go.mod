@@ -2,7 +2,7 @@ module oapi-codegen
 
 go 1.26.5
 
-require github.com/oapi-codegen/oapi-codegen/v2 v2.8.0
+require github.com/oapi-codegen/oapi-codegen/v2 v2.8.2
 
 require (
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
