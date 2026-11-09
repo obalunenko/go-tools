@@ -1,6 +1,6 @@
 module gocov-html
 
-go 1.26.5
+go 1.27.3
 
 require github.com/matm/gocov-html v1.4.0
 

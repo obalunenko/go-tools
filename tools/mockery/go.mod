@@ -1,6 +1,6 @@
 module mockery
 
-go 1.26.5
+go 1.27.3
 
 require github.com/vektra/mockery/v3 v3.9.0
 

@@ -1,6 +1,6 @@
 module goveralls
 
-go 1.26.5
+go 1.27.3
 
 require github.com/mattn/goveralls v0.0.12
 

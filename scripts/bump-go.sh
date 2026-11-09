@@ -17,7 +17,8 @@ This script updates Go version across:
   - all go.mod files (go <version>)
   - Dockerfile ARG GO_VERSION
   - docker-bake.hcl args.GO_VERSION
-  - GitHub Actions workflows (actions/setup-go go-version)
+  - Makefile GOVERSION
+  - GitHub Actions workflows (actions/setup-go go-version, major.minor only)
   - Optionally refreshes README versions via scripts/update-readme-versions.sh if present
 EOF
 }
@@ -38,6 +39,7 @@ main() {
   bump_all_go_mods "${go_major_minor}"
   bump_dockerfile_go_version "${go_image_version}"
   bump_bakefile_go_version "${go_image_version}"
+  bump_makefile_go_version "${go_major_minor}"
   bump_ci_go_versions "${go_major_minor}"
 
   # If README updater exists, run it to sync versions table
@@ -85,9 +87,20 @@ bump_bakefile_go_version() {
   fi
 }
 
+# Update the GOVERSION default in Makefile
+bump_makefile_go_version() {
+  local newGo="${1}"
+  local makefile="${ROOT_DIR}/Makefile"
+  if [[ -f "${makefile}" ]]; then
+    echo " - Updating Makefile GOVERSION to ${newGo}"
+    sed -E "s/^(GOVERSION\?=).*/\\1${newGo}/" "${makefile}" > "${makefile}.tmp"
+    mv "${makefile}.tmp" "${makefile}"
+  fi
+}
+
 # Update go-version across GitHub Actions workflows to the new major.minor
 bump_ci_go_versions() {
-  local newGoMM="${1}" # e.g. 1.26
+  local newGoMM="$(cut -d. -f1,2 <<<"${1}")" # e.g. 1.26 (patch part, if any, is dropped)
   local workflows_dir="${ROOT_DIR}/.github/workflows"
   [[ -d "${workflows_dir}" ]] || return 0
 
@@ -100,9 +113,9 @@ bump_ci_go_versions() {
     # 1) Matrix array form: go-version: [1.23, 1.x] -> replace first element
     sed -E "s/(go-version:[[:space:]]*\[)[0-9]+\.[0-9]+/\\1${newGoMM}/g" "$tmp" > "$tmp.1" && mv "$tmp.1" "$tmp"
     # 2) Single value with .x: go-version: 1.23.x or "1.23.x"
-    sed -E "s/(go-version:[[:space:]]*['\"]?)\d+\.[0-9]+(\.x)(['\"]?)/\\1${newGoMM}\\2\\3/g" "$tmp" > "$tmp.1" && mv "$tmp.1" "$tmp"
+    sed -E "s/(go-version:[[:space:]]*['\"]?)[0-9]+\.[0-9]+(\.x)(['\"]?)/\\1${newGoMM}\\2\\3/g" "$tmp" > "$tmp.1" && mv "$tmp.1" "$tmp"
     # 3) Single value exact: go-version: 1.23 or "1.23" or 1.23.4 -> set to new major.minor (keep quotes if any)
-    sed -E "s/(go-version:[[:space:]]*['\"]?)\d+\.[0-9]+(\.[0-9]+)?(['\"]?)/\\1${newGoMM}\\3/g" "$tmp" > "$tmp.1" && mv "$tmp.1" "$tmp"
+    sed -E "s/(go-version:[[:space:]]*['\"]?)[0-9]+\.[0-9]+(\.[0-9]+)?(['\"]?)/\\1${newGoMM}\\3/g" "$tmp" > "$tmp.1" && mv "$tmp.1" "$tmp"
     mv "$tmp" "$f"
   done
 }
