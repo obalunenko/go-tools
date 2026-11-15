@@ -40,13 +40,6 @@ RUN --mount=type=bind,source=tools/buf,target=. \
     --mount=type=cache,id=build-slot-2,target=/run/build-slot,sharing=locked \
     build-tool . /out
 
-FROM builder AS fiximports
-RUN --mount=type=bind,source=tools/fiximports,target=. \
-    --mount=type=bind,source=scripts/install/build-tool.sh,target=/usr/local/bin/build-tool \
-    --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,id=build-slot-1,target=/run/build-slot,sharing=locked \
-    build-tool . /out
 
 FROM builder AS gocov
 RUN --mount=type=bind,source=tools/gocov,target=. \
@@ -88,13 +81,6 @@ RUN --mount=type=bind,source=tools/goose,target=. \
     --mount=type=cache,id=build-slot-3,target=/run/build-slot,sharing=locked \
     build-tool . /out
 
-FROM builder AS goreadme
-RUN --mount=type=bind,source=tools/goreadme,target=. \
-    --mount=type=bind,source=scripts/install/build-tool.sh,target=/usr/local/bin/build-tool \
-    --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,id=build-slot-3,target=/run/build-slot,sharing=locked \
-    build-tool . /out
 
 FROM builder AS goreleaser
 RUN --mount=type=bind,source=tools/goreleaser,target=. \
@@ -112,13 +98,6 @@ RUN --mount=type=bind,source=tools/gotestsum,target=. \
     --mount=type=cache,id=build-slot-2,target=/run/build-slot,sharing=locked \
     build-tool . /out
 
-FROM builder AS goveralls
-RUN --mount=type=bind,source=tools/goveralls,target=. \
-    --mount=type=bind,source=scripts/install/build-tool.sh,target=/usr/local/bin/build-tool \
-    --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,id=build-slot-2,target=/run/build-slot,sharing=locked \
-    build-tool . /out
 
 FROM builder AS govulncheck
 RUN --mount=type=bind,source=tools/govulncheck,target=. \
@@ -136,13 +115,6 @@ RUN --mount=type=bind,source=tools/gowrap,target=. \
     --mount=type=cache,id=build-slot-3,target=/run/build-slot,sharing=locked \
     build-tool . /out
 
-FROM builder AS mockery
-RUN --mount=type=bind,source=tools/mockery,target=. \
-    --mount=type=bind,source=scripts/install/build-tool.sh,target=/usr/local/bin/build-tool \
-    --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,id=build-slot-3,target=/run/build-slot,sharing=locked \
-    build-tool . /out
 
 FROM builder AS mockgen
 RUN --mount=type=bind,source=tools/mockgen,target=. \
@@ -152,13 +124,6 @@ RUN --mount=type=bind,source=tools/mockgen,target=. \
     --mount=type=cache,id=build-slot-3,target=/run/build-slot,sharing=locked \
     build-tool . /out
 
-FROM builder AS oapi-codegen
-RUN --mount=type=bind,source=tools/oapi-codegen,target=. \
-    --mount=type=bind,source=scripts/install/build-tool.sh,target=/usr/local/bin/build-tool \
-    --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,id=build-slot-3,target=/run/build-slot,sharing=locked \
-    build-tool . /out
 
 FROM builder AS panicparse
 RUN --mount=type=bind,source=tools/panicparse,target=. \
@@ -224,9 +189,6 @@ ARG APK_GIT_VERSION=~2
 ARG APK_GCC_VERSION=~15
 ARG APK_MUSL_DEV_VERSION=~1
 ARG APK_MAKE_VERSION=~4
-ARG APK_DOCKER_CLI_VERSION=~29
-ARG APK_DOCKER_CLI_COMPOSE_VERSION=~5
-ARG APK_DOCKER_CLI_BUILDX_VERSION=~0
 ARG APK_OPENSSH_VERSION=~10
 ARG APK_TINI_VERSION=~0
 
@@ -237,9 +199,6 @@ RUN apk add --no-cache \
     "gcc=${APK_GCC_VERSION}" \
     "musl-dev=${APK_MUSL_DEV_VERSION}" \
     "make=${APK_MAKE_VERSION}" \
-    "docker-cli=${APK_DOCKER_CLI_VERSION}" \
-    "docker-cli-buildx=${APK_DOCKER_CLI_BUILDX_VERSION}" \
-    "docker-cli-compose=${APK_DOCKER_CLI_COMPOSE_VERSION}" \
     "openssh-client=${APK_OPENSSH_VERSION}" \
     "tini=${APK_TINI_VERSION}"
 
@@ -248,21 +207,16 @@ ENV GOROOT=/usr/local/go
 # A layer per tool, independent of the base image: an update only ships the
 # layers of the tools that changed.
 COPY --link --from=buf /out/ /usr/bin/
-COPY --link --from=fiximports /out/ /usr/bin/
 COPY --link --from=gocov /out/ /usr/bin/
 COPY --link --from=gocov-html /out/ /usr/bin/
 COPY --link --from=goimports /out/ /usr/bin/
 COPY --link --from=golangci-lint /out/ /usr/bin/
 COPY --link --from=goose /out/ /usr/bin/
-COPY --link --from=goreadme /out/ /usr/bin/
 COPY --link --from=goreleaser /out/ /usr/bin/
 COPY --link --from=gotestsum /out/ /usr/bin/
-COPY --link --from=goveralls /out/ /usr/bin/
 COPY --link --from=govulncheck /out/ /usr/bin/
 COPY --link --from=gowrap /out/ /usr/bin/
-COPY --link --from=mockery /out/ /usr/bin/
 COPY --link --from=mockgen /out/ /usr/bin/
-COPY --link --from=oapi-codegen /out/ /usr/bin/
 COPY --link --from=panicparse /out/ /usr/bin/
 COPY --link --from=sqlc /out/ /usr/bin/
 COPY --link --from=stringer /out/ /usr/bin/
