@@ -59,3 +59,5 @@ This container is available at
 ## Development
 
 Tool modules under `tools/` are built in module mode. Use `make install-tools` to build and install tool binaries, and `make list-tool-updates` to check whether dependencies have newer versions available.
+
+Use `make build-local` to build the image for your platform and load it as `ghcr.io/obalunenko/go-tools:local`. Builds reuse the layer cache that CI publishes from master, so only tools that differ from master are compiled. Each tool has its own stage in the `Dockerfile`; a new tool needs a stage and a `COPY` line there.

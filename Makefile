@@ -40,6 +40,11 @@ build:
 	IMAGE_DESCRIPTION="$$(cat README.md)" docker buildx bake
 .PHONY: build
 
+## Build docker image for the local platform and load it as ghcr.io/obalunenko/go-tools:local.
+build-local:
+	IMAGE_DESCRIPTION="$$(cat README.md)" docker buildx bake gotools-local
+.PHONY: build-local
+
 ## Install tools.
 install-tools:
 	./scripts/install/tools.sh
