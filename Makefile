@@ -11,7 +11,7 @@ SHELL := env RELEASE_BRANCH=$(RELEASE_BRANCH) $(SHELL)
 # GOVERSION controls go.mod language version (major.minor)
 # GOIMAGEVERSION controls the base image tag (major.minor[.patch]); defaults to GOVERSION
 # ALPINE_VERSION controls the Alpine version in the base image tag
-GOVERSION?=1.27.3
+GOVERSION?=1.27.4
 ALPINE_VERSION?=3.24
 GOIMAGEVERSION?=$(GOVERSION)
 
