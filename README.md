@@ -1,5 +1,11 @@
 # Go Tools
 
+> [!WARNING]
+> **This image is no longer maintained, and the repository is archived.**
+> Published tags stay on `ghcr.io/obalunenko/go-tools`, but they will not get tool or Go updates.
+> Pin the tools in your own repository with a `tool` directive in `tools/<name>/go.mod` and run them
+> with `go tool`; [obalunenko/getenv#219](https://github.com/obalunenko/getenv/pull/219) shows how.
+
 [![Latest release artifacts](https://img.shields.io/github/v/release/obalunenko/go-tools)](https://github.com/obalunenko/go-tools/releases/latest)
 
 This repository, **go-tools**,
