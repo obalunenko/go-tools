@@ -10,21 +10,106 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # Each platform is built on its own native runner (no QEMU, cgo works on both)
+  # and pushed by digest; the merge job then publishes the multi-arch tags.
   bake-images:
-    name: Build and push
+    name: Build and push ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Prepare
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.4.1
+        with:
+          # The runner is thrown away anyway; removing the builder takes about a minute.
+          cleanup: false
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4.8.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6.2.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # Docker tags based on the following events/attributes
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+
+      - name: Build and push Docker image by digest
+        id: bake
+        uses: docker/bake-action@v7.5.0
+        env:
+          LABELS: ${{ steps.meta.outputs.bake-file-labels }}
+          ANNOTATIONS: ${{ steps.meta.outputs.bake-file-annotations }}
+        with:
+          files: |
+            ./docker-bake.hcl
+            cwd://${{ env.LABELS }}
+            cwd://${{ env.ANNOTATIONS }}
+          targets: gotools-latest
+          set: |
+            *.platform=${{ matrix.platform }}
+            *.output=type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+            *.cache-to=type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-${{ env.PLATFORM_PAIR }},mode=max
+          pull: true
+
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ fromJSON(steps.bake.outputs.metadata)['gotools-latest']['containerimage.digest'] }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge-images:
+    needs: [ bake-images ]
+    name: Push multi-arch manifest
     runs-on: 'ubuntu-24.04'
     permissions:
       contents: read
       packages: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4.4.0
+      - name: Download digests
+        uses: actions/download-artifact@v8
         with:
-          platforms: 'linux/arm64,linux/amd64'
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4.4.1
@@ -51,23 +136,22 @@ jobs:
             type=semver,pattern={{major}}
             type=sha
 
-      - name: Build and push Docker images
-        uses: docker/bake-action@v7.5.0
-        env:
-          TAGS: ${{ steps.meta.outputs.bake-file-tags }}
-          LABELS: ${{ steps.meta.outputs.bake-file-labels }}
-          ANNOTATIONS: ${{ steps.meta.outputs.bake-file-annotations }}
-        with:
-          files: |
-            ./docker-bake.hcl
-            cwd://${{ env.TAGS }}
-            cwd://${{ env.LABELS }}
-            cwd://${{ env.ANNOTATIONS }}
-          push: ${{ github.event_name != 'pull_request' }}
-          pull: true
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          mapfile -t tag_args < <(jq -r '.tags[] | "-t", .' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          sources=()
+          for digest in *; do
+            sources+=("${REGISTRY}/${IMAGE_NAME}@sha256:${digest}")
+          done
+          docker buildx imagetools create "${tag_args[@]}" "${sources[@]}"
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}'
 
   release-notes:
-    needs: [ bake-images ]
+    needs: [ merge-images ]
     runs-on: 'ubuntu-24.04'
     name: Release notes
     steps:

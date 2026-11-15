@@ -53,9 +53,6 @@ EOF
     gotest.tools/gotestsum)
       echo "https://gotest.tools/gotestsum	$ver" >> "$versions_map"
       ;;
-    golang.org/x/tools/cmd/fiximports)
-      echo "https://golang.org/x/tools/cmd/fiximports	$ver" >> "$versions_map"
-      ;;
     golang.org/x/tools/cmd/goimports)
       echo "https://golang.org/x/tools/cmd/goimports	$ver" >> "$versions_map"
       ;;
@@ -65,9 +62,6 @@ EOF
     github.com/golangci/golangci-lint/v2)
       echo "https://github.com/golangci/golangci-lint	$ver" >> "$versions_map"
       echo "github.com/golangci/golangci-lint/v2	$ver" >> "$versions_map"
-      ;;
-    github.com/oapi-codegen/oapi-codegen)
-      echo "https://github.com/oapi-codegen/oapi-codegen	$ver" >> "$versions_map"
       ;;
     github.com/k1LoW/tbls)
       echo "https://github.com/k1LoW/tbls	$ver" >> "$versions_map"
@@ -85,9 +79,6 @@ EOF
     github.com/abice/go-enum)
       echo "https://github.com/abice/go-enum	$ver" >> "$versions_map"
       ;;
-    github.com/vektra/mockery/v3)
-      echo "https://github.com/vektra/mockery	$ver" >> "$versions_map"
-      ;;
     go.uber.org/mock)
       echo "https://github.com/uber-go/mock	$ver" >> "$versions_map"
       ;;
@@ -99,9 +90,6 @@ EOF
       ;;
     mvdan.cc/gofumpt)
       echo "https://mvdan.cc/gofumpt	$ver" >> "$versions_map"
-      ;;
-    github.com/mattn/goveralls)
-      echo "https://github.com/mattn/goveralls	$ver" >> "$versions_map"
       ;;
     golang.org/x/vuln/cmd/govulncheck)
       echo "https://golang.org/x/vuln/cmd/govulncheck	$ver" >> "$versions_map"

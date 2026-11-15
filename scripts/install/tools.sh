@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Fast parallel tools builder (docker/memory/disk friendly)
+# Parallel builder for all tool modules (memory/disk friendly)
 
 set -Eeuo pipefail
 
 SCRIPT_NAME="$(basename "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 REPO_ROOT="${REPO_ROOT:-$(pwd)}"
 TOOLS_DIR="${TOOLS_DIR:-${REPO_ROOT}/tools}"
 
@@ -80,66 +81,20 @@ GO_BUILD_P="${GO_BUILD_P:-1}"
 echo "[INFO]: CPU=${CPU_CORES}, Mem=${MEM_MB} MiB, DiskFree=${TMP_MB} MiB, auto-JOBS=${AUTO_JOBS}"
 echo "[INFO]: Using ${JOBS} parallel jobs. go build -p ${GO_BUILD_P}. Binaries -> ${BIN_DIR}"
 
-# ---- helpers -----------------------------------------------------------------
-bin_name() {
-  local path="$1"
-  awk -F/ '{
-    for (i=NF; i>0; i--) {
-      if ($i !~ /^v[0-9]+$/) { print $i; exit }
-    }
-  }' <<<"$path"
-}
-
-build_one() {
-  local tool_dir="$1"
-  local dep="$2"
-
-  (
-    cd "$tool_dir"
-
-    local name out
-    name="$(bin_name "$dep")"
-    out="${BIN_DIR}/${name}"
-
-    local modver
-    modver="$(go list -mod=mod -f '{{with .Module}}{{.Path}}@{{.Version}}{{end}}' "$dep" 2>/dev/null || true)"
-
-    echo "[INFO]: $(basename "$tool_dir"): building ${dep}${modver:+ (${modver})} -> ${out}"
-
-    if ! go build -mod=mod -p "${GO_BUILD_P}" -o "$out" "$dep"; then
-      echo "[ERROR]: $(basename "$tool_dir"): build failed for ${dep}"
-      exit 255
-    fi
-
-    echo "[OK]:   $(basename "$tool_dir"): ${dep} -> ${out}"
-  )
-}
-
-export -f build_one bin_name
-export BIN_DIR GO_BUILD_P
-
-# ---- collect jobs ------------------------------------------------------------
-tmp_jobs="$(mktemp)"
-trap 'rm -f "$tmp_jobs"' EXIT
-
+# ---- collect tool modules ----------------------------------------------------
+tool_dirs=()
 while IFS= read -r -d '' d; do
   [[ -f "$d/go.mod" ]] || { echo "[WARN]: skipping $(basename "$d") (no go.mod)"; continue; }
-
-  if imports="$(cd "$d" && go list -mod=mod -e -f '{{ join .Imports "\n" }}' -tags=tools . 2>/dev/null | sed '/^$/d' | sort -u)"; then
-    while IFS= read -r dep; do
-      printf '%s\t%s\n' "$d" "$dep" >> "$tmp_jobs"
-    done <<< "$imports"
-  else
-    echo "[WARN]: $(basename "$d"): failed to enumerate imports; skipping"
-  fi
+  tool_dirs+=("$d")
 done < <(find "$TOOLS_DIR" -mindepth 1 -maxdepth 1 -type d -print0)
 
-if [[ ! -s "$tmp_jobs" ]]; then
+if [[ ${#tool_dirs[@]} -eq 0 ]]; then
   echo "[INFO]: No tools to build."
   exit 0
 fi
 
 # ---- run builds in parallel --------------------------------------------------
-cat "$tmp_jobs" | xargs -r -n 2 -P "$JOBS" bash -c 'build_one "$1" "$2"' _
+export GO_BUILD_P
+printf '%s\0' "${tool_dirs[@]}" | xargs -0 -I{} -P "$JOBS" "${SCRIPT_DIR}/build-tool.sh" {} "$BIN_DIR"
 
 echo "[SUCCESS]: All tools built."
